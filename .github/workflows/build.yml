@@ -1,4 +1,4 @@
-name: Test Build
+name: Build Libraries
 
 on:
   workflow_dispatch:
