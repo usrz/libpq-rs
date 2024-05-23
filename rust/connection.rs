@@ -19,33 +19,128 @@ macro_rules! connection_arg_0 {
 
 pub use connection_arg_0;
 
+// ===== ENUMS =================================================================
+
 /// Status of a PostgreSQL connection.
 ///
 /// As we establish connections in a _blocking_ fashion, the only two statuses
-/// we'll ever see are the following:
+/// we'll ever see are `CONNECTION_OK` and `CONNECTION_BAD`
 ///
-/// * `CONNECTION_OK`
-/// * `CONNECTION_BAD`
-///
-/// The following values should be returned _only_ when establishing connections
-/// asynchronously:
-///
-/// * `CONNECTION_STARTED`: Waiting for connection to be made.
-/// * `CONNECTION_MADE`: Connection OK; waiting to send.
-/// * `CONNECTION_AWAITING_RESPONSE`: Waiting for a response from the server.
-/// * `CONNECTION_AUTH_OK`: Received authentication; waiting for backend start-up to finish.
-/// * `CONNECTION_SETENV`: Negotiating environment-driven parameter settings.
-/// * `CONNECTION_SSL_STARTUP`: Negotiating SSL encryption.
-/// * `CONNECTION_NEEDED`: _Internal state: `connect()` needed_.
-/// * `CONNECTION_CHECK_WRITABLE`: Checking if connection is able to handle write transactions.
-/// * `CONNECTION_CONSUME`: Consuming any remaining response messages on connection.
-/// * `CONNECTION_GSS_STARTUP`: Negotiating GSSAPI.
-/// * `CONNECTION_CHECK_TARGET`: _Internal state: checking target server properties_.
-/// * `CONNECTION_CHECK_STANDBY`: Checking if server is in standby mode.
+/// The all other values should be returned _only_ when establishing connections
+/// asynchronously.
 ///
 /// See [PQconnectStartParams](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNECTSTARTPARAMS)
 ///
-pub type ConnStatusType = pq_sys::ConnStatusType;
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum ConnectionStatus {
+  /// Connection succesful.
+  Ok = 0,
+  /// Connection failed.
+  Bad = 1,
+  /// Waiting for connection to be made.
+  Started = 2,
+  /// Connection OK; waiting to send.
+  Made = 3,
+  /// Waiting for a response from the server.
+  AwaitingResponse = 4,
+  /// Received authentication; waiting for backend start-up to finish.
+  AuthOk = 5,
+  /// Negotiating environment-driven parameter settings.
+  Setenv = 6,
+  /// Negotiating SSL encryption.
+  SslStartup = 7,
+  /// **Internal state**: `connect()` needed.
+  Needed = 8,
+  /// Checking if connection is able to handle write transactions.
+  CheckWritable = 9,
+  /// Consuming any remaining response messages on connection.
+  Consume = 10,
+  /// Negotiating GSSAPI.
+  GssStartup = 11,
+  /// _Internal state: checking target server properties_.
+  CheckTarget = 12,
+  /// Checking if server is in standby mode.
+  CheckStandby = 13,
+}
+
+impl From<pq_sys::ConnStatusType> for ConnectionStatus {
+  fn from(status: pq_sys::ConnStatusType) -> Self {
+    match status {
+      pq_sys::ConnStatusType::CONNECTION_OK => Self::Ok,
+      pq_sys::ConnStatusType::CONNECTION_BAD => Self::Bad,
+      pq_sys::ConnStatusType::CONNECTION_STARTED => Self::Started,
+      pq_sys::ConnStatusType::CONNECTION_MADE => Self::Made,
+      pq_sys::ConnStatusType::CONNECTION_AWAITING_RESPONSE => Self::AwaitingResponse,
+      pq_sys::ConnStatusType::CONNECTION_AUTH_OK => Self::AuthOk,
+      pq_sys::ConnStatusType::CONNECTION_SETENV => Self::Setenv,
+      pq_sys::ConnStatusType::CONNECTION_SSL_STARTUP => Self::SslStartup,
+      pq_sys::ConnStatusType::CONNECTION_NEEDED => Self::Needed,
+      pq_sys::ConnStatusType::CONNECTION_CHECK_WRITABLE => Self::CheckWritable,
+      pq_sys::ConnStatusType::CONNECTION_CONSUME => Self::Consume,
+      pq_sys::ConnStatusType::CONNECTION_GSS_STARTUP => Self::GssStartup,
+      pq_sys::ConnStatusType::CONNECTION_CHECK_TARGET => Self::CheckTarget,
+      pq_sys::ConnStatusType::CONNECTION_CHECK_STANDBY => Self::CheckStandby,
+    }
+  }
+}
+
+/// The current in-transaction status of the server.
+///
+/// See [`PQtransactionStatus`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQTRANSACTIONSTATUS)
+///
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum TransactionStatus {
+  /// Currently idle.
+  Idle = 0,
+  /// A command is in progress.
+  Active = 1,
+  /// Idle, in a valid transaction block.
+  InTransaction = 2,
+  /// Idle, in a failed transaction block
+  InError = 3,
+  /// Reported if the connection is bad.
+  Unknown = 4,
+}
+
+impl From<pq_sys::PGTransactionStatusType> for TransactionStatus {
+  fn from(status: pq_sys::PGTransactionStatusType) -> Self {
+    match status {
+      pq_sys::PGTransactionStatusType::PQTRANS_IDLE => Self::Idle,
+      pq_sys::PGTransactionStatusType::PQTRANS_ACTIVE => Self::Active,
+      pq_sys::PGTransactionStatusType::PQTRANS_INTRANS => Self::InTransaction,
+      pq_sys::PGTransactionStatusType::PQTRANS_INERROR => Self::InError,
+      pq_sys::PGTransactionStatusType::PQTRANS_UNKNOWN => Self::Unknown,
+    }
+  }
+}
+
+/// The current pipeline mode status of the libpq connection.
+///
+/// See [`PQpipelineStatus`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESTATUS)
+///
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum PipelineStatus {
+  /// The connection is _not_ in pipeline mode.
+  Off = 0,
+  /// The connection is in pipeline mode.
+  On = 1,
+  /// The libpq connection is in pipeline mode and an error occurred while
+  /// processing the current pipeline.
+  Aborted = 2,
+}
+
+impl From<pq_sys::PGpipelineStatus> for PipelineStatus {
+  fn from(status: pq_sys::PGpipelineStatus) -> Self {
+    match status {
+      pq_sys::PGpipelineStatus::PQ_PIPELINE_OFF => Self::Off,
+      pq_sys::PGpipelineStatus::PQ_PIPELINE_ON => Self::On,
+      pq_sys::PGpipelineStatus::PQ_PIPELINE_ABORTED => Self::Aborted,
+    }
+  }
+}
 
 // ===== DEFINITION ============================================================
 
@@ -119,10 +214,10 @@ impl Connection {
     }?;
 
     match connection.pq_status() {
-      ConnStatusType::CONNECTION_OK => Ok(connection),
+      ConnectionStatus::Ok => Ok(connection),
       _ => {
         let message = connection.pq_error_message()
-          .unwrap_or("Unknown error".to_string());
+        .unwrap_or("Unknown error".to_string());
         Err(message)
       }
     }
@@ -144,16 +239,16 @@ impl Connection {
   ///
   /// See [`PQstatus`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSTATUS)
   ///
-  pub fn pq_status(&self) -> ConnStatusType {
-    unsafe { pq_sys::PQstatus(self.connection) }
+  pub fn pq_status(&self) -> ConnectionStatus {
+    unsafe { pq_sys::PQstatus(self.connection) }.into()
   }
 
   /// Returns the current in-transaction status of the server.
   ///
   /// See [`PQtransactionStatus`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQTRANSACTIONSTATUS)
   ///
-  pub fn pq_transaction_status(&self) -> pq_sys::PGTransactionStatusType {
-    unsafe { pq_sys::PQtransactionStatus(self.connection) }
+  pub fn pq_transaction_status(&self) -> TransactionStatus {
+    unsafe { pq_sys::PQtransactionStatus(self.connection) }.into()
   }
 
   /// Returns the server version as a `String`.
@@ -182,7 +277,7 @@ impl Connection {
       true => None,
       false => {
         let msg = utils::to_string(message)
-          .unwrap_or_else(|msg| format!("Unknown error: {}", msg));
+        .unwrap_or_else(|msg| format!("Unknown error: {}", msg));
         match msg.len() {
           0 => None,
           _ => Some(msg.trim().to_string()),
@@ -304,170 +399,180 @@ impl Connection {
   /// Returns `true` if successful (or if the send queue is empty), an error
   /// if it failed for some reason, or `false` if it was unable to send all the
   /// data in the send queue yet (this case can only occur if the connection is
-  /// nonblocking).
-  ///
-  /// See [`PQflush`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQFLUSH)
-  ///
-  pub fn pq_flush(&self) -> Result<bool, String> {
-    let result = unsafe { pq_sys::PQflush(self.connection) };
-    match result {
-      0 => Ok(true), // data is all flushed
-      1 => Ok(false), // still some data to flush
-      _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
+    /// nonblocking).
+    ///
+    /// See [`PQflush`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQFLUSH)
+    ///
+    pub fn pq_flush(&self) -> Result<bool, String> {
+      let result = unsafe { pq_sys::PQflush(self.connection) };
+      match result {
+        0 => Ok(true), // data is all flushed
+        1 => Ok(false), // still some data to flush
+        _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
+      }
+    }
+
+    // ===== SYNCHRONOUS OPERATIONS ==============================================
+
+    /// Submits a command to the server and waits for the result.
+    ///
+    /// See [`PQexec`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQEXEC)
+    ///
+    pub fn pq_exec(&self) { todo!() }
+
+    /// Submits a command to the server and waits for the result, with the ability
+    /// to pass parameters separately from the SQL command text.
+    ///
+    /// See [`PQexecParams`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQEXECPARAMS)
+    ///
+    pub fn pq_exec_params(&self) { todo!() }
+
+    /// Submits a request to create a prepared statement with the given
+    /// parameters, and waits for completion.
+    ///
+    /// See [`PQprepare`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQPREPARE)
+    ///
+    pub fn pq_prepare(&self) { todo!() }
+
+    /// Sends a request to execute a prepared statement with given parameters,
+    /// and waits for the result.
+    ///
+    /// See [`PQexecPrepared`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQEXECPREPARED)
+    ///
+    pub fn pq_exec_prepared(&self) { todo!() }
+
+    /// Submits a request to obtain information about the specified prepared
+    /// statement, and waits for completion.
+    ///
+    /// See [`PQdescribePrepared`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQDESCRIBEPREPARED)
+    ///
+    pub fn pq_describe_prepared(&self) { todo!() }
+
+    /// Submits a request to obtain information about the specified portal, and
+    /// waits for completion.
+    ///
+    /// See [`PQdescribePortal`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQDESCRIBEPORTAL)
+    ///
+    pub fn pq_describe_portal(&self) { todo!() }
+
+    // ===== ASYNCHRONOUS OPERATIONS =============================================
+
+    /// Submits a command to the server without waiting for the result(s).
+    ///
+    /// Asynchronous version of [`Connection::pq_exec`].
+    ///
+    /// See [`PQsendQuery`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDQUERY)
+    ///
+    pub fn pq_send_query(&self) { todo!() }
+
+    /// Submits a command and separate parameters to the server without waiting
+    /// for the result(s).
+    ///
+    /// Asynchronous version of [`Connection::pq_exec_params`].
+    ///
+    /// See [`PQsendQueryParams`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDQUERYPARAMS)
+    ///
+    pub fn pq_send_query_params(&self) { todo!() }
+
+    /// Sends a request to create a prepared statement with the given parameters,
+    /// without waiting for completion.
+    ///
+    /// Asynchronous version of [`Connection::pq_prepare`].
+    ///
+    /// See [`PQsendPrepare`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDPREPARE)
+    ///
+    pub fn pq_send_prepare(&self) { todo!() }
+
+    /// Sends a request to execute a prepared statement with given parameters,
+    /// without waiting for the result(s).
+    ///
+    /// Asynchronous version of [`Connection::pq_exec_prepared`].
+    ///
+    /// See [`PQsendQueryPrepared`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDQUERYPREPARED)
+    ///
+    pub fn pq_send_query_prepared(&self) { todo!() }
+
+    /// Submits a request to obtain information about the specified prepared
+    /// statement, without waiting for completion.
+    ///
+    /// Asynchronous version of [`Connection::pq_describe_prepared`].
+    ///
+    /// See [`PQsendDescribePrepared`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDDESCRIBEPREPARED)
+    ///
+    pub fn pq_send_describe_prepared(&self) { todo!() }
+
+    /// Submits a request to obtain information about the specified portal, without waiting for completion.
+    ///
+    /// Asynchronous version of [`Connection::pq_describe_portal`].
+    ///
+    /// See [`PQsendDescribePortal`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDDESCRIBEPORTAL)
+    ///
+    pub fn pq_send_describe_portal(&self) { todo!() }
+
+    /// Waits for the next result from a prior [`Connection::pq_send_query`],
+    /// [`Connection::pq_send_query_params`],
+    /// [`Connection::pq_send_prepare`],
+    /// [`Connection::pq_send_query_prepared`],
+    /// [`Connection::pq_send_describe_prepared`],
+    /// [`Connection::pq_send_describe_portal`], or
+    /// [`Connection::pq_pipeline_sync`] call, and returns it.
+    ///
+    /// See [`PQgetResult`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQGETRESULT)
+    ///
+    pub fn pq_get_result(&self) { todo!() }
+
+    // ===== PIPELINE MODE =======================================================
+
+    /// Returns the current pipeline mode status of the libpq connection.
+    ///
+    /// See [`PQpipelineStatus`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESTATUS)
+    ///
+    pub fn pq_pipeline_status(&self) -> PipelineStatus {
+      unsafe { pq_sys::PQpipelineStatus(self.connection) }.into()
+    }
+
+    /// Causes a connection to enter pipeline mode if it is currently idle or
+    /// already in pipeline mode.
+    ///
+    /// See [`PQenterPipelineMode`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQENTERPIPELINEMODE)
+    ///
+    pub fn pq_enter_pipeline_mode(&self) -> bool {
+      unsafe { pq_sys::PQenterPipelineMode(self.connection) == 1 }
+    }
+
+    /// Causes a connection to exit pipeline mode if it is currently in pipeline
+    /// mode with an empty queue and no pending results.
+    ///
+    /// See [`PQexitPipelineMode`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQEXITPIPELINEMODE)
+    ///
+    pub fn pq_exit_pipeline_mode(&self) -> bool {
+      unsafe { pq_sys::PQexitPipelineMode(self.connection) == 1 }
+    }
+
+    /// Marks a synchronization point in a pipeline by sending a sync message and
+    /// flushing the send buffer.
+    ///
+    /// See [`PQpipelineSync`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESYNC)
+    ///
+    pub fn pq_pipeline_sync(&self) -> bool {
+      unsafe { pq_sys::PQpipelineSync(self.connection) == 1 }
+    }
+
+    /// Sends a request for the server to flush its output buffer.
+    ///
+    /// See [`PQsendFlushRequest`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQSENDFLUSHREQUEST)
+    ///
+    pub fn pq_send_flush_request(&self) -> bool {
+      unsafe { pq_sys::PQsendFlushRequest(self.connection) == 1 }
+    }
+
+    // ===== SINGLE ROW MODE =====================================================
+
+    /// Select single-row mode for the currently-executing query.
+    ///
+    /// See [`PQsetSingleRowMode`](https://www.postgresql.org/docs/current/libpq-single-row-mode.html#LIBPQ-PQSETSINGLEROWMODE)
+    ///
+    pub fn pq_set_single_row_mode(&self) -> bool {
+      unsafe { pq_sys::PQsetSingleRowMode(self.connection) == 1 }
     }
   }
-
-  // ===== SYNCHRONOUS OPERATIONS ==============================================
-
-  /// Submits a command to the server and waits for the result.
-  ///
-  /// See [`PQexec`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQEXEC)
-  ///
-  pub fn pq_exec(&self) { core::todo!() }
-
-  /// Submits a command to the server and waits for the result, with the ability
-  /// to pass parameters separately from the SQL command text.
-  ///
-  /// See [`PQexecParams`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQEXECPARAMS)
-  ///
-  pub fn pq_exec_params(&self) { core::todo!() }
-
-  /// Submits a request to create a prepared statement with the given
-  /// parameters, and waits for completion.
-  ///
-  /// See [`PQprepare`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQPREPARE)
-  ///
-  pub fn pq_prepare(&self) { core::todo!() }
-
-  /// Sends a request to execute a prepared statement with given parameters,
-  /// and waits for the result.
-  ///
-  /// See [`PQexecPrepared`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQEXECPREPARED)
-  ///
-  pub fn pq_exec_prepared(&self) { core::todo!() }
-
-  /// Submits a request to obtain information about the specified prepared
-  /// statement, and waits for completion.
-  ///
-  /// See [`PQdescribePrepared`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQDESCRIBEPREPARED)
-  ///
-  pub fn pq_describe_prepared(&self) { core::todo!() }
-
-  /// Submits a request to obtain information about the specified portal, and
-  /// waits for completion.
-  ///
-  /// See [`PQdescribePortal`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQDESCRIBEPORTAL)
-  ///
-  pub fn pq_describe_portal(&self) { core::todo!() }
-
-  // ===== ASYNCHRONOUS OPERATIONS =============================================
-
-  /// Submits a command to the server without waiting for the result(s).
-  ///
-  /// Asynchronous version of [`Connection::pq_exec`].
-  ///
-  /// See [`PQsendQuery`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDQUERY)
-  ///
-  pub fn pq_send_query(&self) { core::todo!() }
-
-  /// Submits a command and separate parameters to the server without waiting
-  /// for the result(s).
-  ///
-  /// Asynchronous version of [`Connection::pq_exec_params`].
-  ///
-  /// See [`PQsendQueryParams`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDQUERYPARAMS)
-  ///
-  pub fn pq_send_query_params(&self) { core::todo!() }
-
-  /// Sends a request to create a prepared statement with the given parameters,
-  /// without waiting for completion.
-  ///
-  /// Asynchronous version of [`Connection::pq_prepare`].
-  ///
-  /// See [`PQsendPrepare`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDPREPARE)
-  ///
-  pub fn pq_send_prepare(&self) { core::todo!() }
-
-  /// Sends a request to execute a prepared statement with given parameters,
-  /// without waiting for the result(s).
-  ///
-  /// Asynchronous version of [`Connection::pq_exec_prepared`].
-  ///
-  /// See [`PQsendQueryPrepared`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDQUERYPREPARED)
-  ///
-  pub fn pq_send_query_prepared(&self) { core::todo!() }
-
-  /// Submits a request to obtain information about the specified prepared
-  /// statement, without waiting for completion.
-  ///
-  /// Asynchronous version of [`Connection::pq_describe_prepared`].
-  ///
-  /// See [`PQsendDescribePrepared`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDDESCRIBEPREPARED)
-  ///
-  pub fn pq_send_describe_prepared(&self) { core::todo!() }
-
-  /// Submits a request to obtain information about the specified portal, without waiting for completion.
-  ///
-  /// Asynchronous version of [`Connection::pq_describe_portal`].
-  ///
-  /// See [`PQsendDescribePortal`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDDESCRIBEPORTAL)
-  ///
-  pub fn pq_send_describe_portal(&self) { core::todo!() }
-
-  /// Waits for the next result from a prior [`Connection::pq_send_query`],
-  /// [`Connection::pq_send_query_params`],
-  /// [`Connection::pq_send_prepare`],
-  /// [`Connection::pq_send_query_prepared`],
-  /// [`Connection::pq_send_describe_prepared`],
-  /// [`Connection::pq_send_describe_portal`], or
-  /// [`Connection::pq_pipeline_sync`] call, and returns it.
-  ///
-  /// See [`PQgetResult`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQGETRESULT)
-  ///
-  pub fn pq_get_result(&self) { core::todo!() }
-
-  // ===== PIPELINE MODE =======================================================
-
-  /// Returns the current pipeline mode status of the libpq connection.
-  ///
-  /// See [`PQpipelineStatus`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESTATUS)
-  ///
-  pub fn pq_pipeline_status(&self) { core::todo!() }
-
-  /// Causes a connection to enter pipeline mode if it is currently idle or
-  /// already in pipeline mode.
-  ///
-  /// See [`PQenterPipelineMode`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQENTERPIPELINEMODE)
-  ///
-  pub fn pq_enter_pipeline_mode(&self) { core::todo!() }
-
-  /// Causes a connection to exit pipeline mode if it is currently in pipeline
-  /// mode with an empty queue and no pending results.
-  ///
-  /// See [`PQexitPipelineMode`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQEXITPIPELINEMODE)
-  ///
-  pub fn pq_exit_pipeline_mode(&self) { core::todo!() }
-
-  /// Marks a synchronization point in a pipeline by sending a sync message and
-  /// flushing the send buffer.
-  ///
-  /// See [`PQpipelineSync`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESYNC)
-  ///
-  pub fn pq_pipeline_sync(&self) { core::todo!() }
-
-  /// Sends a request for the server to flush its output buffer.
-  ///
-  /// See [`PQsendFlushRequest`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQSENDFLUSHREQUEST)
-  ///
-  pub fn pq_send_flush_request(&self) { core::todo!() }
-
-
-  // ===== SINGLE ROW MODE =====================================================
-
-  /// Select single-row mode for the currently-executing query.
-  ///
-  /// See [`PQsetSingleRowMode`](https://www.postgresql.org/docs/current/libpq-single-row-mode.html#LIBPQ-PQSETSINGLEROWMODE)
-  ///
-  pub fn pq_set_single_row_mode(&self) { core::todo!() }
-
-}
