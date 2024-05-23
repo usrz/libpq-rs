@@ -4,16 +4,17 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-20.04
-    name: Test Build
+  build-linux:
+    runs-on: ubuntu-20.04 # be conservative for old GLIBC versions
+    name: Linux Build
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Prepare for AARCH64 cross compilation
+      - name: Prepare for x86_64 / aarch64 cross compilation
         run: |
+          rustup target add x86_64-unknown-linux-gnu
           rustup target add aarch64-unknown-linux-gnu
           sudo apt-get install --yes gcc-aarch64-linux-gnu
 
@@ -39,8 +40,37 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: libraries
+          name: libraries-linux
           path: |
             target/x86_64-unknown-linux-gnu/debug/libpq_rs_node.so
             target/aarch64-unknown-linux-gnu/debug/libpq_rs_node.so
             versions.txt
+
+  build-macos:
+    runs-on: macos-14 # this runs on ARM
+    name: MacOS Build
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Prepare for aarch64 / x86_64 cross compilation
+        run: |
+          rustup target add aarch64-apple-darwin
+          rustup target add x86_64-apple-darwin
+
+      - name: Build Package (aarch64)
+        run: |
+          cargo build --target aarch64-apple-darwin
+
+      - name: Build Package (x86_64)
+        run: |
+          cargo build --target x86_64-apple-darwin
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: libraries-macos
+          path: |
+            target/aarch64-apple-darwin/debug/libpq_rs_node.dylib
+            target/x86_64-apple-darwin/debug/libpq_rs_node.dylib
