@@ -18,12 +18,23 @@ jobs:
           registry-url: https://registry.npmjs.org
           node-version: 18.x
 
+      - name: Prepare for AARCH64 cross compilation
+        run: |
+          rustup target add aarch64-unknown-linux-gnu
+          apt-get install --yes gcc-9-aarch64-linux-gnu
+
       - name: Build Package (native x86_64)
         run: |
           cargo build --target x86_64-unknown-linux-gnu
 
+      - name: Build Package (native x86_64)
+        run: |
+          cargo build --target aarch64-unknown-linux-gnu
+
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: binary x86_64
-          path: target/x86_64-unknown-linux-gnu/debug/libpq_rs_node.so
+          name: libraries
+          path: |
+            target/x86_64-unknown-linux-gnu/debug/libpq_rs_node.so
+            target/aarch64-unknown-linux-gnu/debug/libpq_rs_node.so
