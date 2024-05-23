@@ -19,17 +19,18 @@ jobs:
 
       - name: Prepare versions file
         run:
-          x86_64-linux-gnu-gcc --version | grep x86_64-linux-gnu-gcc | tee -a versions.txt
-          aarch64-linux-gnu-gcc --version | grep aarch64-linux-gnu-gcc | tee -a versions.txt
-          rustc --version | tee -a versions.txt
+          x86_64-linux-gnu-gcc --version | grep x86_64-linux-gnu-gcc > versions.txt
+          aarch64-linux-gnu-gcc --version | grep aarch64-linux-gnu-gcc >> versions.txt
+          rustc --version >> versions.txt
+          cat versions.txt
 
-      - name: Build Package (native x86_64)
+      - name: Build Package (x86_64)
         run: |
           cargo build --target x86_64-unknown-linux-gnu
         env:
           RUSTFLAGS: -C linker=x86_64-linux-gnu-gcc
 
-      - name: Build Package (native aarch64)
+      - name: Build Package (aarch64)
         run: |
           cargo build --target aarch64-unknown-linux-gnu
         env:
