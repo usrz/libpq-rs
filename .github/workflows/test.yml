@@ -21,7 +21,7 @@ jobs:
       - name: Prepare for AARCH64 cross compilation
         run: |
           rustup target add aarch64-unknown-linux-gnu
-          apt-get install --yes gcc-9-aarch64-linux-gnu
+          sudo apt-get install --yes gcc-9-aarch64-linux-gnu
 
       - name: Build Package (native x86_64)
         run: |
