@@ -11,6 +11,7 @@ use std::sync::RwLock;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use self::utils::NullTerminatedArray;
 
 static ENCODING_KEY: &str = "client_encoding";
 static ENCODING_VAL: &str = "UTF8";
@@ -172,8 +173,11 @@ impl Drop for Connection {
     let mut connection = self.connection.write().unwrap();
 
     if ! connection.is_null() {
+      println!("Dropping connection");
       unsafe { pq_sys::PQfinish(*connection) };
       *connection = std::ptr::null_mut();
+    } else {
+      println!("Connection already dropped");
     }
   }
 }
@@ -483,49 +487,6 @@ impl Connection {
     })
   }
 
-  // ===== SYNCHRONOUS OPERATIONS ==============================================
-
-  /// Submits a command to the server and waits for the result.
-  ///
-  /// See [`PQexec`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQEXEC)
-  ///
-  pub fn pq_exec(&self) { todo!() }
-
-  /// Submits a command to the server and waits for the result, with the ability
-  /// to pass parameters separately from the SQL command text.
-  ///
-  /// See [`PQexecParams`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQEXECPARAMS)
-  ///
-  pub fn pq_exec_params(&self) { todo!() }
-
-  /// Submits a request to create a prepared statement with the given
-  /// parameters, and waits for completion.
-  ///
-  /// See [`PQprepare`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQPREPARE)
-  ///
-  pub fn pq_prepare(&self) { todo!() }
-
-  /// Sends a request to execute a prepared statement with given parameters,
-  /// and waits for the result.
-  ///
-  /// See [`PQexecPrepared`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQEXECPREPARED)
-  ///
-  pub fn pq_exec_prepared(&self) { todo!() }
-
-  /// Submits a request to obtain information about the specified prepared
-  /// statement, and waits for completion.
-  ///
-  /// See [`PQdescribePrepared`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQDESCRIBEPREPARED)
-  ///
-  pub fn pq_describe_prepared(&self) { todo!() }
-
-  /// Submits a request to obtain information about the specified portal, and
-  /// waits for completion.
-  ///
-  /// See [`PQdescribePortal`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQDESCRIBEPORTAL)
-  ///
-  pub fn pq_describe_portal(&self) { todo!() }
-
   // ===== ASYNCHRONOUS OPERATIONS =============================================
 
   /// Submits a command to the server without waiting for the result(s).
@@ -534,7 +495,15 @@ impl Connection {
   ///
   /// See [`PQsendQuery`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDQUERY)
   ///
-  pub fn pq_send_query(&self) { todo!() }
+  pub fn pq_send_query(&self, command: String) -> Result<(), String> {
+    self.with_connection(|connection| unsafe {
+      let string = utils::to_cstring(command.as_str());
+      match pq_sys::PQsendQuery(connection, string.as_ptr()) {
+        1 => Ok(()), // successful!
+        _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
+      }
+    })
+  }
 
   /// Submits a command and separate parameters to the server without waiting
   /// for the result(s).
@@ -543,42 +512,25 @@ impl Connection {
   ///
   /// See [`PQsendQueryParams`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDQUERYPARAMS)
   ///
-  pub fn pq_send_query_params(&self) { todo!() }
-
-  /// Sends a request to create a prepared statement with the given parameters,
-  /// without waiting for completion.
-  ///
-  /// Asynchronous version of [`Connection::pq_prepare`].
-  ///
-  /// See [`PQsendPrepare`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDPREPARE)
-  ///
-  pub fn pq_send_prepare(&self) { todo!() }
-
-  /// Sends a request to execute a prepared statement with given parameters,
-  /// without waiting for the result(s).
-  ///
-  /// Asynchronous version of [`Connection::pq_exec_prepared`].
-  ///
-  /// See [`PQsendQueryPrepared`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDQUERYPREPARED)
-  ///
-  pub fn pq_send_query_prepared(&self) { todo!() }
-
-  /// Submits a request to obtain information about the specified prepared
-  /// statement, without waiting for completion.
-  ///
-  /// Asynchronous version of [`Connection::pq_describe_prepared`].
-  ///
-  /// See [`PQsendDescribePrepared`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDDESCRIBEPREPARED)
-  ///
-  pub fn pq_send_describe_prepared(&self) { todo!() }
-
-  /// Submits a request to obtain information about the specified portal, without waiting for completion.
-  ///
-  /// Asynchronous version of [`Connection::pq_describe_portal`].
-  ///
-  /// See [`PQsendDescribePortal`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDDESCRIBEPORTAL)
-  ///
-  pub fn pq_send_describe_portal(&self) { todo!() }
+  pub fn pq_send_query_params(&self, command: String, params: Vec<String>) -> Result<(), String> {
+    self.with_connection(|connection| unsafe {
+      let string = utils::to_cstring(command.as_str());
+      let arguments = NullTerminatedArray::new(&params);
+      match pq_sys::PQsendQueryParams(
+        connection,
+        string.as_ptr(),
+        params.len().try_into().unwrap(),
+        std::ptr::null(),
+        arguments.as_vec().as_ptr(),
+        std::ptr::null(),
+        std::ptr::null(),
+        0, // always text!
+      ) {
+        1 => Ok(()), // successful!
+        _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
+      }
+    })
+  }
 
   /// Waits for the next result from a prior [`Connection::pq_send_query`],
   /// [`Connection::pq_send_query_params`],
@@ -590,7 +542,19 @@ impl Connection {
   ///
   /// See [`PQgetResult`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQGETRESULT)
   ///
-  pub fn pq_get_result(&self) { todo!() }
+  pub fn pq_get_result(&self) -> Result<String, String> {
+    self.with_connection(|connection| unsafe {
+      let result = pq_sys::PQgetResult(connection);
+
+      match result.is_null() {
+        true => Ok("DONE".to_string()),
+        false => {
+          pq_sys::PQclear(result);
+          Ok(format!("RESULT STATUS {:?}", pq_sys::PQresultStatus(result)))
+        }
+      }
+    })
+  }
 
   // ===== PIPELINE MODE =======================================================
 
