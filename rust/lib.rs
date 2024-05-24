@@ -1,7 +1,6 @@
 use neon::prelude::*;
 
 pub mod conn;
-pub mod connect;
 pub mod connection;
 pub mod conninfo;
 pub mod sys;
@@ -40,7 +39,7 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
   // ===== CONNECT =============================================================
 
   // connect
-  cx.export_function("pq_connectdb_params", crate::connect::pq_connectdb_params)?;
+  cx.export_function("pq_connectdb_params", crate::conn::pq_connectdb_params)?;
 
   // ===== CONN ================================================================
 
