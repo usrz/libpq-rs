@@ -67,6 +67,16 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
   cx.export_function("pq_isnonblocking", crate::conn::pq_isnonblocking)?;
   cx.export_function("pq_flush", crate::conn::pq_flush)?;
 
+// ===== ASYNCHRONOUS OPERATIONS ===============================================
+
+  cx.export_function("pq_send_query", crate::conn::pq_send_query)?;
+  cx.export_function("pq_send_query_params", crate::conn::pq_send_query_params)?;
+  cx.export_function("pq_get_result", crate::conn::pq_get_result)?;
+
+  // ===== SINGLE ROW MODE =======================================================
+
+  cx.export_function("pq_set_single_row_mode", crate::conn::pq_set_single_row_mode)?;
+
   // ===== POLLING =============================================================
 
   cx.export_function("poll_can_write", crate::conn::poll_can_write)?;
