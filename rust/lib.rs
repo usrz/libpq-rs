@@ -5,6 +5,10 @@ pub mod connection;
 pub mod conninfo;
 pub mod sys;
 
+/// Return the LibPQ version as a `String`
+///
+/// See [PQlibVersion](https://www.postgresql.org/docs/16/libpq-misc.html#LIBPQ-PQLIBVERSION)
+///
 fn libpq_version() -> String {
   let version = unsafe { pq_sys::PQlibVersion() };
   let major = version / 10000;
@@ -12,8 +16,11 @@ fn libpq_version() -> String {
   format!("{major}.{minor}")
 }
 
+/// Return the OpenSSL version as a `String`
+///
+/// See [OPENSSL_VERSION_NUMBER](https://github.com/openssl/openssl/blob/master/include/openssl/opensslv.h.in#L92)
+///
 fn openssl_version() -> String {
-  // see https://github.com/openssl/openssl/blob/master/include/openssl/opensslv.h.in#L92
   let version = unsafe { openssl_sys::OpenSSL_version_num() };
   let major = (version >> 28) & 0xF;
   let minor = (version >> 20) & 0xFF;

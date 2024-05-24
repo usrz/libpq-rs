@@ -1,10 +1,16 @@
 //! Wrap the LibPQ function in a slightly more convenient _struct_.
 
-use std::{os::fd::BorrowedFd, sync::{atomic::{AtomicUsize, Ordering}, RwLock}, time::Duration};
 use crate::conninfo::Conninfo;
 use crate::sys::*;
-use polling::{Event, Events, Poller};
+use polling::Event;
+use polling::Events;
+use polling::Poller;
 use pq_sys::pg_conn;
+use std::os::fd::BorrowedFd;
+use std::sync::RwLock;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
+use std::time::Duration;
 
 static ENCODING_KEY: &str = "client_encoding";
 static ENCODING_VAL: &str = "UTF8";

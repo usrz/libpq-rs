@@ -3,10 +3,10 @@
 use crate::connection::Connection;
 use crate::connection::PollingInterest;
 use crate::conninfo::Conninfo;
+use crate::sys::types;
 use neon::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::sys::types;
 
 /// Simple struct wrapping a [`Connection`] into an `Arc`
 ///
