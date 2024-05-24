@@ -5,39 +5,48 @@ use crate::connection::PollingInterest;
 use crate::conninfo::Conninfo;
 use crate::sys::types;
 use neon::prelude::*;
-use std::sync::Arc;
 use std::time::Duration;
 
 /// Simple struct wrapping a [`Connection`] into an `Arc`
 ///
-pub struct ArcConnection {
-  connection: Arc<Connection>,
+pub struct JsConnection {
+  pub connection: *mut Connection,
 }
 
-impl ArcConnection {
-  pub fn connection(&self) -> Arc<Connection> {
-    self.connection.clone()
+impl JsConnection {
+  pub fn connection(&self) -> &'static Connection {
+    unsafe { &*(self.connection) }
   }
 }
 
-impl From::<Connection> for ArcConnection {
-  fn from(value: Connection) -> Self {
-    Self { connection: Arc::new(value) }
+impl From::<Connection> for JsConnection {
+  fn from(connection: Connection) -> Self {
+    let boxed = Box::new(connection);
+    Self { connection: Box::into_raw(boxed) }
   }
 }
 
-impl Finalize for ArcConnection {
+impl Drop for JsConnection {
+  fn drop(&mut self) {
+    println!("Dropping JsConnection");
+    unsafe { drop(Box::from_raw(self.connection)) };
+  }
+}
+
+impl Finalize for JsConnection {
   fn finalize<'a, C: Context<'a>>(self, _: &mut C) {
-    // Nothing to do... Arc will take care of that!
+    println!("Finalizing JsConnection");
+    drop(self)
   }
 }
 
 /// Convenience macro to extract from a `Handle<<JsBox<ArcConnection>>>`.
 ///
 macro_rules! connection_arg_0 {
-  ( $x:expr ) => {
-    $x.argument::<JsBox<ArcConnection>>(0)?.connection()
-  };
+  ( $x:expr ) => { {
+    let arg = $x.argument::<JsBox<JsConnection>>(0)?;
+    arg.connection()
+  } };
 }
 
 // ===== CONNECTION ============================================================
@@ -90,7 +99,7 @@ pub fn pq_connectdb_params(mut cx: FunctionContext) -> JsResult<JsPromise> {
     let connection = result
       .or_else(| msg | cx.throw_error(msg))?;
 
-    Ok(cx.boxed(ArcConnection::from(connection)))
+    Ok(cx.boxed(JsConnection::from(connection)))
   });
 
   Ok(promise)
@@ -305,6 +314,62 @@ pub fn pq_flush(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 
   let result = connection.pq_flush()
     .or_else(|msg| cx.throw_error(msg))?;
+
+  Ok(cx.boolean(result))
+}
+
+// ===== ASYNCHRONOUS OPERATIONS ===============================================
+
+pub fn pq_send_query(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+  let connection = connection_arg_0!(cx);
+
+  // todo maybe nicer types?
+  let command = cx.argument::<JsString>(1)?.value(&mut cx);
+
+  connection.pq_send_query(command)
+    .or_else(| msg: String | cx.throw_error(msg))?;
+
+  Ok(cx.undefined())
+}
+
+pub fn pq_send_query_params(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+  let connection = connection_arg_0!(cx);
+
+  // todo maybe nicer types?
+  let command = cx.argument::<JsString>(1)?.value(&mut cx);
+
+  // parameters
+  let mut params = Vec::<String>::new();
+  for i in 2.. cx.len() {
+    let param = cx.argument::<JsString>(i)?.value(&mut cx);
+    params.push(param);
+  }
+
+  connection.pq_send_query_params(command, params)
+    .or_else(| msg: String | cx.throw_error(msg))?;
+
+  Ok(cx.undefined())
+}
+
+pub fn pq_get_result(mut cx: FunctionContext) -> JsResult<JsString> {
+  let connection = connection_arg_0!(cx);
+
+  let result = connection.pq_get_result()
+    .or_else(| msg: String | cx.throw_error(msg))?;
+
+  Ok(cx.string(result))
+}
+
+// ===== SINGLE ROW MODE =======================================================
+
+/// Select single-row mode for the currently-executing query.
+///
+/// See [`PQsetSingleRowMode`](https://www.postgresql.org/docs/current/libpq-single-row-mode.html#LIBPQ-PQSETSINGLEROWMODE)
+///
+pub fn pq_set_single_row_mode(mut cx: FunctionContext) -> JsResult<JsBoolean> {
+  let connection = connection_arg_0!(cx);
+
+  let result = connection.pq_set_single_row_mode();
 
   Ok(cx.boolean(result))
 }
