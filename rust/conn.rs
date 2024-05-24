@@ -2,6 +2,8 @@
 
 use crate::connect::ArcConnection;
 use neon::prelude::*;
+use crate::connection::PollingInterest;
+use std::time::Duration;
 
 /// Convenience macro to extract from a `Handle<<JsBox<ArcConnection>>>`.
 ///
@@ -224,4 +226,49 @@ pub fn pq_flush(mut cx: FunctionContext) -> JsResult<JsBoolean> {
     .or_else(|msg| cx.throw_error(msg))?;
 
   Ok(cx.boolean(result))
+}
+
+// ===== POLLING =============================================================
+
+/// Wait until reads from or writes to the connection will not block.
+///
+fn poll(mut cx: FunctionContext, interest: PollingInterest) -> JsResult<JsPromise> {
+  let connection = connection_arg_0!(cx);
+
+  let timeout = match cx.argument_opt(1) {
+    None => Ok(None),
+    Some(timeout) => {
+      if let Ok(_) = timeout.downcast::<JsUndefined, _>(&mut cx) {
+        Ok(None)
+      } else if let Ok(_) = timeout.downcast::<JsNull, _>(&mut cx) {
+        Ok(None)
+      } else {
+        let milliseconds = timeout.downcast_or_throw::<JsNumber, _>(&mut cx)?;
+        let duration = Duration::from_millis(milliseconds.value(&mut cx) as u64);
+        Ok(Some(duration))
+      }
+    }
+  }?;
+
+  let promise = cx.task( move || connection.poll(interest, timeout))
+    .promise(move | mut cx, result | {
+      match result {
+        Err(error) => cx.throw_error(format!("Error polling: {}", error.to_string())),
+        Ok(_) => Ok(cx.undefined()),
+      }
+  });
+
+  Ok(promise)
+}
+
+/// Wait until reads to the connection will not block.
+///
+pub fn poll_can_read(cx: FunctionContext) -> JsResult<JsPromise> {
+  poll(cx, PollingInterest::Readable)
+}
+
+/// Wait until writes to the connection will not block.
+///
+pub fn poll_can_write(cx: FunctionContext) -> JsResult<JsPromise> {
+  poll(cx, PollingInterest::Writable)
 }

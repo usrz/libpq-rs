@@ -4,7 +4,6 @@ pub mod conn;
 pub mod connect;
 pub mod connection;
 pub mod conninfo;
-pub mod poll;
 pub mod sys;
 
 fn libpq_version() -> String {
@@ -64,8 +63,8 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
   cx.export_function("pq_flush", crate::conn::pq_flush)?;
 
   // polling
-  cx.export_function("poll_can_write", crate::poll::poll_can_write)?;
-  cx.export_function("poll_can_read", crate::poll::poll_can_read)?;
+  cx.export_function("poll_can_write", crate::conn::poll_can_write)?;
+  cx.export_function("poll_can_read", crate::conn::poll_can_read)?;
 
   Ok(())
 }
