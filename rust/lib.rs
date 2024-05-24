@@ -7,7 +7,7 @@ pub mod sys;
 
 /// Return the LibPQ version as a `String`
 ///
-/// See [PQlibVersion](https://www.postgresql.org/docs/16/libpq-misc.html#LIBPQ-PQLIBVERSION)
+/// See [PQlibVersion](https://www.postgresql.org/docs/current/libpq-misc.html#LIBPQ-PQLIBVERSION)
 ///
 fn libpq_version() -> String {
   let version = unsafe { pq_sys::PQlibVersion() };
@@ -43,16 +43,13 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
   cx.export_value("libpq_version", libpq_version)?;
   cx.export_value("openssl_version", openssl_version)?;
 
-  // ===== CONNECT =============================================================
+  // ===== CONNECTION ==========================================================
 
-  // connect
   cx.export_function("pq_connectdb_params", crate::conn::pq_connectdb_params)?;
-
-  // ===== CONN ================================================================
-
-  // connection
   cx.export_function("pq_conninfo", crate::conn::pq_conninfo)?;
-  // status
+
+  // ===== STATUS ==============================================================
+
   cx.export_function("pq_status", crate::conn::pq_status)?;
   cx.export_function("pq_transaction_status", crate::conn::pq_transaction_status)?;
   cx.export_function("pq_server_version", crate::conn::pq_server_version)?;
@@ -61,14 +58,17 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
   cx.export_function("pq_backend_pid", crate::conn::pq_backend_pid)?;
   cx.export_function("pq_ssl_in_use", crate::conn::pq_ssl_in_use)?;
   cx.export_function("pq_ssl_attributes", crate::conn::pq_ssl_attributes)?;
-  // async
+
+  // ===== ASYNC ===============================================================
+
   cx.export_function("pq_consume_input", crate::conn::pq_consume_input)?;
   cx.export_function("pq_is_busy", crate::conn::pq_is_busy)?;
   cx.export_function("pq_setnonblocking", crate::conn::pq_setnonblocking)?;
   cx.export_function("pq_isnonblocking", crate::conn::pq_isnonblocking)?;
   cx.export_function("pq_flush", crate::conn::pq_flush)?;
 
-  // polling
+  // ===== POLLING =============================================================
+
   cx.export_function("poll_can_write", crate::conn::poll_can_write)?;
   cx.export_function("poll_can_read", crate::conn::poll_can_read)?;
 

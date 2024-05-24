@@ -309,7 +309,7 @@ pub fn pq_flush(mut cx: FunctionContext) -> JsResult<JsBoolean> {
   Ok(cx.boolean(result))
 }
 
-// ===== POLLING =============================================================
+// ===== POLLING ===============================================================
 
 /// Wait until reads from or writes to the connection will not block.
 ///
