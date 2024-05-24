@@ -166,7 +166,6 @@ impl Drop for Connection {
     let mut connection = self.connection.write().unwrap();
 
     if ! connection.is_null() {
-      println!("Dropping connection {:?}", *connection);
       unsafe { pq_sys::PQfinish(*connection) };
       *connection = std::ptr::null_mut();
     }
@@ -661,8 +660,6 @@ impl Connection {
   pub fn poll(&self, interest: PollingInterest, timeout: Option<Duration>) -> Result<(), String> {
     self.with_connection(|connection| {
       let fd = unsafe { pq_sys::PQsocket(connection) };
-
-      println!("POLLING ON FD {} FOR {:?}", fd, interest);
 
       let key = POLLER_KEY.fetch_add(1, Ordering::Relaxed);
 

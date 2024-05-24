@@ -28,7 +28,7 @@ impl From::<Connection> for ArcConnection {
 
 impl Finalize for ArcConnection {
   fn finalize<'a, C: Context<'a>>(self, _: &mut C) {
-    println!("Finalizing connection");
+    // Nothing to do... Arc will take care of that!
   }
 }
 
