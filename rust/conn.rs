@@ -1,7 +1,18 @@
 //! Connection-related functions
 
-use crate::connection::connection_arg_0;
+use crate::connect::ArcConnection;
 use neon::prelude::*;
+
+/// Convenience macro to extract a `Handle<JsBox<Connection>>` from the first
+/// argument passed to a JavaScript function implemented here.
+///
+macro_rules! connection_arg_0 {
+  ( $x:expr ) => {
+    $x.argument::<JsBox<ArcConnection>>(0)?.connection()
+  };
+}
+
+// pub use connection_arg_0;
 
 // ===== CONNECTION ============================================================
 

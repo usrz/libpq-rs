@@ -1,23 +1,15 @@
 //! Wrap the LibPQ function in a slightly more convenient _struct_.
 
+use std::{os::fd::BorrowedFd, sync::{atomic::{AtomicUsize, Ordering}, RwLock}, time::Duration};
 use crate::conninfo::ConnInfo;
 use crate::sys::*;
-use neon::prelude::*;
+use polling::{Event, Events, Poller};
+use pq_sys::pg_conn;
 
 static ENCODING_KEY: &str = "client_encoding";
 static ENCODING_VAL: &str = "UTF8";
+static POLLER_KEY: AtomicUsize = AtomicUsize::new(1);
 
-/// Convenience macro to extract a `Handle<JsBox<Connection>>` from the first
-/// argument passed to a JavaScript function implemented here.
-///
-#[macro_export]
-macro_rules! connection_arg_0 {
-  ( $x:expr ) => {
-    $x.argument::<JsBox<crate::connection::Connection>>(0)?
-  };
-}
-
-pub use connection_arg_0;
 
 // ===== ENUMS =================================================================
 
@@ -142,15 +134,25 @@ impl From<pq_sys::PGpipelineStatus> for PipelineStatus {
   }
 }
 
+/// Polling interest for [`Connection::poll`].
+///
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub enum PollingInterest {
+  /// Wait until the connection is writable.
+  Writable = 0,
+  /// Wait until the connection is readable.
+  Readable = 1,
+}
+
 // ===== DEFINITION ============================================================
 
 /// Struct wrapping the LibPQ functions related to a _connection_.
 ///
 /// Normally this is wrapped in a Neon `JsBox` and managed by NodeJS.
 ///
-#[derive(Debug)]
 pub struct Connection {
-  connection: *mut pq_sys::pg_conn
+  connection: RwLock<*mut pq_sys::pg_conn>,
 }
 
 // ===== TRAITS ================================================================
@@ -161,35 +163,52 @@ impl Drop for Connection {
   /// See [`PQfinish`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQFINISH)
   ///
   fn drop(&mut self) {
-    unsafe {
-      if ! self.connection.is_null() {
-        println!("Finishing connection");
-        pq_sys::PQfinish(self.connection);
-        self.connection = std::ptr::null_mut();
-      }
+    let mut connection = self.connection.write().unwrap();
+
+    if ! connection.is_null() {
+      println!("Dropping connection {:?}", *connection);
+      unsafe { pq_sys::PQfinish(*connection) };
+      *connection = std::ptr::null_mut();
     }
   }
 }
 
-impl Finalize for Connection {
-  /// Calls the destructor when JavaScript garbage collects this.
+impl TryFrom<&str> for Connection {
+  type Error = String;
+
+  /// Makes a new connection to the database server using a PostgreSQL
+  /// connection string (DSN).
   ///
-  fn finalize<'a, C: Context<'a>>(self, _: &mut C) {
-    println!("Finalizing connection");
-    drop(self);
+  /// See [`PQconnectdbParams`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS)
+  /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
+  ///
+  fn try_from(value: &str) -> Result<Self, Self::Error> {
+    Connection::try_from(ConnInfo::try_from(value)?)
   }
 }
 
-unsafe impl Send for Connection {}
+impl TryFrom<String> for Connection {
+  type Error = String;
 
-// ===== IMPL ==================================================================
+  /// Makes a new connection to the database server using a PostgreSQL
+  /// connection string (DSN).
+  ///
+  /// See [`PQconnectdbParams`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS)
+  /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
+  ///
+  fn try_from(value: String) -> Result<Self, Self::Error> {
+    Connection::try_from(ConnInfo::try_from(value)?)
+  }
+}
 
-impl Connection {
+impl TryFrom<ConnInfo> for Connection {
+  type Error = String;
+
   /// Makes a new connection to the database server.
   ///
   /// See [`PQconnectdbParams`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS)
   ///
-  pub fn pq_connectdb_params(info: ConnInfo) -> Result<Self, String> {
+  fn try_from(info: ConnInfo) -> Result<Self, String> {
     let mut keys = Vec::<&str>::from([ ENCODING_KEY ]);
     let mut values = Vec::<&str>::from([ ENCODING_VAL ]);
 
@@ -209,7 +228,8 @@ impl Connection {
       let conn = pq_sys::PQconnectdbParams(k.as_vec().as_ptr(), v.as_vec().as_ptr(), 0);
       match conn.is_null() {
         true => Err("Unable to create connection"),
-        _ => Ok(Connection { connection: conn }),
+        _ => Ok(Connection { connection: RwLock::new(conn) })
+        // TODO: notice processor!!!
       }
     }?;
 
@@ -222,15 +242,51 @@ impl Connection {
       }
     }
   }
+}
+
+unsafe impl Send for Connection {}
+unsafe impl Sync for Connection {}
+
+// ===== IMPL ==================================================================
+
+impl Connection {
+  /// Execute closure read-locked on connection
+  ///
+  #[inline(always)]
+  fn with_connection<O, E>(&self, execute: E) -> O
+  where
+    E: FnOnce(*mut pg_conn) -> O
+  {
+    let result = self.connection.read();
+    match result {
+      Err(_) => panic!("Unable to access connection"),
+      Ok(guard) => {
+        if guard.is_null() { panic!("Connection closed") };
+        execute(*guard)
+      }
+    }
+  }
+
+  // ===== CONNECTION ==========================================================
+
+  /// Makes a new connection to the database server using LibPQ's own defaults..
+  ///
+  /// See [`PQconnectdbParams`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS)
+  /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
+  ///
+  pub fn new() -> Result<Self, String> {
+    let info = ConnInfo::new()?;
+    Connection::try_from(info)
+  }
 
   /// Returns the connection options used by a live connection.
   ///
   /// See [`PQconninfo`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFO)
   ///
   pub fn pq_conninfo(&self) -> Result<ConnInfo, String> {
-    unsafe {
-      ConnInfo::from_raw(pq_sys::PQconninfo(self.connection))
-    }
+    self.with_connection(|connection| unsafe {
+      ConnInfo::try_from(pq_sys::PQconninfo(connection))
+    })
   }
 
   // ===== STATUS ==============================================================
@@ -240,7 +296,9 @@ impl Connection {
   /// See [`PQstatus`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSTATUS)
   ///
   pub fn pq_status(&self) -> ConnectionStatus {
-    unsafe { pq_sys::PQstatus(self.connection) }.into()
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQstatus(connection).into()
+    })
   }
 
   /// Returns the current in-transaction status of the server.
@@ -248,7 +306,9 @@ impl Connection {
   /// See [`PQtransactionStatus`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQTRANSACTIONSTATUS)
   ///
   pub fn pq_transaction_status(&self) -> TransactionStatus {
-    unsafe { pq_sys::PQtransactionStatus(self.connection) }.into()
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQtransactionStatus(connection).into()
+    })
   }
 
   /// Returns the server version as a `String`.
@@ -256,15 +316,16 @@ impl Connection {
   /// See [`PQserverVersion`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSERVERVERSION)
   ///
   pub fn pq_server_version(&self) -> Option<String> {
-    let version = unsafe { pq_sys::PQserverVersion(self.connection) };
-    match version {
-      0 => None,
-      _ => {
-        let major = version / 10000;
-        let minor = version % 10000;
-        Some(format!("{major}.{minor}"))
-      },
-    }
+    self.with_connection(|connection| unsafe {
+      match pq_sys::PQserverVersion(connection) {
+        0 => None,
+        version => {
+          let major = version / 10000;
+          let minor = version % 10000;
+          Some(format!("{major}.{minor}"))
+        },
+      }
+    })
   }
 
   /// Returns the error message most recently generated by an operation on the connection.
@@ -272,18 +333,17 @@ impl Connection {
   /// See [`PQerrorMessage`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQERRORMESSAGE)
   ///
   pub fn pq_error_message(&self) -> Option<String> {
-    let message = unsafe { pq_sys::PQerrorMessage(self.connection) };
-    match message.is_null() {
-      true => None,
-      false => {
-        let msg = utils::to_string(message)
-        .unwrap_or_else(|msg| format!("Unknown error: {}", msg));
-        match msg.len() {
-          0 => None,
-          _ => Some(msg.trim().to_string()),
-        }
-      },
-    }
+    self.with_connection(|connection| unsafe {
+      let message = pq_sys::PQerrorMessage(connection);
+
+      if message.is_null() { return None }
+
+      let msg = utils::to_str(message)
+        .unwrap_or("Unable to decode error message");
+
+      if msg.is_empty() { return None }
+      Some(msg.trim().to_string())
+    })
   }
 
   /// Obtains the file descriptor number of the connection socket to the server.
@@ -291,7 +351,9 @@ impl Connection {
   /// See [`PQsocket`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSOCKET)
   ///
   pub fn pq_socket(&self) -> i32 {
-    unsafe { pq_sys::PQsocket(self.connection) }
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQsocket(connection)
+    })
   }
 
   /// Returns the process ID (PID) of the backend process handling this connection.
@@ -299,7 +361,9 @@ impl Connection {
   /// See [`PQbackendPID`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQBACKENDPID)
   ///
   pub fn pq_backend_pid(&self) -> i32 {
-    unsafe { pq_sys::PQbackendPID(self.connection) }
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQbackendPID(connection)
+    })
   }
 
   /// Returns `true` if the connection uses SSL, `false` if not.
@@ -307,7 +371,9 @@ impl Connection {
   /// See [`PQsslInUse`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSSLINUSE)
   ///
   pub fn pq_ssl_in_use(&self) -> bool {
-    unsafe { pq_sys::PQsslInUse(self.connection) != 0 }
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQsslInUse(connection) != 0
+    })
   }
 
   /// Returns SSL-related information about the connection.
@@ -319,17 +385,16 @@ impl Connection {
   /// See [`PQsslAttributeNames`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSSLATTRIBUTENAMES)
   ///
   pub fn pq_ssl_attributes(&self) -> Result<Vec<(String, String)>, String> {
-    let mut strings = Vec::<(String, String)>::new();
-
-    unsafe {
-      let raw = pq_sys::PQsslAttributeNames(self.connection);
+    self.with_connection(|connection| unsafe {
+      let mut strings = Vec::<(String, String)>::new();
+      let raw = pq_sys::PQsslAttributeNames(connection);
 
       for x in 0.. {
         if (*raw.offset(x)).is_null() {
           break;
         } else {
           let key_ptr = *raw.offset(x);
-          let val_ptr = pq_sys::PQsslAttribute(self.connection, key_ptr);
+          let val_ptr = pq_sys::PQsslAttribute(connection, key_ptr);
           if val_ptr.is_null() {
             continue;
           }
@@ -339,9 +404,9 @@ impl Connection {
           strings.push((key, val));
         }
       }
-    };
 
-    Ok(strings)
+      Ok(strings)
+    })
   }
 
   // ===== ASYNC ===============================================================
@@ -351,11 +416,12 @@ impl Connection {
   /// See [`PQconsumeInput`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQCONSUMEINPUT)
   ///
   pub fn pq_consume_input(&self) -> Result<(), String> {
-    let result = unsafe { pq_sys::PQconsumeInput(self.connection) };
-    match result {
-      1 => Ok(()),
-      _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
-    }
+    self.with_connection(|connection| unsafe {
+      match pq_sys::PQconsumeInput(connection) {
+        1 => Ok(()),
+        _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
+      }
+    })
   }
 
   /// Returns `true` if a command is busy, that is, `pq_get_result` would block
@@ -365,7 +431,9 @@ impl Connection {
   /// See [`PQisBusy`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQISBUSY)
   ///
   pub fn pq_is_busy(&self) -> bool {
-    unsafe { pq_sys::PQisBusy(self.connection) == 1 }
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQisBusy(connection) == 1
+    })
   }
 
   /// Sets the nonblocking status of the connection.
@@ -373,17 +441,12 @@ impl Connection {
   /// See [`PQsetnonblocking`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSETNONBLOCKING)
   ///
   pub fn pq_setnonblocking(&self, nonblocking: bool) -> Result<(), String> {
-    let arg = match nonblocking {
-      false => 0,
-      true => 1,
-    };
-
-    let result = unsafe { pq_sys::PQsetnonblocking(self.connection, arg) };
-
-    match result {
-      0 => Ok(()),
-      _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
-    }
+    self.with_connection(|connection| unsafe {
+      match pq_sys::PQsetnonblocking(connection, nonblocking as i32) {
+        0 => Ok(()),
+        _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
+      }
+    })
   }
 
   /// Returns the nonblocking status of the database connection.
@@ -391,7 +454,9 @@ impl Connection {
   /// See [`PQisnonblocking`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQISNONBLOCKING)
   ///
   pub fn pq_isnonblocking(&self) -> bool {
-    unsafe { pq_sys::PQisnonblocking(self.connection) == 1 }
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQisnonblocking(connection) == 1
+    })
   }
 
   /// Attempts to flush any queued output data to the server.
@@ -404,12 +469,13 @@ impl Connection {
   /// See [`PQflush`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQFLUSH)
   ///
   pub fn pq_flush(&self) -> Result<bool, String> {
-    let result = unsafe { pq_sys::PQflush(self.connection) };
-    match result {
-      0 => Ok(true), // data is all flushed
-      1 => Ok(false), // still some data to flush
-      _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
-    }
+    self.with_connection(|connection| unsafe {
+      match pq_sys::PQflush(connection) {
+        0 => Ok(true), // data is all flushed
+        1 => Ok(false), // still some data to flush
+        _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
+      }
+    })
   }
 
   // ===== SYNCHRONOUS OPERATIONS ==============================================
@@ -528,7 +594,9 @@ impl Connection {
   /// See [`PQpipelineStatus`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESTATUS)
   ///
   pub fn pq_pipeline_status(&self) -> PipelineStatus {
-    unsafe { pq_sys::PQpipelineStatus(self.connection) }.into()
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQpipelineStatus(connection).into()
+    })
   }
 
   /// Causes a connection to enter pipeline mode if it is currently idle or
@@ -537,7 +605,9 @@ impl Connection {
   /// See [`PQenterPipelineMode`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQENTERPIPELINEMODE)
   ///
   pub fn pq_enter_pipeline_mode(&self) -> bool {
-    unsafe { pq_sys::PQenterPipelineMode(self.connection) == 1 }
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQenterPipelineMode(connection) == 1
+    })
   }
 
   /// Causes a connection to exit pipeline mode if it is currently in pipeline
@@ -546,7 +616,9 @@ impl Connection {
   /// See [`PQexitPipelineMode`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQEXITPIPELINEMODE)
   ///
   pub fn pq_exit_pipeline_mode(&self) -> bool {
-    unsafe { pq_sys::PQexitPipelineMode(self.connection) == 1 }
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQexitPipelineMode(connection) == 1
+    })
   }
 
   /// Marks a synchronization point in a pipeline by sending a sync message and
@@ -555,7 +627,9 @@ impl Connection {
   /// See [`PQpipelineSync`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESYNC)
   ///
   pub fn pq_pipeline_sync(&self) -> bool {
-    unsafe { pq_sys::PQpipelineSync(self.connection) == 1 }
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQpipelineSync(connection) == 1
+    })
   }
 
   /// Sends a request for the server to flush its output buffer.
@@ -563,7 +637,9 @@ impl Connection {
   /// See [`PQsendFlushRequest`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQSENDFLUSHREQUEST)
   ///
   pub fn pq_send_flush_request(&self) -> bool {
-    unsafe { pq_sys::PQsendFlushRequest(self.connection) == 1 }
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQsendFlushRequest(connection) == 1
+    })
   }
 
   // ===== SINGLE ROW MODE =====================================================
@@ -573,7 +649,46 @@ impl Connection {
   /// See [`PQsetSingleRowMode`](https://www.postgresql.org/docs/current/libpq-single-row-mode.html#LIBPQ-PQSETSINGLEROWMODE)
   ///
   pub fn pq_set_single_row_mode(&self) -> bool {
-    unsafe { pq_sys::PQsetSingleRowMode(self.connection) == 1 }
+    self.with_connection(|connection| unsafe {
+      pq_sys::PQsetSingleRowMode(connection) == 1
+    })
   }
 
+  // ===== POLLING =============================================================
+
+  /// Wait until reads from or writes to the connection will not block.
+  ///
+  pub fn poll(&self, interest: PollingInterest, timeout: Option<Duration>) -> Result<(), String> {
+    self.with_connection(|connection| {
+      let fd = unsafe { pq_sys::PQsocket(connection) };
+
+      println!("POLLING ON FD {} FOR {:?}", fd, interest);
+
+      let key = POLLER_KEY.fetch_add(1, Ordering::Relaxed);
+
+      let event = match interest {
+        PollingInterest::Readable => Event::readable(key),
+        PollingInterest::Writable => Event::writable(key),
+      };
+
+      let poller = Poller::new()
+        .or_else(| err | Err(format!("Error creating poller: {}", err)))?;
+
+      let source = unsafe {
+        let source = BorrowedFd::borrow_raw(fd);
+        poller.add(&source, event)
+          .or_else(| err | Err(format!("Error adding to poller: {}", err)))?;
+        source
+      };
+
+      let mut events = Events::new();
+      poller.wait(&mut events, timeout)
+        .or_else(| err | Err(format!("Error waiting on poller: {}", err)))?;
+
+      poller.delete(&source)
+        .or_else(| err | Err(format!("Error deleting poller: {}", err)))?;
+
+      Ok(())
+    })
+  }
 }

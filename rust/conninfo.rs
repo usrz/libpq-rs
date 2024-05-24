@@ -7,43 +7,16 @@ pub struct ConnInfo {
   values: Vec<(String, String)>,
 }
 
-impl ConnInfo {
+impl TryFrom<&str> for ConnInfo {
+  type Error = String;
 
-  pub unsafe fn from_raw(raw: *mut pq_sys::_PQconninfoOption) -> Result<ConnInfo, String> {
-    let mut values = Vec::<(String, String)>::new();
-
-    for x in 0.. {
-      if (*raw.offset(x)).keyword.is_null() {
-        break;
-      } else {
-        let ptr = raw.offset(x);
-
-        if (*ptr).val.is_null() {
-          continue;
-        }
-
-        let key = utils::to_string((* ptr).keyword)?;
-        let value = utils::to_string((* ptr).val)?;
-
-        values.push((key, value));
-      }
-    }
-
-    Ok(Self { values })
-  }
-
-  pub fn from_defaults() -> Result<ConnInfo, String> {
+  /// Create a [`ConnInfo`] struct from a PostgreSQL connection string (DSN).
+  ///
+  /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
+  ///
+  fn try_from(value: &str) -> Result<Self, Self::Error> {
     unsafe {
-      let raw = pq_sys::PQconndefaults();
-      let info = Self::from_raw(raw);
-      pq_sys::PQconninfoFree(raw);
-      info
-    }
-  }
-
-  pub fn from_str(dsn: &str) -> Result<ConnInfo, String> {
-    unsafe {
-      let str = dsn.as_bytes().as_ptr() as *const c_char;
+      let str = value.as_bytes().as_ptr() as *const c_char;
       let mut err = std::ptr::null_mut();
       let raw = pq_sys::PQconninfoParse(str, &mut err);
 
@@ -55,14 +28,84 @@ impl ConnInfo {
           Err(format!("Error parsing DSN string: {}", msg))
         }
       } else {
-        let info = Self::from_raw(raw)?;
+        let info = Self::try_from(raw)?;
         pq_sys::PQconninfoFree(raw);
         Ok(info)
       }
     }
   }
+}
 
-  pub fn from_object<'a, C: Context<'a>>(
+impl TryFrom<String> for ConnInfo {
+  type Error = String;
+
+  /// Create a [`ConnInfo`] struct from a PostgreSQL connection string (DSN).
+  ///
+  /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
+  ///
+  fn try_from(value: String) -> Result<Self, Self::Error> {
+    ConnInfo::try_from(value.as_str())
+  }
+}
+
+impl TryFrom<*mut pq_sys::_PQconninfoOption> for ConnInfo {
+  type Error = String;
+
+  /// Create a [`ConnInfo`] struct from a LibPQ `PQconninfoOption` pointer.
+  ///
+  /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
+  ///
+  fn try_from(raw: *mut pq_sys::_PQconninfoOption) -> Result<Self, Self::Error> {
+    let mut values = Vec::<(String, String)>::new();
+
+    unsafe {
+      for x in 0.. {
+        if (*raw.offset(x)).keyword.is_null() {
+          break;
+        } else {
+          let ptr = raw.offset(x);
+
+          if (*ptr).val.is_null() {
+            continue;
+          }
+
+          let key = utils::to_string((* ptr).keyword)?;
+          let value = utils::to_string((* ptr).val)?;
+
+          values.push((key, value));
+        }
+      }
+    }
+
+    Ok(Self { values })
+  }
+}
+
+impl ConnInfo {
+  /// Create a [`ConnInfo`] struct from LibPQ's own defaults.
+  ///
+  /// This panics if the structure returned by `PQconndefaults` can not be
+  /// safely converted into a [`ConnInfo`] struct.
+  ///
+  /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
+  ///
+  pub fn new() -> Result<Self, String> {
+    unsafe {
+      let raw = pq_sys::PQconndefaults();
+      Self::try_from(raw)
+        .and_then(| info | {
+          pq_sys::PQconninfoFree(raw);
+          Ok(info)
+        }).or_else(|msg| {
+          pq_sys::PQconninfoFree(raw);
+          Err(format!("Unable to access LibPQ defaults: {}", msg))
+        })
+    }
+  }
+
+  /// Create a [`ConnInfo`] struct from a JavaScript object.
+  ///
+  pub fn from_jsobject<'a, C: Context<'a>>(
     cx: &mut C,
     object: Handle<JsObject>
   ) -> NeonResult<ConnInfo> {
@@ -88,6 +131,8 @@ impl ConnInfo {
     Ok(Self { values })
   }
 
+  /// Convert a [`ConnInfo`] struct into a JavaScript object.
+  ///
   pub fn to_object<'a, C: Context<'a>>(
     &self,
     cx: &mut C,
