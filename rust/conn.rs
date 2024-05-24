@@ -3,16 +3,13 @@
 use crate::connect::ArcConnection;
 use neon::prelude::*;
 
-/// Convenience macro to extract a `Handle<JsBox<Connection>>` from the first
-/// argument passed to a JavaScript function implemented here.
+/// Convenience macro to extract from a `Handle<<JsBox<ArcConnection>>>`.
 ///
 macro_rules! connection_arg_0 {
   ( $x:expr ) => {
     $x.argument::<JsBox<ArcConnection>>(0)?.connection()
   };
 }
-
-// pub use connection_arg_0;
 
 // ===== CONNECTION ============================================================
 
@@ -27,7 +24,7 @@ pub fn pq_conninfo(mut cx: FunctionContext) -> JsResult<JsObject> {
   let info = connection.pq_conninfo()
     .or_else(|msg| cx.throw_error(msg))?;
 
-  info.to_object(&mut cx)
+  info.to_js_object(&mut cx)
 }
 
 // ===== STATUS ================================================================

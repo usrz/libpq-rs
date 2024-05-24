@@ -1,13 +1,14 @@
 use crate::sys::*;
 use neon::prelude::*;
 use std::os::raw::c_char;
+use std::slice::Iter;
 
 #[derive(Debug)]
-pub struct ConnInfo {
+pub struct Conninfo {
   values: Vec<(String, String)>,
 }
 
-impl TryFrom<&str> for ConnInfo {
+impl TryFrom<&str> for Conninfo {
   type Error = String;
 
   /// Create a [`ConnInfo`] struct from a PostgreSQL connection string (DSN).
@@ -36,7 +37,7 @@ impl TryFrom<&str> for ConnInfo {
   }
 }
 
-impl TryFrom<String> for ConnInfo {
+impl TryFrom<String> for Conninfo {
   type Error = String;
 
   /// Create a [`ConnInfo`] struct from a PostgreSQL connection string (DSN).
@@ -44,11 +45,11 @@ impl TryFrom<String> for ConnInfo {
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
   fn try_from(value: String) -> Result<Self, Self::Error> {
-    ConnInfo::try_from(value.as_str())
+    Conninfo::try_from(value.as_str())
   }
 }
 
-impl TryFrom<*mut pq_sys::_PQconninfoOption> for ConnInfo {
+impl TryFrom<*mut pq_sys::_PQconninfoOption> for Conninfo {
   type Error = String;
 
   /// Create a [`ConnInfo`] struct from a LibPQ `PQconninfoOption` pointer.
@@ -81,7 +82,7 @@ impl TryFrom<*mut pq_sys::_PQconninfoOption> for ConnInfo {
   }
 }
 
-impl ConnInfo {
+impl Conninfo {
   /// Create a [`ConnInfo`] struct from LibPQ's own defaults.
   ///
   /// This panics if the structure returned by `PQconndefaults` can not be
@@ -105,10 +106,10 @@ impl ConnInfo {
 
   /// Create a [`ConnInfo`] struct from a JavaScript object.
   ///
-  pub fn from_jsobject<'a, C: Context<'a>>(
+  pub fn from_js_object<'a, C: Context<'a>>(
     cx: &mut C,
     object: Handle<JsObject>
-  ) -> NeonResult<ConnInfo> {
+  ) -> NeonResult<Conninfo> {
     let keys = object
       .get_own_property_names(cx)?
       .to_vec(cx)?;
@@ -133,13 +134,13 @@ impl ConnInfo {
 
   /// Convert a [`ConnInfo`] struct into a JavaScript object.
   ///
-  pub fn to_object<'a, C: Context<'a>>(
+  pub fn to_js_object<'a, C: Context<'a>>(
     &self,
     cx: &mut C,
   ) -> NeonResult<Handle<'a, JsObject>> {
     let object = cx.empty_object();
 
-    for (key, value) in self.values.iter() {
+    for (key, value) in self.iter() {
       let k = cx.string(key);
       let v = cx.string(value);
       object.set(cx, k, v)?;
@@ -148,8 +149,9 @@ impl ConnInfo {
     Ok(object)
   }
 
-  pub fn iter(&self) -> std::slice::Iter<(String, String)> {
-    let q: std::slice::Iter<(String, String)> = self.values.iter();
-    q
+  /// Iterate into a [`ConnInfo`]'s own tuples.
+  ///
+  pub fn iter(&self) -> Iter<(String, String)> {
+    self.values.iter()
   }
 }

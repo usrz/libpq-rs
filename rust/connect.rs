@@ -1,5 +1,5 @@
 use crate::connection::Connection;
-use crate::conninfo::ConnInfo;
+use crate::conninfo::Conninfo;
 use crate::sys::*;
 use neon::prelude::*;
 use std::sync::Arc;
@@ -33,16 +33,16 @@ pub fn pq_connectdb_params(mut cx: FunctionContext) -> JsResult<JsPromise> {
 
   let info = {
     if let Ok(_) = arg.downcast::<JsUndefined, _>(&mut cx) {
-      ConnInfo::new()
+      Conninfo::new()
         .or_else(| msg: String | cx.throw_error(msg))
     } else if let Ok(_) = arg.downcast::<JsNull, _>(&mut cx) {
-      ConnInfo::new()
+      Conninfo::new()
         .or_else(| msg: String | cx.throw_error(msg))
     } else if let Ok(string) = arg.downcast::<JsString, _>(&mut cx) {
-      ConnInfo::try_from(string.value(&mut cx))
+      Conninfo::try_from(string.value(&mut cx))
         .or_else(| msg: String | cx.throw_error(msg))
     } else if let Ok(object) = arg.downcast::<JsObject, _>(&mut cx) {
-      ConnInfo::from_jsobject(&mut cx, object)
+      Conninfo::from_js_object(&mut cx, object)
     } else {
       let ptype = types::js_type_of(arg, &mut cx);
       cx.throw_error(format!("Invalid argument (0) of type \"{}\"", ptype))

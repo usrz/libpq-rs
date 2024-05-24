@@ -1,7 +1,7 @@
 //! Wrap the LibPQ function in a slightly more convenient _struct_.
 
 use std::{os::fd::BorrowedFd, sync::{atomic::{AtomicUsize, Ordering}, RwLock}, time::Duration};
-use crate::conninfo::ConnInfo;
+use crate::conninfo::Conninfo;
 use crate::sys::*;
 use polling::{Event, Events, Poller};
 use pq_sys::pg_conn;
@@ -183,7 +183,7 @@ impl TryFrom<&str> for Connection {
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
   fn try_from(value: &str) -> Result<Self, Self::Error> {
-    Connection::try_from(ConnInfo::try_from(value)?)
+    Connection::try_from(Conninfo::try_from(value)?)
   }
 }
 
@@ -197,18 +197,18 @@ impl TryFrom<String> for Connection {
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
   fn try_from(value: String) -> Result<Self, Self::Error> {
-    Connection::try_from(ConnInfo::try_from(value)?)
+    Connection::try_from(Conninfo::try_from(value)?)
   }
 }
 
-impl TryFrom<ConnInfo> for Connection {
+impl TryFrom<Conninfo> for Connection {
   type Error = String;
 
   /// Makes a new connection to the database server.
   ///
   /// See [`PQconnectdbParams`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS)
   ///
-  fn try_from(info: ConnInfo) -> Result<Self, String> {
+  fn try_from(info: Conninfo) -> Result<Self, String> {
     let mut keys = Vec::<&str>::from([ ENCODING_KEY ]);
     let mut values = Vec::<&str>::from([ ENCODING_VAL ]);
 
@@ -275,7 +275,7 @@ impl Connection {
   /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
   ///
   pub fn new() -> Result<Self, String> {
-    let info = ConnInfo::new()?;
+    let info = Conninfo::new()?;
     Connection::try_from(info)
   }
 
@@ -283,9 +283,9 @@ impl Connection {
   ///
   /// See [`PQconninfo`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFO)
   ///
-  pub fn pq_conninfo(&self) -> Result<ConnInfo, String> {
+  pub fn pq_conninfo(&self) -> Result<Conninfo, String> {
     self.with_connection(|connection| unsafe {
-      ConnInfo::try_from(pq_sys::PQconninfo(connection))
+      Conninfo::try_from(pq_sys::PQconninfo(connection))
     })
   }
 
