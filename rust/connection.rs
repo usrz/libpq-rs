@@ -418,7 +418,7 @@ impl Connection {
         )
       };
 
-      if (old_pointer.is_null()) {
+      if old_pointer.is_null() {
         debug!("Not reclaiming old notice processor at {:?}", old_pointer);
       } else {
         debug!("Reclaiming old notice processor at {:?}", old_pointer);
