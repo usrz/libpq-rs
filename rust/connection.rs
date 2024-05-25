@@ -2,23 +2,33 @@
 
 use crate::conninfo::Conninfo;
 use crate::sys::*;
+use crate::sys::utils::NullTerminatedArray;
+use crate::debug;
 use polling::Event;
 use polling::Events;
 use polling::Poller;
 use pq_sys::pg_conn;
 use std::os::fd::BorrowedFd;
+use std::os::raw::c_char;
+use std::os::raw::c_void;
+use std::ptr::null_mut;
 use std::sync::RwLock;
+use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use self::utils::NullTerminatedArray;
 
+/// Key for our `client_encoding` which must be always `UTF8`
 static ENCODING_KEY: &str = "client_encoding";
+/// Value for our `client_encoding` which must be always `UTF8`
 static ENCODING_VAL: &str = "UTF8";
+/// Poller key, shared atomically across all threads that might poll on the
+/// connection (we increment this every time we do a new `poll`).
 static POLLER_KEY: AtomicUsize = AtomicUsize::new(1);
 
-
-// ===== ENUMS =================================================================
+/* ========================================================================== *
+ * ENUMS                                                                      *
+ * ========================================================================== */
 
 /// Status of a PostgreSQL connection.
 ///
@@ -152,14 +162,95 @@ pub enum PollingInterest {
   Readable = 1,
 }
 
-// ===== DEFINITION ============================================================
+/* ========================================================================== *
+ * NOTICE PROCESSING                                                          *
+ * ========================================================================== */
+
+/// This is our "shared" notice processor. It's a basic function that will be
+/// passed to LibPQ and will be invoked with a `NoticeProcessorWrapper` pointer.
+///
+unsafe extern "C" fn shared_notice_processor(data: *mut c_void, message: *const c_char) {
+  let string = utils::to_string(message)
+    .and_then(|str| Ok(str.trim().to_string()))
+    .unwrap_or_else(|error| format!("Error converting notice message: {}", error));
+
+  debug!("shared notice processor: {}", string);
+
+  // Convert our "data" pointer into a pointer to Connection and notify
+  let wrapper = data as *mut NoticeProcessorWrapper;
+  let this = unsafe { &*(wrapper) };
+  this.process_notice(string);
+}
+
+/// The trait that defines a processor of notification events from LibPQ.
+///
+pub trait NoticeProcessor {
+  fn process_notice(&self, message: String) -> ();
+}
+
+/// Wrap a [`NoticeProcessor`] trait to safely decouple LibPQ's "extern C"
+/// function into a Rust object.
+///
+/// Maybe there's a better way to handle this (and we can just get rid of this
+/// wrapper altogether) but so far I haven't thought of a better way...
+///
+struct NoticeProcessorWrapper {
+  notice_processor: Box<dyn NoticeProcessor>
+}
+
+impl From::<Box<dyn NoticeProcessor>> for NoticeProcessorWrapper {
+  fn from(notice_processor: Box<dyn NoticeProcessor>) -> Self {
+    NoticeProcessorWrapper{ notice_processor }
+  }
+}
+
+impl NoticeProcessorWrapper {
+  fn process_notice(&self, message: String) -> () {
+    debug!("notice processor wrapper: {}", message);
+    self.notice_processor.process_notice(message);
+  }
+}
+
+impl Drop for NoticeProcessorWrapper {
+  fn drop(&mut self) {
+    debug!("Dropping NoticeProcessorWrapper");
+  }
+}
+
+/// The default notice processor simply dumps notices to the console...
+///
+struct DefaultNoticeProcessor {}
+
+impl DefaultNoticeProcessor {
+  fn new() -> Self {
+    debug!("Creating DefaultNoticeProcessor");
+    DefaultNoticeProcessor{}
+  }
+}
+
+impl NoticeProcessor for DefaultNoticeProcessor {
+  fn process_notice(&self, message: String) -> () {
+    println!(">>> from Postgres >>> {}", message);
+  }
+}
+
+impl Drop for DefaultNoticeProcessor {
+  fn drop(&mut self) {
+    debug!("Dropping DefaultNoticeProcessor");
+  }
+}
+
+
+/* ========================================================================== *
+ * CONNECTION                                                                 *
+ * ========================================================================== */
 
 /// Struct wrapping the LibPQ functions related to a _connection_.
 ///
-/// Normally this is wrapped in a Neon `JsBox` and managed by NodeJS.
-///
+#[derive(Debug)]
 pub struct Connection {
   connection: RwLock<*mut pq_sys::pg_conn>,
+  notice_processor: AtomicPtr<NoticeProcessorWrapper>,
 }
 
 // ===== TRAITS ================================================================
@@ -173,11 +264,11 @@ impl Drop for Connection {
     let mut connection = self.connection.write().unwrap();
 
     if ! connection.is_null() {
-      println!("Dropping connection");
+      debug!("Dropping Connection {:?}", connection);
       unsafe { pq_sys::PQfinish(*connection) };
       *connection = std::ptr::null_mut();
     } else {
-      println!("Connection already dropped");
+      debug!("Connection already dropped");
     }
   }
 }
@@ -217,6 +308,7 @@ impl TryFrom<Conninfo> for Connection {
   ///
   /// See [`PQconnectdbParams`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS)
   ///
+  ///
   fn try_from(info: Conninfo) -> Result<Self, String> {
     let mut keys = Vec::<&str>::from([ ENCODING_KEY ]);
     let mut values = Vec::<&str>::from([ ENCODING_VAL ]);
@@ -237,10 +329,17 @@ impl TryFrom<Conninfo> for Connection {
       let conn = pq_sys::PQconnectdbParams(k.as_vec().as_ptr(), v.as_vec().as_ptr(), 0);
       match conn.is_null() {
         true => Err("Unable to create connection"),
-        _ => Ok(Connection { connection: RwLock::new(conn) })
-        // TODO: notice processor!!!
+        _ => {
+          Ok(Connection {
+            connection: RwLock::new(conn),
+            notice_processor: AtomicPtr::new(null_mut()),
+          })
+        }
       }
     }?;
+
+    let notice_processor = DefaultNoticeProcessor::new();
+    connection.pq_set_notice_processor(Box::new(notice_processor));
 
     match connection.pq_status() {
       ConnectionStatus::Ok => Ok(connection),
@@ -296,6 +395,36 @@ impl Connection {
     self.with_connection(|connection| unsafe {
       Conninfo::try_from(pq_sys::PQconninfo(connection))
     })
+  }
+
+  /// Sets the current notice processor.
+  ///
+  /// See [PQnoticeProcessor](https://www.postgresql.org/docs/current/libpq-notice-processing.html)
+  pub fn pq_set_notice_processor(&self, notice_processor: Box<dyn NoticeProcessor>) {
+    self.with_connection(|connection| {
+      let wrapper = NoticeProcessorWrapper::from(notice_processor);
+
+      let boxed = Box::new(wrapper);
+      let pointer = Box::into_raw(boxed);
+      let old_pointer = self.notice_processor.swap(pointer, Ordering::Relaxed);
+
+      debug!("Setting up new notice processor at {:?}", pointer);
+
+      unsafe {
+        pq_sys::PQsetNoticeProcessor(
+          connection,
+          Some(shared_notice_processor),
+          pointer as *mut c_void,
+        )
+      };
+
+      if (old_pointer.is_null()) {
+        debug!("Not reclaiming old notice processor at {:?}", old_pointer);
+      } else {
+        debug!("Reclaiming old notice processor at {:?}", old_pointer);
+        drop(unsafe { Box::from_raw(old_pointer) });
+      }
+    });
   }
 
   // ===== STATUS ==============================================================
