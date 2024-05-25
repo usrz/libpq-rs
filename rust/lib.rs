@@ -47,6 +47,7 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
 
   cx.export_function("pq_connectdb_params", crate::conn::pq_connectdb_params)?;
   cx.export_function("pq_conninfo", crate::conn::pq_conninfo)?;
+  cx.export_function("pq_set_notice_processor", crate::conn::pq_set_notice_processor)?;
 
   // ===== STATUS ==============================================================
 
