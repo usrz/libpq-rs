@@ -12,7 +12,7 @@ pub struct Conninfo {
 }
 
 impl Default for Conninfo {
-  /// Create an empty [`ConnInfo`] struct.
+  /// Create an empty [`Conninfo`] struct.
   ///
   /// LibPQ will apply its defaults anyway whenever opening a connection.
   ///
@@ -24,7 +24,7 @@ impl Default for Conninfo {
 impl TryFrom<&str> for Conninfo {
   type Error = String;
 
-  /// Create a [`ConnInfo`] struct from a PostgreSQL connection string (DSN).
+  /// Create a [`Conninfo`] struct from a PostgreSQL connection string (DSN).
   ///
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
@@ -54,7 +54,7 @@ impl TryFrom<&str> for Conninfo {
 impl TryFrom<String> for Conninfo {
   type Error = String;
 
-  /// Create a [`ConnInfo`] struct from a PostgreSQL connection string (DSN).
+  /// Create a [`Conninfo`] struct from a PostgreSQL connection string (DSN).
   ///
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
@@ -66,7 +66,7 @@ impl TryFrom<String> for Conninfo {
 impl TryFrom<*mut pq_sys::_PQconninfoOption> for Conninfo {
   type Error = String;
 
-  /// Create a [`ConnInfo`] struct from a LibPQ `PQconninfoOption` pointer.
+  /// Create a [`Conninfo`] struct from a LibPQ `PQconninfoOption` pointer.
   ///
   /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
   ///
@@ -97,10 +97,10 @@ impl TryFrom<*mut pq_sys::_PQconninfoOption> for Conninfo {
 }
 
 impl Conninfo {
-  /// Create a [`ConnInfo`] struct from LibPQ's own defaults.
+  /// Create a [`Conninfo`] struct from LibPQ's own defaults.
   ///
   /// This panics if the structure returned by `PQconndefaults` can not be
-  /// safely converted into a [`ConnInfo`] struct.
+  /// safely converted into a [`Conninfo`] struct.
   ///
   /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
   ///
@@ -118,7 +118,7 @@ impl Conninfo {
     }
   }
 
-  /// Create a [`ConnInfo`] struct from a JavaScript object.
+  /// Create a [`Conninfo`] struct from a JavaScript object.
   ///
   pub fn from_js_object<'a, C: Context<'a>>(
     cx: &mut C,
@@ -140,7 +140,7 @@ impl Conninfo {
     Ok(Self { values })
   }
 
-  /// Convert a [`ConnInfo`] struct into a JavaScript object.
+  /// Convert a [`Conninfo`] struct into a JavaScript object.
   ///
   pub fn to_js_object<'a, C: Context<'a>>(
     &self,
@@ -157,7 +157,7 @@ impl Conninfo {
     Ok(object)
   }
 
-  /// Iterate into a [`ConnInfo`]'s own tuples.
+  /// Iterate into a [`Conninfo`]'s own tuples.
   ///
   pub fn iter(&self) -> Iter<(String, String)> {
     self.values.iter()
