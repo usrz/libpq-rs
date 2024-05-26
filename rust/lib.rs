@@ -3,7 +3,23 @@ use neon::prelude::*;
 pub mod conn;
 pub mod connection;
 pub mod conninfo;
-pub mod sys;
+pub mod ffi;
+
+/* ========================================================================== */
+
+#[cfg(debug_assertions)]
+#[macro_export]
+macro_rules! debug {
+  ($($arg:tt)*) => {{ println!(">>> LIBPQ DEBUG >>> {}", format!($($arg)*)) }}
+}
+
+#[cfg(not(debug_assertions))]
+#[macro_export]
+macro_rules! debug {
+  ($($arg:tt)*) => {{}}
+}
+
+/* ========================================================================== */
 
 /// Return the LibPQ version as a `String`
 ///
