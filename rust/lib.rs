@@ -3,6 +3,7 @@ use neon::prelude::*;
 pub mod conn;
 pub mod connection;
 pub mod conninfo;
+pub mod errors;
 pub mod ffi;
 
 /* ========================================================================== */
