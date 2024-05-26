@@ -1,11 +1,24 @@
-use crate::sys::*;
+use crate::ffi;
 use neon::prelude::*;
-use std::os::raw::c_char;
 use std::slice::Iter;
 
+/// A wrapper for an array of LibPQ's own `PQconninfoOption`.
+///
+/// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
+///
 #[derive(Debug)]
 pub struct Conninfo {
   values: Vec<(String, String)>,
+}
+
+impl Default for Conninfo {
+  /// Create an empty [`ConnInfo`] struct.
+  ///
+  /// LibPQ will apply its defaults anyway whenever opening a connection.
+  ///
+  fn default() -> Self {
+    Self{ values: Vec::new() }
+  }
 }
 
 impl TryFrom<&str> for Conninfo {
@@ -16,23 +29,24 @@ impl TryFrom<&str> for Conninfo {
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
   fn try_from(value: &str) -> Result<Self, Self::Error> {
-    unsafe {
-      let str = value.as_bytes().as_ptr() as *const c_char;
-      let mut err = std::ptr::null_mut();
-      let raw = pq_sys::PQconninfoParse(str, &mut err);
+    let str = ffi::to_cstring(value);
+    let mut err = std::ptr::null_mut();
 
-      if raw.is_null() {
-        if err.is_null() {
-          Err("Unknown error parsing DSN string".to_string())
-        } else {
-          let msg = utils::to_string(err)?;
-          Err(format!("Error parsing DSN string: {}", msg))
-        }
+    let raw = unsafe {
+      pq_sys::PQconninfoParse(str.as_ptr(), &mut err)
+    };
+
+    if raw.is_null() {
+      if err.is_null() {
+        Err("Unknown error parsing DSN string".to_string())
       } else {
-        let info = Self::try_from(raw)?;
-        pq_sys::PQconninfoFree(raw);
-        Ok(info)
+        let msg = ffi::to_string(err)?;
+        Err(format!("Error parsing DSN string: {}", msg))
       }
+    } else {
+      let info = Self::try_from(raw)?;
+      unsafe { pq_sys::PQconninfoFree(raw) };
+      Ok(info)
     }
   }
 }
@@ -45,7 +59,7 @@ impl TryFrom<String> for Conninfo {
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
   fn try_from(value: String) -> Result<Self, Self::Error> {
-    Conninfo::try_from(value.as_str())
+    Self::try_from(value.as_str())
   }
 }
 
@@ -70,8 +84,8 @@ impl TryFrom<*mut pq_sys::_PQconninfoOption> for Conninfo {
             continue;
           }
 
-          let key = utils::to_string((* ptr).keyword)?;
-          let value = utils::to_string((* ptr).val)?;
+          let key = ffi::to_string((* ptr).keyword)?;
+          let value = ffi::to_string((* ptr).val)?;
 
           values.push((key, value));
         }
@@ -90,7 +104,7 @@ impl Conninfo {
   ///
   /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
   ///
-  pub fn new() -> Result<Self, String> {
+  pub fn from_libpq_defaults() -> Result<Self, String> {
     unsafe {
       let raw = pq_sys::PQconndefaults();
       Self::try_from(raw)
@@ -117,15 +131,9 @@ impl Conninfo {
     let mut values = Vec::<(String, String)>::new();
     for k in keys {
       let key = k.downcast_or_throw::<JsString, _>(cx)?.value(cx);
-      let v = object.get_value(cx, k)?;
-      let value = v.downcast::<JsString, _>(cx)
-        .or_else(|_| {
-          let value_type = types::js_type_of(v, cx);
-          let message = format!("Invalid parameter value of type \"{}\" for key \"{}\"", value_type, key);
-          cx.throw_error(message)
-        })?
+      let value = object.get_value(cx, k)?
+        .downcast_or_throw::<JsString, _>(cx)?
         .value(cx);
-
       values.push((key, value));
     }
 
