@@ -9,6 +9,13 @@ use std::ptr::null;
  * CONVERSION FUNCTIONS                                                       *
  * ========================================================================== */
 
+/// Convert a standard null-terminated _string_ (in "C" parlance) into a Rust
+/// [`String`], ignoring any non-UTF8 sequences.
+///
+pub fn to_string_lossy(s: *const c_char) -> String {
+  unsafe { CStr::from_ptr(s).to_string_lossy().to_string() }
+}
+
 /// Attempt to convert a standard null-terminated _string_ (in "C" parlance)
 /// into a proper Rust [`String`], cloning the bytes.
 ///
@@ -33,14 +40,20 @@ pub fn to_cstring(s: &str) -> CString {
 
 /// A wrapper for an array of "C" strings with a null pointer at the end.
 ///
+#[derive(Debug)]
 pub struct NullTerminatedArray {
-  strings: Vec<String>,
+  strings: Vec<CString>,
 }
 
 impl From<Vec<String>> for NullTerminatedArray {
   /// Create a [`NullTerminatedArray`] from a vector of [`String`]s.
   ///
-  fn from(strings: Vec<String>) -> Self {
+  fn from(value: Vec<String>) -> Self {
+    let strings = value
+      .iter()
+      .map(|string| to_cstring(string))
+      .collect();
+
     Self{ strings }
   }
 }
@@ -48,10 +61,10 @@ impl From<Vec<String>> for NullTerminatedArray {
 impl From<Vec<&str>> for NullTerminatedArray {
   /// Create a [`NullTerminatedArray`] from a vector of borrowed [`str`]_ings_.
   ///
-  fn from(strings: Vec<&str>) -> Self {
-    let strings = strings
+  fn from(value: Vec<&str>) -> Self {
+    let strings = value
       .iter()
-      .map(|str| str.to_string())
+      .map(|str| to_cstring(str))
       .collect();
     Self{ strings }
   }
@@ -62,15 +75,17 @@ impl NullTerminatedArray {
   /// strings.
   ///
   pub unsafe fn from_raw(raw: *const *const c_char) -> Result<Self, String> {
-    let mut strings = Vec::<String>::new();
+    let mut strings = Vec::<CString>::new();
 
     for x in 0.. {
       if (*raw.offset(x)).is_null() {
         break;
       } else {
         let ptr = *raw.offset(x);
-        let string = to_string(ptr)?;
-        strings.push(string);
+        let cstr = CStr::from_ptr(ptr);
+        let vec = cstr.to_bytes().to_vec();
+        let cstring = CString::from_vec_unchecked(vec);
+        strings.push(cstring);
       }
     }
 
@@ -82,7 +97,7 @@ impl NullTerminatedArray {
   pub fn as_vec(&self) -> Vec<*const c_char> {
     let mut pointers = self.strings
       .iter()
-      .map(|string| to_cstring(string).as_ptr())
+      .map(|cstring| cstring.as_ptr())
       .collect::<Vec<_>>();
 
     pointers.push(null());
