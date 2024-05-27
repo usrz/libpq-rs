@@ -83,7 +83,7 @@ pub unsafe extern "C" fn shared_notice_processor(data: *mut c_void, result: *con
   this.process_notice(severity, message.to_string());
 }
 
-/// The trait that defines a processor of notification events from LibPQ.
+/// The trait that defines a processor of notice events from LibPQ.
 ///
 pub trait NoticeProcessor: Debug {
   fn process_notice(&self, severity: NoticeSeverity, message: String) -> ();

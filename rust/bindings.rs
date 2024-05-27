@@ -11,6 +11,7 @@ use neon::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
 use crate::notices::NoticeSeverity;
+use crate::notifications::PQNotificationProcessor;
 
 /* ========================================================================== *
  * STRUCTS                                                                    *
@@ -64,15 +65,15 @@ impl Finalize for JsResponse {
 
 /* ========================================================================== */
 
-pub struct  JsNoticeProcessor {
+pub struct  JsProcessor {
   id: usize,
   channel: Channel,
   processor: Arc<Root<JsFunction>>,
 }
 
-debug_self!(JsNoticeProcessor, id);
+debug_self!(JsProcessor, id);
 
-impl JsNoticeProcessor {
+impl JsProcessor {
   fn new<'a, C: Context<'a>>(cx: &mut C, processor: Handle<JsFunction>) -> Self {
     // Create a channel, and allow the Node event loop to exit
     let mut channel = cx.channel();
@@ -86,12 +87,12 @@ impl JsNoticeProcessor {
   }
 }
 
-impl NoticeProcessor for JsNoticeProcessor {
+impl NoticeProcessor for JsProcessor {
   fn process_notice(&self, severity: NoticeSeverity, message: String) -> () {
     let proc: Arc<Root<JsFunction>> = self.processor.clone();
 
     self.channel.send(move |mut cx| {
-      debug!("Message from JS notice processor: {}", message);
+      debug!("Message from JS processor: {}", message);
 
       let severity = match severity {
         NoticeSeverity::Debug => cx.string("debug").as_value(&mut cx),
@@ -110,7 +111,25 @@ impl NoticeProcessor for JsNoticeProcessor {
   }
 }
 
-impl Drop for JsNoticeProcessor {
+impl PQNotificationProcessor for JsProcessor {
+  fn process_notice(&self, notification: crate::notifications::PQNotification) -> () {
+    let proc: Arc<Root<JsFunction>> = self.processor.clone();
+
+    self.channel.send(move |mut cx| {
+      debug!("Notification from JS processor: {:?}", notification);
+
+      let severity = cx.string("notification").as_value(&mut cx);
+
+      let processor = proc.to_inner(&mut cx);
+      let notification = notification.to_js_object(&mut cx)?.as_value(&mut cx);
+      let null = cx.null();
+
+      processor.call(&mut cx, null, vec![severity, notification]).and(Ok(()))
+    });
+  }
+}
+
+impl Drop for JsProcessor {
   fn drop(&mut self) {
     debug_drop!(self);
   }
@@ -208,7 +227,7 @@ pub fn pq_conninfo(mut cx: FunctionContext) -> JsResult<JsObject> {
 pub fn pq_set_notice_processor(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   let connection = connection_arg_0!(cx);
   let processor = cx.argument::<JsFunction>(1)?;
-  let processor = JsNoticeProcessor::new(&mut cx, processor);
+  let processor = JsProcessor::new(&mut cx, processor);
   connection.pq_set_notice_processor(Box::new(processor));
   Ok(cx.undefined())
 }
