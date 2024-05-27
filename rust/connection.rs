@@ -1,18 +1,16 @@
-//! Wrap the LibPQ function in a slightly more convenient _struct_.
+//! Wrap LibPQ's own `PGconn`.
 
 use crate::conninfo::Conninfo;
-use crate::sys::*;
-use crate::sys::utils::NullTerminatedArray;
 use crate::debug;
+use crate::errors::*;
+use crate::ffi;
 use polling::Event;
 use polling::Events;
 use polling::Poller;
-use pq_sys::pg_conn;
 use std::os::fd::BorrowedFd;
 use std::os::raw::c_char;
 use std::os::raw::c_void;
 use std::ptr::null_mut;
-use std::sync::RwLock;
 use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
@@ -170,11 +168,11 @@ pub enum PollingInterest {
 /// passed to LibPQ and will be invoked with a `NoticeProcessorWrapper` pointer.
 ///
 unsafe extern "C" fn shared_notice_processor(data: *mut c_void, message: *const c_char) {
-  let string = utils::to_string(message)
+  let string = ffi::to_string(message)
     .and_then(|str| Ok(str.trim().to_string()))
     .unwrap_or_else(|error| format!("Error converting notice message: {}", error));
 
-  debug!("shared notice processor: {}", string);
+  debug!("Message from shared notice processor: {}", string);
 
   // Convert our "data" pointer into a pointer to Connection and notify
   let wrapper = data as *mut NoticeProcessorWrapper;
@@ -206,7 +204,7 @@ impl From::<Box<dyn NoticeProcessor>> for NoticeProcessorWrapper {
 
 impl NoticeProcessorWrapper {
   fn process_notice(&self, message: String) -> () {
-    debug!("notice processor wrapper: {}", message);
+    debug!("Message from notice processor wrapper: {}", message);
     self.notice_processor.process_notice(message);
   }
 }
@@ -249,7 +247,7 @@ impl Drop for DefaultNoticeProcessor {
 ///
 #[derive(Debug)]
 pub struct Connection {
-  connection: RwLock<*mut pq_sys::pg_conn>,
+  connection: *mut pq_sys::pg_conn,
   notice_processor: AtomicPtr<NoticeProcessorWrapper>,
 }
 
@@ -261,20 +259,13 @@ impl Drop for Connection {
   /// See [`PQfinish`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQFINISH)
   ///
   fn drop(&mut self) {
-    let mut connection = self.connection.write().unwrap();
-
-    if ! connection.is_null() {
-      debug!("Dropping Connection {:?}", connection);
-      unsafe { pq_sys::PQfinish(*connection) };
-      *connection = std::ptr::null_mut();
-    } else {
-      debug!("Connection already dropped");
-    }
+    debug!("Dropping {:?}", self);
+    unsafe { pq_sys::PQfinish(self.connection) };
   }
 }
 
 impl TryFrom<&str> for Connection {
-  type Error = String;
+  type Error = PQError;
 
   /// Makes a new connection to the database server using a PostgreSQL
   /// connection string (DSN).
@@ -282,13 +273,13 @@ impl TryFrom<&str> for Connection {
   /// See [`PQconnectdbParams`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS)
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
-  fn try_from(value: &str) -> Result<Self, Self::Error> {
+  fn try_from(value: &str) -> PQResult<Self> {
     Connection::try_from(Conninfo::try_from(value)?)
   }
 }
 
 impl TryFrom<String> for Connection {
-  type Error = String;
+  type Error = PQError;
 
   /// Makes a new connection to the database server using a PostgreSQL
   /// connection string (DSN).
@@ -296,20 +287,20 @@ impl TryFrom<String> for Connection {
   /// See [`PQconnectdbParams`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS)
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
-  fn try_from(value: String) -> Result<Self, Self::Error> {
+  fn try_from(value: String) -> PQResult<Self> {
     Connection::try_from(Conninfo::try_from(value)?)
   }
 }
 
 impl TryFrom<Conninfo> for Connection {
-  type Error = String;
+  type Error = PQError;
 
   /// Makes a new connection to the database server.
   ///
   /// See [`PQconnectdbParams`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS)
   ///
   ///
-  fn try_from(info: Conninfo) -> Result<Self, String> {
+  fn try_from(info: Conninfo) -> PQResult<Self> {
     let mut keys = Vec::<&str>::from([ ENCODING_KEY ]);
     let mut values = Vec::<&str>::from([ ENCODING_VAL ]);
 
@@ -322,19 +313,19 @@ impl TryFrom<Conninfo> for Connection {
       values.push(value.as_str());
     }
 
-    let k = utils::NullTerminatedArray::new(&keys);
-    let v = utils::NullTerminatedArray::new(&values);
+    let k = ffi::NullTerminatedArray::from(keys);
+    let v = ffi::NullTerminatedArray::from(values);
 
     let connection = unsafe {
-      let conn = pq_sys::PQconnectdbParams(k.as_vec().as_ptr(), v.as_vec().as_ptr(), 0);
-      match conn.is_null() {
+      let connection = pq_sys::PQconnectdbParams(
+        k.as_vec().as_ptr(),
+        v.as_vec().as_ptr(),
+        0);
+      let notice_processor = AtomicPtr::new(null_mut());
+
+      match connection.is_null() {
         true => Err("Unable to create connection"),
-        _ => {
-          Ok(Connection {
-            connection: RwLock::new(conn),
-            notice_processor: AtomicPtr::new(null_mut()),
-          })
-        }
+        _ => Ok(Connection { connection, notice_processor })
       }
     }?;
 
@@ -343,11 +334,7 @@ impl TryFrom<Conninfo> for Connection {
 
     match connection.pq_status() {
       ConnectionStatus::Ok => Ok(connection),
-      _ => {
-        let message = connection.pq_error_message()
-        .unwrap_or("Unknown error".to_string());
-        Err(message)
-      }
+      _ => Err(PQError::from(&connection)),
     }
   }
 }
@@ -358,22 +345,6 @@ unsafe impl Sync for Connection {}
 // ===== IMPL ==================================================================
 
 impl Connection {
-  /// Execute closure read-locked on connection
-  ///
-  #[inline(always)]
-  fn with_connection<O, E>(&self, execute: E) -> O
-  where
-    E: FnOnce(*mut pg_conn) -> O
-  {
-    let result = self.connection.read();
-    match result {
-      Err(_) => panic!("Unable to access connection"),
-      Ok(guard) => {
-        if guard.is_null() { panic!("Connection closed") };
-        execute(*guard)
-      }
-    }
-  }
 
   // ===== CONNECTION ==========================================================
 
@@ -382,49 +353,44 @@ impl Connection {
   /// See [`PQconnectdbParams`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS)
   /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
   ///
-  pub fn new() -> Result<Self, String> {
-    let info = Conninfo::new()?;
-    Connection::try_from(info)
+  pub fn new() -> PQResult<Self> {
+    Connection::try_from(Conninfo::default())
   }
 
   /// Returns the connection options used by a live connection.
   ///
   /// See [`PQconninfo`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFO)
   ///
-  pub fn pq_conninfo(&self) -> Result<Conninfo, String> {
-    self.with_connection(|connection| unsafe {
-      Conninfo::try_from(pq_sys::PQconninfo(connection))
-    })
+  pub fn pq_conninfo(&self) -> PQResult<Conninfo> {
+    unsafe { Conninfo::try_from(pq_sys::PQconninfo(self.connection)) }
   }
 
   /// Sets the current notice processor.
   ///
   /// See [PQnoticeProcessor](https://www.postgresql.org/docs/current/libpq-notice-processing.html)
   pub fn pq_set_notice_processor(&self, notice_processor: Box<dyn NoticeProcessor>) {
-    self.with_connection(|connection| {
-      let wrapper = NoticeProcessorWrapper::from(notice_processor);
+    let wrapper = NoticeProcessorWrapper::from(notice_processor);
 
-      let boxed = Box::new(wrapper);
-      let pointer = Box::into_raw(boxed);
-      let old_pointer = self.notice_processor.swap(pointer, Ordering::Relaxed);
+    let boxed = Box::new(wrapper);
+    let pointer = Box::into_raw(boxed);
+    let old_pointer = self.notice_processor.swap(pointer, Ordering::Relaxed);
 
-      debug!("Setting up new notice processor at {:?}", pointer);
+    debug!("Setting up new notice processor at {:?}", pointer);
 
-      unsafe {
-        pq_sys::PQsetNoticeProcessor(
-          connection,
-          Some(shared_notice_processor),
-          pointer as *mut c_void,
-        )
-      };
+    unsafe {
+      pq_sys::PQsetNoticeProcessor(
+        self.connection,
+        Some(shared_notice_processor),
+        pointer as *mut c_void,
+      )
+    };
 
-      if old_pointer.is_null() {
-        debug!("Not reclaiming old notice processor at {:?}", old_pointer);
-      } else {
-        debug!("Reclaiming old notice processor at {:?}", old_pointer);
-        drop(unsafe { Box::from_raw(old_pointer) });
-      }
-    });
+    if old_pointer.is_null() {
+      debug!("Not reclaiming old notice processor at {:?}", old_pointer);
+    } else {
+      debug!("Reclaiming old notice processor at {:?}", old_pointer);
+      drop(unsafe { Box::from_raw(old_pointer) });
+    }
   }
 
   // ===== STATUS ==============================================================
@@ -434,9 +400,7 @@ impl Connection {
   /// See [`PQstatus`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSTATUS)
   ///
   pub fn pq_status(&self) -> ConnectionStatus {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQstatus(connection).into()
-    })
+    unsafe { pq_sys::PQstatus(self.connection).into() }
   }
 
   /// Returns the current in-transaction status of the server.
@@ -444,9 +408,7 @@ impl Connection {
   /// See [`PQtransactionStatus`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQTRANSACTIONSTATUS)
   ///
   pub fn pq_transaction_status(&self) -> TransactionStatus {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQtransactionStatus(connection).into()
-    })
+    unsafe { pq_sys::PQtransactionStatus(self.connection).into() }
   }
 
   /// Returns the server version as a `String`.
@@ -454,8 +416,8 @@ impl Connection {
   /// See [`PQserverVersion`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSERVERVERSION)
   ///
   pub fn pq_server_version(&self) -> Option<String> {
-    self.with_connection(|connection| unsafe {
-      match pq_sys::PQserverVersion(connection) {
+    unsafe {
+      match pq_sys::PQserverVersion(self.connection) {
         0 => None,
         version => {
           let major = version / 10000;
@@ -463,7 +425,7 @@ impl Connection {
           Some(format!("{major}.{minor}"))
         },
       }
-    })
+    }
   }
 
   /// Returns the error message most recently generated by an operation on the connection.
@@ -471,17 +433,17 @@ impl Connection {
   /// See [`PQerrorMessage`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQERRORMESSAGE)
   ///
   pub fn pq_error_message(&self) -> Option<String> {
-    self.with_connection(|connection| unsafe {
-      let message = pq_sys::PQerrorMessage(connection);
+    unsafe {
+      let message = pq_sys::PQerrorMessage(self.connection);
 
       if message.is_null() { return None }
 
-      let msg = utils::to_str(message)
-        .unwrap_or("Unable to decode error message");
+      let msg = ffi::to_string(message)
+        .unwrap_or("Unable to decode error message".to_string());
 
       if msg.is_empty() { return None }
       Some(msg.trim().to_string())
-    })
+    }
   }
 
   /// Obtains the file descriptor number of the connection socket to the server.
@@ -489,9 +451,7 @@ impl Connection {
   /// See [`PQsocket`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSOCKET)
   ///
   pub fn pq_socket(&self) -> i32 {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQsocket(connection)
-    })
+    unsafe { pq_sys::PQsocket(self.connection) }
   }
 
   /// Returns the process ID (PID) of the backend process handling this connection.
@@ -499,9 +459,7 @@ impl Connection {
   /// See [`PQbackendPID`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQBACKENDPID)
   ///
   pub fn pq_backend_pid(&self) -> i32 {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQbackendPID(connection)
-    })
+    unsafe { pq_sys::PQbackendPID(self.connection) }
   }
 
   /// Returns `true` if the connection uses SSL, `false` if not.
@@ -509,9 +467,7 @@ impl Connection {
   /// See [`PQsslInUse`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSSLINUSE)
   ///
   pub fn pq_ssl_in_use(&self) -> bool {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQsslInUse(connection) != 0
-    })
+    unsafe { pq_sys::PQsslInUse(self.connection) != 0 }
   }
 
   /// Returns SSL-related information about the connection.
@@ -522,29 +478,29 @@ impl Connection {
   /// See [`PQsslAttribute`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSSLATTRIBUTE)
   /// See [`PQsslAttributeNames`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSSLATTRIBUTENAMES)
   ///
-  pub fn pq_ssl_attributes(&self) -> Result<Vec<(String, String)>, String> {
-    self.with_connection(|connection| unsafe {
+  pub fn pq_ssl_attributes(&self) -> PQResult<Vec<(String, String)>> {
+    unsafe {
       let mut strings = Vec::<(String, String)>::new();
-      let raw = pq_sys::PQsslAttributeNames(connection);
+      let raw = pq_sys::PQsslAttributeNames(self.connection);
 
       for x in 0.. {
         if (*raw.offset(x)).is_null() {
           break;
         } else {
           let key_ptr = *raw.offset(x);
-          let val_ptr = pq_sys::PQsslAttribute(connection, key_ptr);
+          let val_ptr = pq_sys::PQsslAttribute(self.connection, key_ptr);
           if val_ptr.is_null() {
             continue;
           }
 
-          let key = utils::to_string(key_ptr)?;
-          let val = utils::to_string(val_ptr)?;
+          let key = ffi::to_string(key_ptr)?;
+          let val = ffi::to_string(val_ptr)?;
           strings.push((key, val));
         }
       }
 
       Ok(strings)
-    })
+    }
   }
 
   // ===== ASYNC ===============================================================
@@ -553,13 +509,13 @@ impl Connection {
   ///
   /// See [`PQconsumeInput`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQCONSUMEINPUT)
   ///
-  pub fn pq_consume_input(&self) -> Result<(), String> {
-    self.with_connection(|connection| unsafe {
-      match pq_sys::PQconsumeInput(connection) {
+  pub fn pq_consume_input(&self) -> PQResult<()> {
+    unsafe {
+      match pq_sys::PQconsumeInput(self.connection) {
         1 => Ok(()),
-        _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
+        _ => Err(PQError::from(self)),
       }
-    })
+    }
   }
 
   /// Returns `true` if a command is busy, that is, `pq_get_result` would block
@@ -569,22 +525,20 @@ impl Connection {
   /// See [`PQisBusy`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQISBUSY)
   ///
   pub fn pq_is_busy(&self) -> bool {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQisBusy(connection) == 1
-    })
+    unsafe { pq_sys::PQisBusy(self.connection) == 1 }
   }
 
   /// Sets the nonblocking status of the connection.
   ///
   /// See [`PQsetnonblocking`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSETNONBLOCKING)
   ///
-  pub fn pq_setnonblocking(&self, nonblocking: bool) -> Result<(), String> {
-    self.with_connection(|connection| unsafe {
-      match pq_sys::PQsetnonblocking(connection, nonblocking as i32) {
+  pub fn pq_setnonblocking(&self, nonblocking: bool) -> PQResult<()> {
+    unsafe {
+      match pq_sys::PQsetnonblocking(self.connection, nonblocking as i32) {
         0 => Ok(()),
-        _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
+        _ => Err(PQError::from(self)),
       }
-    })
+    }
   }
 
   /// Returns the nonblocking status of the database connection.
@@ -592,9 +546,7 @@ impl Connection {
   /// See [`PQisnonblocking`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQISNONBLOCKING)
   ///
   pub fn pq_isnonblocking(&self) -> bool {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQisnonblocking(connection) == 1
-    })
+    unsafe { pq_sys::PQisnonblocking(self.connection) == 1 }
   }
 
   /// Attempts to flush any queued output data to the server.
@@ -606,49 +558,46 @@ impl Connection {
   ///
   /// See [`PQflush`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQFLUSH)
   ///
-  pub fn pq_flush(&self) -> Result<bool, String> {
-    self.with_connection(|connection| unsafe {
-      match pq_sys::PQflush(connection) {
+  pub fn pq_flush(&self) -> PQResult<bool> {
+    unsafe {
+      match pq_sys::PQflush(self.connection) {
         0 => Ok(true), // data is all flushed
         1 => Ok(false), // still some data to flush
-        _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
+        _ => Err(PQError::from(self)),
       }
-    })
+    }
   }
 
   // ===== ASYNCHRONOUS OPERATIONS =============================================
 
   /// Submits a command to the server without waiting for the result(s).
   ///
-  /// Asynchronous version of [`Connection::pq_exec`].
-  ///
   /// See [`PQsendQuery`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDQUERY)
   ///
-  pub fn pq_send_query(&self, command: String) -> Result<(), String> {
-    self.with_connection(|connection| unsafe {
-      let string = utils::to_cstring(command.as_str());
-      match pq_sys::PQsendQuery(connection, string.as_ptr()) {
+  pub fn pq_send_query(&self, command: String) -> PQResult<()> {
+    unsafe {
+      let string = ffi::to_cstring(command.as_str());
+      match pq_sys::PQsendQuery(self.connection, string.as_ptr()) {
         1 => Ok(()), // successful!
-        _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
+        _ => Err(PQError::from(self)),
       }
-    })
+    }
   }
 
   /// Submits a command and separate parameters to the server without waiting
   /// for the result(s).
   ///
-  /// Asynchronous version of [`Connection::pq_exec_params`].
-  ///
   /// See [`PQsendQueryParams`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQSENDQUERYPARAMS)
   ///
-  pub fn pq_send_query_params(&self, command: String, params: Vec<String>) -> Result<(), String> {
-    self.with_connection(|connection| unsafe {
-      let string = utils::to_cstring(command.as_str());
-      let arguments = NullTerminatedArray::new(&params);
+  pub fn pq_send_query_params(&self, command: String, params: Vec<String>) -> PQResult<()> {
+    unsafe {
+      let string = ffi::to_cstring(command.as_str());
+      let arguments_length = params.len();
+      let arguments = ffi::NullTerminatedArray::from(params);
       match pq_sys::PQsendQueryParams(
-        connection,
+        self.connection,
         string.as_ptr(),
-        params.len().try_into().unwrap(),
+        arguments_length.try_into().unwrap(),
         std::ptr::null(),
         arguments.as_vec().as_ptr(),
         std::ptr::null(),
@@ -656,24 +605,20 @@ impl Connection {
         0, // always text!
       ) {
         1 => Ok(()), // successful!
-        _ => Err(self.pq_error_message().unwrap_or("Unknown error".to_string())),
+        _ => Err(PQError::from(self)),
       }
-    })
+    }
   }
 
   /// Waits for the next result from a prior [`Connection::pq_send_query`],
-  /// [`Connection::pq_send_query_params`],
-  /// [`Connection::pq_send_prepare`],
-  /// [`Connection::pq_send_query_prepared`],
-  /// [`Connection::pq_send_describe_prepared`],
-  /// [`Connection::pq_send_describe_portal`], or
+  /// [`Connection::pq_send_query_params`] or,
   /// [`Connection::pq_pipeline_sync`] call, and returns it.
   ///
   /// See [`PQgetResult`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQGETRESULT)
   ///
-  pub fn pq_get_result(&self) -> Result<String, String> {
-    self.with_connection(|connection| unsafe {
-      let result = pq_sys::PQgetResult(connection);
+  pub fn pq_get_result(&self) -> PQResult<String> {
+    unsafe {
+      let result = pq_sys::PQgetResult(self.connection);
 
       match result.is_null() {
         true => Ok("DONE".to_string()),
@@ -682,7 +627,7 @@ impl Connection {
           Ok(format!("RESULT STATUS {:?}", pq_sys::PQresultStatus(result)))
         }
       }
-    })
+    }
   }
 
   // ===== PIPELINE MODE =======================================================
@@ -692,9 +637,7 @@ impl Connection {
   /// See [`PQpipelineStatus`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESTATUS)
   ///
   pub fn pq_pipeline_status(&self) -> PipelineStatus {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQpipelineStatus(connection).into()
-    })
+    unsafe { pq_sys::PQpipelineStatus(self.connection).into() }
   }
 
   /// Causes a connection to enter pipeline mode if it is currently idle or
@@ -703,9 +646,7 @@ impl Connection {
   /// See [`PQenterPipelineMode`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQENTERPIPELINEMODE)
   ///
   pub fn pq_enter_pipeline_mode(&self) -> bool {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQenterPipelineMode(connection) == 1
-    })
+    unsafe { pq_sys::PQenterPipelineMode(self.connection) == 1 }
   }
 
   /// Causes a connection to exit pipeline mode if it is currently in pipeline
@@ -714,9 +655,7 @@ impl Connection {
   /// See [`PQexitPipelineMode`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQEXITPIPELINEMODE)
   ///
   pub fn pq_exit_pipeline_mode(&self) -> bool {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQexitPipelineMode(connection) == 1
-    })
+    unsafe { pq_sys::PQexitPipelineMode(self.connection) == 1 }
   }
 
   /// Marks a synchronization point in a pipeline by sending a sync message and
@@ -725,9 +664,7 @@ impl Connection {
   /// See [`PQpipelineSync`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESYNC)
   ///
   pub fn pq_pipeline_sync(&self) -> bool {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQpipelineSync(connection) == 1
-    })
+    unsafe { pq_sys::PQpipelineSync(self.connection) == 1 }
   }
 
   /// Sends a request for the server to flush its output buffer.
@@ -735,9 +672,7 @@ impl Connection {
   /// See [`PQsendFlushRequest`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQSENDFLUSHREQUEST)
   ///
   pub fn pq_send_flush_request(&self) -> bool {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQsendFlushRequest(connection) == 1
-    })
+    unsafe { pq_sys::PQsendFlushRequest(self.connection) == 1 }
   }
 
   // ===== SINGLE ROW MODE =====================================================
@@ -747,44 +682,40 @@ impl Connection {
   /// See [`PQsetSingleRowMode`](https://www.postgresql.org/docs/current/libpq-single-row-mode.html#LIBPQ-PQSETSINGLEROWMODE)
   ///
   pub fn pq_set_single_row_mode(&self) -> bool {
-    self.with_connection(|connection| unsafe {
-      pq_sys::PQsetSingleRowMode(connection) == 1
-    })
+    unsafe { pq_sys::PQsetSingleRowMode(self.connection) == 1 }
   }
 
   // ===== POLLING =============================================================
 
   /// Wait until reads from or writes to the connection will not block.
   ///
-  pub fn poll(&self, interest: PollingInterest, timeout: Option<Duration>) -> Result<(), String> {
-    self.with_connection(|connection| {
-      let fd = unsafe { pq_sys::PQsocket(connection) };
+  pub fn poll(&self, interest: PollingInterest, timeout: Option<Duration>) -> PQResult<()> {
 
-      let key = POLLER_KEY.fetch_add(1, Ordering::Relaxed);
+    let key = POLLER_KEY.fetch_add(1, Ordering::Relaxed);
 
-      let event = match interest {
-        PollingInterest::Readable => Event::readable(key),
-        PollingInterest::Writable => Event::writable(key),
-      };
+    let event = match interest {
+      PollingInterest::Readable => Event::readable(key),
+      PollingInterest::Writable => Event::writable(key),
+    };
 
-      let poller = Poller::new()
-        .or_else(| err | Err(format!("Error creating poller: {}", err)))?;
+    let poller = Poller::new()
+      .or_else(| err | Err(format!("Error creating poller: {}", err)))?;
 
-      let source = unsafe {
-        let source = BorrowedFd::borrow_raw(fd);
-        poller.add(&source, event)
-          .or_else(| err | Err(format!("Error adding to poller: {}", err)))?;
-        source
-      };
+    let source = unsafe {
+      let fd = pq_sys::PQsocket(self.connection);
+      let source = BorrowedFd::borrow_raw(fd);
+      poller.add(&source, event)
+        .or_else(| err | Err(format!("Error adding to poller: {}", err)))?;
+      source
+    };
 
-      let mut events = Events::new();
-      poller.wait(&mut events, timeout)
-        .or_else(| err | Err(format!("Error waiting on poller: {}", err)))?;
+    let mut events = Events::new();
+    poller.wait(&mut events, timeout)
+      .or_else(| err | Err(format!("Error waiting on poller: {}", err)))?;
 
-      poller.delete(&source)
-        .or_else(| err | Err(format!("Error deleting poller: {}", err)))?;
+    poller.delete(&source)
+      .or_else(| err | Err(format!("Error deleting poller: {}", err)))?;
 
-      Ok(())
-    })
+    Ok(())
   }
 }
