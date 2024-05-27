@@ -1,3 +1,7 @@
+//! Wrap LibPQ's own `PQconninfoOption`.
+
+use crate::errors::PQError;
+use crate::errors::PQResult;
 use crate::ffi;
 use neon::prelude::*;
 use std::slice::Iter;
@@ -22,13 +26,13 @@ impl Default for Conninfo {
 }
 
 impl TryFrom<&str> for Conninfo {
-  type Error = String;
+  type Error = PQError;
 
   /// Create a [`Conninfo`] struct from a PostgreSQL connection string (DSN).
   ///
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
-  fn try_from(value: &str) -> Result<Self, Self::Error> {
+  fn try_from(value: &str) -> PQResult<Self> {
     let str = ffi::to_cstring(value);
     let mut err = std::ptr::null_mut();
 
@@ -38,10 +42,10 @@ impl TryFrom<&str> for Conninfo {
 
     if raw.is_null() {
       if err.is_null() {
-        Err("Unknown error parsing DSN string".to_string())
+        Err(format!("Unknown error parsing DSN string").into())
       } else {
         let msg = ffi::to_string(err)?;
-        Err(format!("Error parsing DSN string: {}", msg))
+        Err(format!("Error parsing DSN string: {}", msg).into())
       }
     } else {
       let info = Self::try_from(raw)?;
@@ -52,25 +56,25 @@ impl TryFrom<&str> for Conninfo {
 }
 
 impl TryFrom<String> for Conninfo {
-  type Error = String;
+  type Error = PQError;
 
   /// Create a [`Conninfo`] struct from a PostgreSQL connection string (DSN).
   ///
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
-  fn try_from(value: String) -> Result<Self, Self::Error> {
+  fn try_from(value: String) -> PQResult<Self> {
     Self::try_from(value.as_str())
   }
 }
 
 impl TryFrom<*mut pq_sys::_PQconninfoOption> for Conninfo {
-  type Error = String;
+  type Error = PQError;
 
   /// Create a [`Conninfo`] struct from a LibPQ `PQconninfoOption` pointer.
   ///
   /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
   ///
-  fn try_from(raw: *mut pq_sys::_PQconninfoOption) -> Result<Self, Self::Error> {
+  fn try_from(raw: *mut pq_sys::_PQconninfoOption) -> PQResult<Self> {
     let mut values = Vec::<(String, String)>::new();
 
     unsafe {
@@ -104,7 +108,7 @@ impl Conninfo {
   ///
   /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
   ///
-  pub fn from_libpq_defaults() -> Result<Self, String> {
+  pub fn from_libpq_defaults() -> PQResult<Self> {
     unsafe {
       let raw = pq_sys::PQconndefaults();
       Self::try_from(raw)
@@ -113,7 +117,8 @@ impl Conninfo {
           Ok(info)
         }).or_else(|msg| {
           pq_sys::PQconninfoFree(raw);
-          Err(format!("Unable to access LibPQ defaults: {}", msg))
+          format!("fooo {}", 12);
+          Err(format!("Unable to access LibPQ defaults: {}", msg).into())
         })
     }
   }
