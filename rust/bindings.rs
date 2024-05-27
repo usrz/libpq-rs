@@ -440,9 +440,10 @@ pub fn pq_send_query_params(mut cx: FunctionContext) -> JsResult<JsUndefined> {
 
   // parameters
   let mut params = Vec::<String>::new();
-  for i in 2.. cx.len() {
-    let param = cx.argument::<JsString>(i)?.value(&mut cx);
-    params.push(param);
+  for param in cx.argument::<JsArray>(2)?.to_vec(&mut cx)? {
+    let value = param.downcast_or_throw::<JsString, _>(&mut cx)?;
+    let string = value.value(&mut cx);
+    params.push(string);
   }
 
   connection.pq_send_query_params(command, params).or_throw(&mut cx)?;
