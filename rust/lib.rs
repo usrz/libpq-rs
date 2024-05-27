@@ -2,7 +2,7 @@ use neon::prelude::*;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
-pub mod conn;
+pub mod bindings;
 pub mod connection;
 pub mod conninfo;
 pub mod errors;
@@ -118,45 +118,47 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
   cx.export_value("libpq_version", libpq_version)?;
   cx.export_value("openssl_version", openssl_version)?;
 
-  // ===== CONNECTION ==========================================================
+  /* ======================================================================== *
+   * CONNECTION                                                               *
+   * ======================================================================== */
 
-  cx.export_function("pq_connectdb_params", crate::conn::pq_connectdb_params)?;
-  cx.export_function("pq_conninfo", crate::conn::pq_conninfo)?;
-  cx.export_function("pq_set_notice_processor", crate::conn::pq_set_notice_processor)?;
+  cx.export_function("pq_connectdb_params", crate::bindings::pq_connectdb_params)?;
+  cx.export_function("pq_conninfo", crate::bindings::pq_conninfo)?;
+  cx.export_function("pq_set_notice_processor", crate::bindings::pq_set_notice_processor)?;
 
   // ===== STATUS ==============================================================
 
-  cx.export_function("pq_status", crate::conn::pq_status)?;
-  cx.export_function("pq_transaction_status", crate::conn::pq_transaction_status)?;
-  cx.export_function("pq_server_version", crate::conn::pq_server_version)?;
-  cx.export_function("pq_error_message", crate::conn::pq_error_message)?;
-  cx.export_function("pq_socket", crate::conn::pq_socket)?;
-  cx.export_function("pq_backend_pid", crate::conn::pq_backend_pid)?;
-  cx.export_function("pq_ssl_in_use", crate::conn::pq_ssl_in_use)?;
-  cx.export_function("pq_ssl_attributes", crate::conn::pq_ssl_attributes)?;
+  cx.export_function("pq_status", crate::bindings::pq_status)?;
+  cx.export_function("pq_transaction_status", crate::bindings::pq_transaction_status)?;
+  cx.export_function("pq_server_version", crate::bindings::pq_server_version)?;
+  cx.export_function("pq_error_message", crate::bindings::pq_error_message)?;
+  cx.export_function("pq_socket", crate::bindings::pq_socket)?;
+  cx.export_function("pq_backend_pid", crate::bindings::pq_backend_pid)?;
+  cx.export_function("pq_ssl_in_use", crate::bindings::pq_ssl_in_use)?;
+  cx.export_function("pq_ssl_attributes", crate::bindings::pq_ssl_attributes)?;
 
   // ===== ASYNC ===============================================================
 
-  cx.export_function("pq_consume_input", crate::conn::pq_consume_input)?;
-  cx.export_function("pq_is_busy", crate::conn::pq_is_busy)?;
-  cx.export_function("pq_setnonblocking", crate::conn::pq_setnonblocking)?;
-  cx.export_function("pq_isnonblocking", crate::conn::pq_isnonblocking)?;
-  cx.export_function("pq_flush", crate::conn::pq_flush)?;
+  cx.export_function("pq_consume_input", crate::bindings::pq_consume_input)?;
+  cx.export_function("pq_is_busy", crate::bindings::pq_is_busy)?;
+  cx.export_function("pq_setnonblocking", crate::bindings::pq_setnonblocking)?;
+  cx.export_function("pq_isnonblocking", crate::bindings::pq_isnonblocking)?;
+  cx.export_function("pq_flush", crate::bindings::pq_flush)?;
 
 // ===== ASYNCHRONOUS OPERATIONS ===============================================
 
-  cx.export_function("pq_send_query", crate::conn::pq_send_query)?;
-  cx.export_function("pq_send_query_params", crate::conn::pq_send_query_params)?;
-  cx.export_function("pq_get_result", crate::conn::pq_get_result)?;
+  cx.export_function("pq_send_query", crate::bindings::pq_send_query)?;
+  cx.export_function("pq_send_query_params", crate::bindings::pq_send_query_params)?;
+  cx.export_function("pq_get_result", crate::bindings::pq_get_result)?;
 
   // ===== SINGLE ROW MODE =======================================================
 
-  cx.export_function("pq_set_single_row_mode", crate::conn::pq_set_single_row_mode)?;
+  cx.export_function("pq_set_single_row_mode", crate::bindings::pq_set_single_row_mode)?;
 
   // ===== POLLING =============================================================
 
-  cx.export_function("poll_can_write", crate::conn::poll_can_write)?;
-  cx.export_function("poll_can_read", crate::conn::poll_can_read)?;
+  cx.export_function("poll_can_write", crate::bindings::poll_can_write)?;
+  cx.export_function("poll_can_read", crate::bindings::poll_can_read)?;
 
   Ok(())
 }

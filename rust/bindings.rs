@@ -109,6 +109,9 @@ impl Drop for JsNoticeProcessor {
   }
 }
 
+/* ========================================================================== *
+ * MACROS                                                                     *
+ * ========================================================================== */
 
 /// Convenience macro to extract from a `Handle<<JsBox<ArcConnection>>>`.
 ///
@@ -119,7 +122,9 @@ macro_rules! connection_arg_0 {
   } };
 }
 
-// ===== CONNECTION ============================================================
+/* ========================================================================== *
+ * CONNECTION                                                                 *
+ * ========================================================================== */
 
 /// Makes a new connection to the database server using using either an optional
 /// connection string (DSN), or an object with the connection parameters.
