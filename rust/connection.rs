@@ -559,19 +559,28 @@ impl Connection {
     }
   }
 
-  /// Returns the next notification from a list of unhandled notification
-  /// messages received from the server.
+  /// Returns a vector of all unhandled notifications received from the server.
   ///
   /// See [PQnotifies](https://www.postgresql.org/docs/current/libpq-notify.html)
   ///
-  pub fn pq_notifies(&self) -> PQResult<Option<PQNotification>> {
+  pub fn pq_notifies(&self) -> PQResult<Vec<PQNotification>> {
+    let mut vec = Vec::<PQNotification>::new();
+
     unsafe {
-      let result = pq_sys::PQnotifies(self.connection);
-      match result.is_null() {
-        false => Ok(Some(PQNotification::try_from(result)?)),
-        true => Ok(None),
+      for _ in 0.. {
+        // The "pgNotify" struct has a "next" pointer to it, but LibPQ's own
+        // source explicitly mentions that it shouldn't be used in client code.
+        let result = pq_sys::PQnotifies(self.connection);
+        if result.is_null() {
+          break;
+        }
+
+        vec.push(PQNotification::try_from(result)?);
+        pq_sys::PQfreemem(result as *mut c_void);
       }
     }
+
+    Ok(vec)
   }
 
 
