@@ -1,12 +1,19 @@
 //! Connection-related functions
 
 use crate::connection::Connection;
-use crate::notices::NoticeProcessor;
 use crate::connection::PollingInterest;
 use crate::conninfo::Conninfo;
 use crate::debug;
+use crate::debug_create;
+use crate::debug_drop;
+use crate::debug_id;
+use crate::debug_self;
 use crate::errors::*;
+use crate::notices::NoticeProcessor;
+use crate::response::PQResponse;
 use neon::prelude::*;
+use std::any::type_name;
+use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -17,26 +24,54 @@ use std::time::Duration;
 /// Simple struct wrapping a [`Connection`].
 ///
 pub struct JsConnection {
+  id: u64,
   pub connection: Arc<Connection>,
 }
 
+debug_self!(JsConnection, id);
+
 impl From::<Connection> for JsConnection {
   fn from(connection: Connection) -> Self {
-    Self { connection: Arc::new(connection) }
+    debug_create!(Self { id: debug_id(), connection: Arc::new(connection) })
   }
 }
 
 impl Finalize for JsConnection {
   fn finalize<'a, C: Context<'a>>(self, _: &mut C) {
-    debug!("Finalizing JsConnection");
+    debug!("Finalizing {:?}", self.connection);
+    drop(self)
+  }
+}
+
+/// Simple struct wrapping a [`PQResponse`]
+///
+pub struct  JsResponse {
+  id: u64,
+  pub response: Arc<PQResponse>,
+}
+
+debug_self!(JsResponse, id);
+
+impl From::<PQResponse> for JsResponse {
+  fn from(response: PQResponse) -> Self {
+      Self { id: debug_id(), response: Arc::new(response) }
+  }
+}
+
+impl Finalize for JsResponse {
+  fn finalize<'a, C: Context<'a>>(self, _: &mut C) {
+    debug!("Finalizing JsResponse {:?}", self.response);
     drop(self)
   }
 }
 
 pub struct  JsNoticeProcessor {
+  id: u64,
   channel: Channel,
   processor: Arc<Root<JsFunction>>,
 }
+
+debug_self!(JsNoticeProcessor, id);
 
 impl JsNoticeProcessor {
   fn new<'a, C: Context<'a>>(cx: &mut C, processor: Handle<JsFunction>) -> Self {
@@ -46,27 +81,15 @@ impl JsNoticeProcessor {
 
     // Take full ownership of our function, we'll get rit of it in Drop!
     let rooted = processor.root(cx);
-
     let processor = Arc::new(rooted);
-    let weak = Arc::weak_count(&processor);
-    let strong = Arc::strong_count(&processor);
-    println!("~~~ Creatubg JS notice processor weak={} strong={}", weak, strong);
 
-    JsNoticeProcessor{ channel, processor }
+    debug_create!(Self { id: debug_id(), channel, processor })
   }
 }
 
 impl NoticeProcessor for JsNoticeProcessor {
   fn process_notice(&self, message: String) -> () {
-    let weak = Arc::weak_count(&self.processor);
-    let strong = Arc::strong_count(&self.processor);
-    println!("~~~ Cloning JS notice processor weak={} strong={}", weak, strong);
-
     let proc: Arc<Root<JsFunction>> = self.processor.clone();
-
-    let weak = Arc::weak_count(&self.processor);
-    let strong = Arc::strong_count(&self.processor);
-    println!("~~~ Cloned JS notice processor weak={} strong={}", weak, strong);
 
     self.channel.send(move |mut cx| {
       debug!("Message from JS notice processor: {}", message);
@@ -75,22 +98,14 @@ impl NoticeProcessor for JsNoticeProcessor {
       let string = cx.string(message).as_value(&mut cx);
       let null = cx.null();
 
-      let result = processor.call(&mut cx, null, vec![string]).and(Ok(()));
-
-      let weak = Arc::weak_count(&proc);
-      let strong = Arc::strong_count(&proc);
-      println!("~~~ JS notice processor references weak={} strong={}", weak, strong);
-
-      result
+      processor.call(&mut cx, null, vec![string]).and(Ok(()))
     });
   }
 }
 
 impl Drop for JsNoticeProcessor {
   fn drop(&mut self) {
-    let weak = Arc::weak_count(&self.processor);
-    let strong = Arc::strong_count(&self.processor);
-    println!("~~~ Dropping JS notice processor weak={} strong={}", weak, strong);
+    debug_drop!(self);
   }
 }
 
@@ -402,12 +417,15 @@ pub fn pq_send_query_params(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   Ok(cx.undefined())
 }
 
-pub fn pq_get_result(mut cx: FunctionContext) -> JsResult<JsString> {
+pub fn pq_get_result(mut cx: FunctionContext) -> JsResult<JsValue> {
   let connection = connection_arg_0!(cx);
 
   match connection.pq_get_result() {
-    Some(result) => Ok(cx.string(format!("RESULT STATUS {:?}", result.pq_result_status()))),
-    None => Ok(cx.string("DONE"))
+    None => Ok(cx.undefined().as_value(&mut cx)),
+    Some(response) => {
+      let boxed = cx.boxed(JsResponse::from(response));
+      Ok(boxed.as_value(&mut cx))
+    },
   }
 }
 
