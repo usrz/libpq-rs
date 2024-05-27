@@ -1,4 +1,6 @@
 use neon::prelude::*;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 
 pub mod conn;
 pub mod connection;
@@ -11,16 +13,69 @@ pub mod response;
 
 /* ========================================================================== */
 
+/// Emit a debug message (when `debug_assertions` are enabled)
+///
 #[cfg(debug_assertions)]
 #[macro_export]
 macro_rules! debug {
-  ($($arg:tt)*) => {{ println!(">>> LIBPQ DEBUG >>> {}", format!($($arg)*)) }}
+  ($($arg:tt)*) => {{
+    println!(">>> LIBPQ DEBUG >>> {}", format!($($arg)*))
+  }}
 }
 
+/// Emit a debug message (when `debug_assertions` are enabled)
+///
 #[cfg(not(debug_assertions))]
 #[macro_export]
 macro_rules! debug {
   ($($arg:tt)*) => {{}}
+}
+
+/// Emit a debug message when creating an instance
+///
+#[macro_export]
+macro_rules! debug_create {
+  ($arg:expr) => {{
+    let this = $arg;
+    debug!("Created {:?}", this);
+    this
+  }}
+}
+
+/// Emit a debug message when dropping an instance
+///
+#[macro_export]
+macro_rules! debug_drop {
+  ($arg:expr) => {
+    debug!("Dropping {:?}", $arg)
+  }
+}
+
+/// Implement the [`Debug`] trait including only a single field
+///
+#[macro_export]
+macro_rules! debug_self {
+  ($t:ty, $field:ident) => {
+    debug_self!($t, $field, "id");
+  };
+
+  ($t:ty, $field:ident, $name:expr) => {
+    impl Debug for $t {
+      fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct(type_name::<Self>().rsplit_once(":").unwrap().1)
+          .field($name, &self.$field)
+          .finish()
+      }
+    }
+  };
+}
+
+static DEBUG_ID: AtomicU64 = AtomicU64::new(1);
+
+/// Create a new unique debugging identifier
+///
+pub fn debug_id() -> u64 {
+  DEBUG_ID.fetch_add(1, Ordering::Relaxed)
 }
 
 /* ========================================================================== */
