@@ -1,51 +1,106 @@
 //! Connection-related functions
 
 use crate::connection::Connection;
+use crate::connection::NoticeProcessor;
 use crate::connection::PollingInterest;
 use crate::conninfo::Conninfo;
-use crate::sys::types;
+use crate::debug;
+use crate::errors::*;
 use neon::prelude::*;
+use std::sync::Arc;
 use std::time::Duration;
 
-/// Simple struct wrapping a [`Connection`] into an `Arc`
+/* ========================================================================== *
+ * STRUCTS                                                                    *
+ * ========================================================================== */
+
+/// Simple struct wrapping a [`Connection`].
 ///
 pub struct JsConnection {
-  pub connection: *mut Connection,
-}
-
-impl JsConnection {
-  pub fn connection(&self) -> &'static Connection {
-    unsafe { &*(self.connection) }
-  }
+  pub connection: Arc<Connection>,
 }
 
 impl From::<Connection> for JsConnection {
   fn from(connection: Connection) -> Self {
-    let boxed = Box::new(connection);
-    Self { connection: Box::into_raw(boxed) }
-  }
-}
-
-impl Drop for JsConnection {
-  fn drop(&mut self) {
-    println!("Dropping JsConnection");
-    unsafe { drop(Box::from_raw(self.connection)) };
+    Self { connection: Arc::new(connection) }
   }
 }
 
 impl Finalize for JsConnection {
   fn finalize<'a, C: Context<'a>>(self, _: &mut C) {
-    println!("Finalizing JsConnection");
+    debug!("Finalizing JsConnection");
     drop(self)
   }
 }
+
+pub struct  JsNoticeProcessor {
+  channel: Channel,
+  processor: Arc<Root<JsFunction>>,
+}
+
+impl JsNoticeProcessor {
+  fn new<'a, C: Context<'a>>(cx: &mut C, processor: Handle<JsFunction>) -> Self {
+    // Create a channel, and allow the Node event loop to exit
+    let mut channel = cx.channel();
+    channel.unref(cx);
+
+    // Take full ownership of our function, we'll get rit of it in Drop!
+    let rooted = processor.root(cx);
+
+    let processor = Arc::new(rooted);
+    let weak = Arc::weak_count(&processor);
+    let strong = Arc::strong_count(&processor);
+    println!("~~~ Creatubg JS notice processor weak={} strong={}", weak, strong);
+
+    JsNoticeProcessor{ channel, processor }
+  }
+}
+
+impl NoticeProcessor for JsNoticeProcessor {
+  fn process_notice(&self, message: String) -> () {
+    let weak = Arc::weak_count(&self.processor);
+    let strong = Arc::strong_count(&self.processor);
+    println!("~~~ Cloning JS notice processor weak={} strong={}", weak, strong);
+
+    let proc: Arc<Root<JsFunction>> = self.processor.clone();
+
+    let weak = Arc::weak_count(&self.processor);
+    let strong = Arc::strong_count(&self.processor);
+    println!("~~~ Cloned JS notice processor weak={} strong={}", weak, strong);
+
+    self.channel.send(move |mut cx| {
+      debug!("Message from JS notice processor: {}", message);
+
+      let processor = proc.to_inner(&mut cx);
+      let string = cx.string(message).as_value(&mut cx);
+      let null = cx.null();
+
+      let result = processor.call(&mut cx, null, vec![string]).and(Ok(()));
+
+      let weak = Arc::weak_count(&proc);
+      let strong = Arc::strong_count(&proc);
+      println!("~~~ JS notice processor references weak={} strong={}", weak, strong);
+
+      result
+    });
+  }
+}
+
+impl Drop for JsNoticeProcessor {
+  fn drop(&mut self) {
+    let weak = Arc::weak_count(&self.processor);
+    let strong = Arc::strong_count(&self.processor);
+    println!("~~~ Dropping JS notice processor weak={} strong={}", weak, strong);
+  }
+}
+
 
 /// Convenience macro to extract from a `Handle<<JsBox<ArcConnection>>>`.
 ///
 macro_rules! connection_arg_0 {
   ( $x:expr ) => { {
     let arg = $x.argument::<JsBox<JsConnection>>(0)?;
-    arg.connection()
+    arg.connection.clone()
   } };
 }
 
@@ -71,19 +126,14 @@ pub fn pq_connectdb_params(mut cx: FunctionContext) -> JsResult<JsPromise> {
 
   let info = {
     if let Ok(_) = arg.downcast::<JsUndefined, _>(&mut cx) {
-      Conninfo::new()
-        .or_else(| msg: String | cx.throw_error(msg))
+      Ok(Conninfo::default())
     } else if let Ok(_) = arg.downcast::<JsNull, _>(&mut cx) {
-      Conninfo::new()
-        .or_else(| msg: String | cx.throw_error(msg))
+      Ok(Conninfo::default())
     } else if let Ok(string) = arg.downcast::<JsString, _>(&mut cx) {
-      Conninfo::try_from(string.value(&mut cx))
-        .or_else(| msg: String | cx.throw_error(msg))
-    } else if let Ok(object) = arg.downcast::<JsObject, _>(&mut cx) {
-      Conninfo::from_js_object(&mut cx, object)
+      Conninfo::try_from(string.value(&mut cx)).or_throw(&mut cx)
     } else {
-      let ptype = types::js_type_of(arg, &mut cx);
-      cx.throw_error(format!("Invalid argument (0) of type \"{}\"", ptype))
+      let object = arg.downcast_or_throw::<JsObject, _>(&mut cx)?;
+      Conninfo::from_js_object(&mut cx, object)
     }
   }?;
 
@@ -92,13 +142,11 @@ pub fn pq_connectdb_params(mut cx: FunctionContext) -> JsResult<JsPromise> {
 
     connection.pq_setnonblocking(true)?;
     match connection.pq_isnonblocking() {
-      false => Err("Unable to set non-blocking status".to_string()),
+      false => Err("Unable to set non-blocking status".into()),
       true => Ok(connection),
     }
-  }).promise(move | mut cx, result | {
-    let connection = result
-      .or_else(| msg | cx.throw_error(msg))?;
-
+  }).promise(move | mut cx, result: PQResult<Connection> | {
+    let connection = result.or_throw(&mut cx)?;
     Ok(cx.boxed(JsConnection::from(connection)))
   });
 
@@ -113,10 +161,20 @@ pub fn pq_connectdb_params(mut cx: FunctionContext) -> JsResult<JsPromise> {
 pub fn pq_conninfo(mut cx: FunctionContext) -> JsResult<JsObject> {
   let connection = connection_arg_0!(cx);
 
-  let info = connection.pq_conninfo()
-    .or_else(|msg| cx.throw_error(msg))?;
+  let info = connection.pq_conninfo().or_throw(&mut cx)?;
 
   info.to_js_object(&mut cx)
+}
+
+/// Sets the current notice processor.
+///
+/// See [PQnoticeProcessor](https://www.postgresql.org/docs/current/libpq-notice-processing.html)
+pub fn pq_set_notice_processor(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+  let connection = connection_arg_0!(cx);
+  let processor = cx.argument::<JsFunction>(1)?;
+  let processor = JsNoticeProcessor::new(&mut cx, processor);
+  connection.pq_set_notice_processor(Box::new(processor));
+  Ok(cx.undefined())
 }
 
 // ===== STATUS ================================================================
@@ -227,8 +285,7 @@ pub fn pq_ssl_in_use(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 pub fn pq_ssl_attributes(mut cx: FunctionContext) -> JsResult<JsObject> {
   let connection = connection_arg_0!(cx);
 
-  let attributes = connection.pq_ssl_attributes()
-    .or_else(|msg| cx.throw_error(msg))?;
+  let attributes = connection.pq_ssl_attributes().or_throw(&mut cx)?;
 
   let object = cx.empty_object();
   for (key, value) in attributes.iter() {
@@ -250,10 +307,8 @@ pub fn pq_ssl_attributes(mut cx: FunctionContext) -> JsResult<JsObject> {
 pub fn pq_consume_input(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   let connection = connection_arg_0!(cx);
 
-  connection.pq_consume_input()
-    .or_else(|msg| cx.throw_error(msg))?;
-
-    Ok(cx.undefined())
+  connection.pq_consume_input().or_throw(&mut cx)?;
+  Ok(cx.undefined())
 }
 
 /// Returns `true` if a command is busy, that is, `pq_get_result` would block
@@ -280,8 +335,7 @@ pub fn pq_setnonblocking(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   let connection = connection_arg_0!(cx);
   let nonblocking = cx.argument::<JsBoolean>(1)?.value(&mut cx);
 
-  connection.pq_setnonblocking(nonblocking)
-    .or_else(|msg| cx.throw_error(msg))?;
+  connection.pq_setnonblocking(nonblocking).or_throw(&mut cx)?;
 
   Ok(cx.undefined())
 }
@@ -312,8 +366,7 @@ pub fn pq_isnonblocking(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 pub fn pq_flush(mut cx: FunctionContext) -> JsResult<JsBoolean> {
   let connection = connection_arg_0!(cx);
 
-  let result = connection.pq_flush()
-    .or_else(|msg| cx.throw_error(msg))?;
+  let result = connection.pq_flush().or_throw(&mut cx)?;
 
   Ok(cx.boolean(result))
 }
@@ -326,8 +379,7 @@ pub fn pq_send_query(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   // todo maybe nicer types?
   let command = cx.argument::<JsString>(1)?.value(&mut cx);
 
-  connection.pq_send_query(command)
-    .or_else(| msg: String | cx.throw_error(msg))?;
+  connection.pq_send_query(command).or_throw(&mut cx)?;
 
   Ok(cx.undefined())
 }
@@ -345,8 +397,7 @@ pub fn pq_send_query_params(mut cx: FunctionContext) -> JsResult<JsUndefined> {
     params.push(param);
   }
 
-  connection.pq_send_query_params(command, params)
-    .or_else(| msg: String | cx.throw_error(msg))?;
+  connection.pq_send_query_params(command, params).or_throw(&mut cx)?;
 
   Ok(cx.undefined())
 }
@@ -354,8 +405,7 @@ pub fn pq_send_query_params(mut cx: FunctionContext) -> JsResult<JsUndefined> {
 pub fn pq_get_result(mut cx: FunctionContext) -> JsResult<JsString> {
   let connection = connection_arg_0!(cx);
 
-  let result = connection.pq_get_result()
-    .or_else(| msg: String | cx.throw_error(msg))?;
+  let result = connection.pq_get_result().or_throw(&mut cx)?;
 
   Ok(cx.string(result))
 }
@@ -396,12 +446,15 @@ fn poll(mut cx: FunctionContext, interest: PollingInterest) -> JsResult<JsPromis
     }
   }?;
 
-  let promise = cx.task( move || connection.poll(interest, timeout))
-    .promise(move | mut cx, result | {
-      match result {
-        Err(error) => cx.throw_error(format!("Error polling: {}", error.to_string())),
-        Ok(_) => Ok(cx.undefined()),
-      }
+  let promise = cx.task( move || {
+    println!("POLLING ON THREAD {:?}", std::thread::current().id());
+    connection.poll(interest, timeout)
+  }).promise(move | mut cx, result | {
+    println!("POLLED RESOLVING ON THREAD {:?}", std::thread::current().id());
+    match result {
+      Err(error) => cx.throw_error(format!("Error polling: {}", error.to_string())),
+      Ok(_) => Ok(cx.undefined()),
+    }
   });
 
   Ok(promise)
