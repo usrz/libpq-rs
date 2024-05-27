@@ -1,7 +1,7 @@
 //! Wrap LibPQ's own `PQconninfoOption`.
 
 use crate::errors::*;
-use crate::ffi;
+use crate::ffi::*;
 use neon::prelude::*;
 use std::slice::Iter;
 
@@ -32,7 +32,7 @@ impl TryFrom<&str> for Conninfo {
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
   fn try_from(value: &str) -> PQResult<Self> {
-    let str = ffi::to_cstring(value);
+    let str = to_cstring(value);
     let mut err = std::ptr::null_mut();
 
     let raw = unsafe {
@@ -43,7 +43,7 @@ impl TryFrom<&str> for Conninfo {
       if err.is_null() {
         Err(format!("Unknown error parsing DSN string").into())
       } else {
-        match ffi::to_string_lossy(err) {
+        match to_string_lossy(err) {
           Some(msg) => Err(format!("Error parsing DSN string: {}", msg).into()),
           None => Err(format!("Unknown error parsing DSN string").into()),
         }
@@ -85,8 +85,8 @@ impl TryFrom<*mut pq_sys::_PQconninfoOption> for Conninfo {
         } else {
           let ptr = raw.offset(x);
 
-          let key = ffi::to_string_lossy((* ptr).keyword);
-          let value = ffi::to_string_lossy((* ptr).val);
+          let key = to_string_lossy((* ptr).keyword);
+          let value = to_string_lossy((* ptr).val);
 
           if key.is_some() && value.is_some() {
             values.push((key.unwrap(), value.unwrap()));

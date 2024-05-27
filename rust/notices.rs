@@ -1,11 +1,7 @@
 //! LibPQ notice processing.
 
-use crate::debug;
-use crate::debug_create;
-use crate::debug_drop;
-use crate::debug_id;
-use crate::debug_self;
-use crate::ffi;
+use crate::debug::*;
+use crate::ffi::*;
 use std::fmt::Debug;
 use std::os::raw::c_char;
 use std::os::raw::c_void;
@@ -14,7 +10,7 @@ use std::os::raw::c_void;
 /// passed to LibPQ and will be invoked with a `NoticeProcessorWrapper` pointer.
 ///
 pub unsafe extern "C" fn shared_notice_processor(data: *mut c_void, message: *const c_char) {
-  let string = match ffi::to_string_lossy(message) {
+  let string = match to_string_lossy(message) {
     Some(string) => string.trim().to_string(),
     None => return,
   };

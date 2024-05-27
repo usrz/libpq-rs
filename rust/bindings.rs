@@ -3,11 +3,7 @@
 use crate::connection::Connection;
 use crate::connection::PollingInterest;
 use crate::conninfo::Conninfo;
-use crate::debug;
-use crate::debug_create;
-use crate::debug_drop;
-use crate::debug_id;
-use crate::debug_self;
+use crate::debug::*;
 use crate::errors::*;
 use crate::notices::NoticeProcessor;
 use crate::response::PQResponse;

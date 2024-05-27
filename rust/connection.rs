@@ -1,13 +1,9 @@
 //! Wrap LibPQ's own `PGconn` struct.
 
 use crate::conninfo::Conninfo;
-use crate::debug;
-use crate::debug_create;
-use crate::debug_drop;
-use crate::debug_id;
-use crate::debug_self;
+use crate::debug::*;
 use crate::errors::*;
-use crate::ffi;
+use crate::ffi::*;
 use crate::notices::*;
 use crate::notifications::PQNotification;
 use crate::response::PQResponse;
@@ -238,8 +234,8 @@ impl TryFrom<Conninfo> for Connection {
       values.push(value.as_str());
     }
 
-    let k = ffi::NullTerminatedArray::from(keys);
-    let v = ffi::NullTerminatedArray::from(values);
+    let k = NullTerminatedArray::from(keys);
+    let v = NullTerminatedArray::from(values);
 
     unsafe {
       pq_sys::PQconnectdbParams(
@@ -372,7 +368,7 @@ impl Connection {
   pub fn pq_error_message(&self) -> Option<String> {
     unsafe {
       let message = pq_sys::PQerrorMessage(self.connection);
-      match ffi::to_string_lossy(message) {
+      match to_string_lossy(message) {
         Some(message) => Some(message.trim().to_string()),
         None => None,
       }
@@ -426,8 +422,8 @@ impl Connection {
             continue;
           }
 
-          let key = ffi::to_string_lossy(key_ptr);
-          let val = ffi::to_string_lossy(val_ptr);
+          let key = to_string_lossy(key_ptr);
+          let val = to_string_lossy(val_ptr);
           if key.is_some() && val.is_some() {
             strings.push((key.unwrap(), val.unwrap()));
           }
@@ -511,7 +507,7 @@ impl Connection {
   ///
   pub fn pq_send_query(&self, command: String) -> PQResult<()> {
     unsafe {
-      let string = ffi::to_cstring(command.as_str());
+      let string = to_cstring(command.as_str());
       match pq_sys::PQsendQuery(self.connection, string.as_ptr()) {
         1 => Ok(()), // successful!
         _ => Err(PQError::from(self)),
@@ -526,9 +522,9 @@ impl Connection {
   ///
   pub fn pq_send_query_params(&self, command: String, params: Vec<String>) -> PQResult<()> {
     unsafe {
-      let string = ffi::to_cstring(command.as_str());
+      let string = to_cstring(command.as_str());
       let arguments_length = params.len();
-      let arguments = ffi::NullTerminatedArray::from(params);
+      let arguments = NullTerminatedArray::from(params);
       match pq_sys::PQsendQueryParams(
         self.connection,
         string.as_ptr(),
