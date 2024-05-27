@@ -2,11 +2,14 @@
 
 use crate::debug;
 use crate::errors::*;
+use neon::prelude::*;
 use std::fmt::Debug;
 use std::any::type_name;
 use crate::debug_self;
 use crate::debug_drop;
 use crate::debug_create;
+use crate::ffi::to_string;
+use crate::ffi::to_string_lossy;
 
 /// The result status of the command.
 ///
@@ -98,9 +101,177 @@ impl TryFrom<*mut pq_sys::pg_result> for PQResponse {
 }
 
 impl PQResponse {
+  /// Returns the result status of the command.
+  ///
+  /// See [`PQresultStatus`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQRESULTSTATUS)
+  ///
   pub fn pq_result_status(&self) -> ResponseStatus {
     unsafe {
       ResponseStatus::from(pq_sys::PQresultStatus(self.result))
     }
+  }
+
+  /// Returns the error message associated with the command, if any.
+  ///
+  /// See [`PQresultErrorMessage`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQRESULTERRORMESSAGE)
+  ///
+  pub fn pq_result_error_essage(&self) -> Option<String> {
+    let message = unsafe {
+      to_string_lossy(pq_sys::PQresultErrorMessage(self.result))
+    };
+
+    match message {
+      None => None,
+      Some(string) => {
+        match string.trim() {
+          "" => None,
+          str => Some(str.to_string()),
+        }
+      }
+    }
+  }
+
+  /// Returns the command status tag from the SQL command that generated the PGresult.
+  ///
+  /// See [`PQcmdStatus`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQCMDSTATUS)
+  ///
+  pub fn pq_cmd_status(&self) -> String {
+    unsafe {
+      to_string_lossy(pq_sys::PQcmdStatus(self.result))
+        .unwrap_or("".to_string())
+    }
+  }
+
+  /// Returns the number of rows affected by the SQL command.
+  ///
+  /// See [`PQcmdTuples`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQCMDTUPLES)
+  ///
+  pub fn pq_cmd_tuples(&self) -> i32 {
+    unsafe {
+      to_string_lossy(pq_sys::PQcmdTuples(self.result))
+        .unwrap_or("".to_string())
+        .parse::<i32>()
+        .unwrap_or(0)
+    }
+  }
+
+  /// Returns the number of rows (tuples) in the query result.
+  ///
+  /// See [`PQntuples`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQNTUPLES)
+  ///
+  pub fn pq_ntuples(&self) -> i32 {
+    unsafe {
+      pq_sys::PQntuples(self.result)
+    }
+  }
+
+  /// Returns the number of columns (fields) in each row of the query result.
+  ///
+  /// See [`PQnfields`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQNFIELDS)
+  ///
+  pub fn pq_nfields(&self) -> i32 {
+    unsafe {
+      pq_sys::PQnfields(self.result)
+    }
+  }
+
+  /// Returns the column name associated with the given column number.
+  ///
+  /// See [`PQfname`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQFNAME)
+  ///
+  pub fn pq_fname(&self, column: i32) -> Option<String> {
+    unsafe {
+      to_string_lossy(pq_sys::PQfname(self.result, column))
+    }
+  }
+
+  /// Returns the data type (the internal OID number) associated with the given
+  /// column number.
+  ///
+  /// See [`PQftype`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQFTYPE)
+  pub fn pq_ftype(&self, column: i32) -> u32 {
+    unsafe {
+      pq_sys::PQftype(self.result, column)
+    }
+  }
+
+  /// Tests a field for a null value.
+  ///
+  /// See [`PQgetisnull`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQGETISNULL)
+  ///
+  pub fn pq_getisnull(&self, row: i32, column: i32) -> bool {
+    unsafe {
+      pq_sys::PQgetisnull(self.result, row, column) == 1
+    }
+  }
+
+  /// Returns a single field value of one row of a PGresult.
+  ///
+  /// See [`PQgetvalue`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQGETVALUE)
+  pub fn pq_getvalue(&self, row: i32, column: i32) -> PQResult<Option<String>> {
+    match self.pq_getisnull(row, column) {
+      true => Ok(None),
+      false => unsafe {
+        let ptr = pq_sys::PQgetvalue(self.result, row, column);
+        // This is a *result*... it must be NON LOSSY!
+        to_string(ptr).and_then(|string| Ok(Some(string)))
+      }
+    }
+  }
+
+  /// Converts the _contents_ (rows, columns, ...) of a [`PQResponse`] struct
+  /// into a JavaScript object.
+  ///
+  pub fn to_js_object<'a, C: Context<'a>>(
+    &self,
+    cx: &mut C,
+  ) -> NeonResult<Handle<'a, JsObject>> {
+    let object = cx.empty_object();
+
+    let status = self.pq_result_status();
+    let status = cx.string(format!("{:?}", status));
+    object.set(cx, "status", status)?;
+
+    let command = cx.string(self.pq_cmd_status());
+    let row_count = cx.number(self.pq_cmd_tuples());
+
+    object.set(cx, "command", command)?;
+    object.set(cx, "rowCount", row_count)?;
+
+    let ntuples = self.pq_ntuples(); // rows
+    let nfields = self.pq_nfields(); // columns
+
+    debug!("Received {} rows and {} columns", ntuples, nfields);
+
+    let fields = cx.empty_array();
+    object.set(cx, "fields", fields)?;
+
+    for i in 0..nfields {
+      let tuple = cx.empty_array();
+      let fname = cx.string(self.pq_fname(i).unwrap());
+      let ftype = cx.number(self.pq_ftype(i));
+      tuple.set(cx, 0, fname)?;
+      tuple.set(cx, 1, ftype)?;
+      fields.set(cx, i as u32, tuple)?;
+    }
+
+
+    let rows = cx.empty_array();
+    object.set(cx, "rows", rows)?;
+
+    for r in 0..ntuples {
+      let row = cx.empty_array();
+      rows.set(cx, r as u32, row)?;
+
+      for c in 0..nfields {
+        let value = self.pq_getvalue(r, c).or_throw(cx)?;
+        if let Some(string) = value {
+          let string = cx.string(string);
+          row.set(cx, c as u32, string)?;
+        }
+      }
+    }
+
+    Ok(object)
   }
 }
