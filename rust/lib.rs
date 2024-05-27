@@ -160,5 +160,24 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
   cx.export_function("poll_can_write", crate::bindings::poll_can_write)?;
   cx.export_function("poll_can_read", crate::bindings::poll_can_read)?;
 
+  /* ======================================================================== *
+   * RESPONSE                                                                 *
+   * ======================================================================== */
+
+  cx.export_function("pq_result_status", crate::bindings::pq_result_status)?;
+  cx.export_function("pq_result_error_essage", crate::bindings::pq_result_error_essage)?;
+  cx.export_function("pq_cmd_status", crate::bindings::pq_cmd_status)?;
+  cx.export_function("pq_cmd_tuples", crate::bindings::pq_cmd_tuples)?;
+  cx.export_function("pq_ntuples", crate::bindings::pq_ntuples)?;
+  cx.export_function("pq_nfields", crate::bindings::pq_nfields)?;
+  cx.export_function("pq_fname", crate::bindings::pq_fname)?;
+  cx.export_function("pq_ftype", crate::bindings::pq_ftype)?;
+  cx.export_function("pq_getisnull", crate::bindings::pq_getisnull)?;
+  cx.export_function("pq_getvalue", crate::bindings::pq_getvalue)?;
+
+  // ===== WRAPPING ============================================================
+
+  cx.export_function("unwrap_response", crate::bindings::unwrap_response)?;
+
   Ok(())
 }
