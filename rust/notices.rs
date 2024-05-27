@@ -9,7 +9,10 @@ use std::os::raw::c_void;
 /// passed to LibPQ and will be invoked with a `NoticeProcessorWrapper` pointer.
 ///
 pub unsafe extern "C" fn shared_notice_processor(data: *mut c_void, message: *const c_char) {
-  let string = ffi::to_string_lossy(message).trim().to_string();
+  let string = match ffi::to_string_lossy(message) {
+    Some(string) => string.trim().to_string(),
+    None => return,
+  };
 
   debug!("Message from shared notice processor: {}", string);
 

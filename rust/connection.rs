@@ -19,6 +19,7 @@ use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use crate::notifications::PQNotification;
 
 /// Key for our `client_encoding` which must be always `UTF8`
 static ENCODING_KEY: &str = "client_encoding";
@@ -369,13 +370,10 @@ impl Connection {
   pub fn pq_error_message(&self) -> Option<String> {
     unsafe {
       let message = pq_sys::PQerrorMessage(self.connection);
-
-      if message.is_null() { return None }
-
-      let msg = ffi::to_string_lossy(message);
-
-      if msg.is_empty() { return None }
-      Some(msg.trim().to_string())
+      match ffi::to_string_lossy(message) {
+        Some(message) => Some(message.trim().to_string()),
+        None => None,
+      }
     }
   }
 
@@ -428,7 +426,9 @@ impl Connection {
 
           let key = ffi::to_string_lossy(key_ptr);
           let val = ffi::to_string_lossy(val_ptr);
-          strings.push((key, val));
+          if key.is_some() && val.is_some() {
+            strings.push((key.unwrap(), val.unwrap()));
+          }
         }
       }
 
@@ -558,6 +558,22 @@ impl Connection {
       }
     }
   }
+
+  /// Returns the next notification from a list of unhandled notification
+  /// messages received from the server.
+  ///
+  /// See [PQnotifies](https://www.postgresql.org/docs/current/libpq-notify.html)
+  ///
+  pub fn pq_notifies(&self) -> PQResult<Option<PQNotification>> {
+    unsafe {
+      let result = pq_sys::PQnotifies(self.connection);
+      match result.is_null() {
+        false => Ok(Some(PQNotification::try_from(result)?)),
+        true => Ok(None),
+      }
+    }
+  }
+
 
   // ===== PIPELINE MODE =======================================================
 

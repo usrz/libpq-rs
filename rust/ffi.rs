@@ -4,6 +4,7 @@ use std::ffi::CStr;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::ptr::null;
+use crate::errors::PQResult;
 
 /* ========================================================================== *
  * CONVERSION FUNCTIONS                                                       *
@@ -12,18 +13,22 @@ use std::ptr::null;
 /// Convert a standard null-terminated _string_ (in "C" parlance) into a Rust
 /// [`String`], ignoring any non-UTF8 sequences.
 ///
-pub fn to_string_lossy(s: *const c_char) -> String {
-  unsafe { CStr::from_ptr(s).to_string_lossy().to_string() }
+pub fn to_string_lossy(s: *const c_char) -> Option<String> {
+  match s.is_null() {
+    false => unsafe { Some(CStr::from_ptr(s).to_string_lossy().to_string()) },
+    true => None,
+  }
 }
 
 /// Attempt to convert a standard null-terminated _string_ (in "C" parlance)
 /// into a proper Rust [`String`], cloning the bytes.
 ///
-pub fn to_string(s: *const c_char) -> Result<String, String> {
+pub fn to_string(s: *const c_char) -> PQResult<String> {
+  if s.is_null() { return Err("Null pointer for string conversion".into()) }
+
   let buffer = unsafe { CStr::from_ptr(s) };
-  let result = buffer.to_str();
-  match result {
-    Err(_) => Err("Error decoding UTF-8 string".to_string()),
+  match buffer.to_str() {
+    Err(_) => Err("Error decoding UTF-8 string".into()),
     Ok(result) => Ok(result.to_string()),
   }
 }
