@@ -114,5 +114,11 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
 
   cx.export_function("unwrap_response", crate::bindings::unwrap_response)?;
 
-  Ok(())
+  /* ======================================================================== *
+   * RUNNERS                                                                  *
+   * ======================================================================== */
+
+   cx.export_function("plain_create", crate::runners::plain_create)?;
+
+   Ok(())
 }

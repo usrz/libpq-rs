@@ -74,7 +74,7 @@ pub struct  JSProcessor {
 debug_self!(JSProcessor, id);
 
 impl JSProcessor {
-  fn new<'a, C: Context<'a>>(cx: &mut C, processor: Handle<JsFunction>) -> Self {
+  pub fn new<'a, C: Context<'a>>(cx: &mut C, processor: Handle<JsFunction>) -> Self {
     // Create a channel, and allow the Node event loop to exit
     let mut channel = cx.channel();
     channel.unref(cx);
