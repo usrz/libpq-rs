@@ -6,12 +6,12 @@ use crate::conninfo::Conninfo;
 use crate::debug::*;
 use crate::errors::*;
 use crate::notices::NoticeProcessor;
+use crate::notices::NoticeSeverity;
+use crate::notifications::PQNotificationProcessor;
 use crate::response::PQResponse;
 use neon::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
-use crate::notices::NoticeSeverity;
-use crate::notifications::PQNotificationProcessor;
 
 /* ========================================================================== *
  * STRUCTS                                                                    *

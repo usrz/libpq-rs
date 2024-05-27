@@ -5,7 +5,6 @@ use crate::ffi::*;
 use std::fmt::Debug;
 use std::os::raw::c_void;
 
-
 /// Level of a LibPQ notice message
 ///
 /// See [PG_DIAG_SEVERITY_NONLOCALIZED](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQRESULTERRORFIELD)
