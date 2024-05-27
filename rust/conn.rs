@@ -405,9 +405,10 @@ pub fn pq_send_query_params(mut cx: FunctionContext) -> JsResult<JsUndefined> {
 pub fn pq_get_result(mut cx: FunctionContext) -> JsResult<JsString> {
   let connection = connection_arg_0!(cx);
 
-  let result = connection.pq_get_result().or_throw(&mut cx)?;
-
-  Ok(cx.string(result))
+  match connection.pq_get_result() {
+    Some(result) => Ok(cx.string(format!("RESULT STATUS {:?}", result.pq_result_status()))),
+    None => Ok(cx.string("DONE"))
+  }
 }
 
 // ===== SINGLE ROW MODE =======================================================

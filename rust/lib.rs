@@ -6,6 +6,7 @@ pub mod conninfo;
 pub mod errors;
 pub mod ffi;
 pub mod notices;
+pub mod result;
 
 /* ========================================================================== */
 

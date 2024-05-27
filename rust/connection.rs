@@ -18,6 +18,8 @@ use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use crate::conn;
+use crate::result::ToDoResult;
 
 /// Key for our `client_encoding` which must be always `UTF8`
 static ENCODING_KEY: &str = "client_encoding";
@@ -183,7 +185,7 @@ impl Drop for Connection {
   /// See [`PQfinish`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQFINISH)
   ///
   fn drop(&mut self) {
-    debug!("Dropping {:?}", self);
+    debug!("Dropping connection {:?}", self);
     unsafe { pq_sys::PQfinish(self.connection) };
   }
 }
@@ -240,18 +242,27 @@ impl TryFrom<Conninfo> for Connection {
     let k = ffi::NullTerminatedArray::from(keys);
     let v = ffi::NullTerminatedArray::from(values);
 
-    let connection = unsafe {
-      let connection = pq_sys::PQconnectdbParams(
+    unsafe {
+      pq_sys::PQconnectdbParams(
         k.as_vec().as_ptr(),
         v.as_vec().as_ptr(),
-        0);
-      let notice_processor = AtomicPtr::new(null_mut());
+        0).try_into()
+    }
+  }
+}
 
-      match connection.is_null() {
-        true => Err("Unable to create connection"),
-        _ => Ok(Connection { connection, notice_processor })
-      }
+impl TryFrom<*mut pq_sys::pg_conn> for Connection {
+  type Error = PQError;
+
+  fn try_from(conn: *mut pq_sys::pg_conn) -> PQResult<Self> {
+    let notice_processor = AtomicPtr::new(null_mut());
+
+    let connection = match conn.is_null() {
+      true => Err("Unable to create connection (null ptr)"),
+      _ => Ok(Connection { connection: conn, notice_processor })
     }?;
+
+    debug!("Created connection {:?}", connection);
 
     let notice_processor = DefaultNoticeProcessor::new();
     connection.pq_set_notice_processor(Box::new(notice_processor));
@@ -441,9 +452,9 @@ impl Connection {
     }
   }
 
-  /// Returns `true` if a command is busy, that is, `pq_get_result` would block
-  /// waiting for input. A `false` return indicates that `pq_get_result` can be
-  /// called with assurance of not blocking.
+  /// Returns `true` if a command is busy, that is [`Connection::pq_get_result`]
+  /// would block waiting for input. A `false` return indicates that
+  /// [`Connection::pq_get_result`] can be called with assurance of not blocking.
   ///
   /// See [`PQisBusy`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQISBUSY)
   ///
@@ -539,18 +550,22 @@ impl Connection {
   ///
   /// See [`PQgetResult`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQGETRESULT)
   ///
-  pub fn pq_get_result(&self) -> PQResult<String> {
+  pub fn pq_get_result(&self) -> Option<ToDoResult> {
     unsafe {
       let result = pq_sys::PQgetResult(self.connection);
-
       match result.is_null() {
-        true => Ok("DONE".to_string()),
-        false => {
-          pq_sys::PQclear(result);
-          Ok(format!("RESULT STATUS {:?}", pq_sys::PQresultStatus(result)))
-        }
+        false => Some(ToDoResult::try_from(result).unwrap()),
+        true => None,
       }
     }
+
+      // match result.is_null() {
+      //   true => Ok("DONE".to_string()),
+      //   false => {
+      //     pq_sys::PQclear(result);
+      //     Ok(format!("RESULT STATUS {:?}", pq_sys::PQresultStatus(result)))
+      //   }
+      // }
   }
 
   // ===== PIPELINE MODE =======================================================
