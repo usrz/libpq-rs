@@ -43,7 +43,7 @@ impl TryFrom<&str> for Conninfo {
       if err.is_null() {
         Err(format!("Unknown error parsing DSN string").into())
       } else {
-        let msg = ffi::to_string(err)?;
+        let msg = ffi::to_string_lossy(err);
         Err(format!("Error parsing DSN string: {}", msg).into())
       }
     } else {
@@ -87,8 +87,8 @@ impl TryFrom<*mut pq_sys::_PQconninfoOption> for Conninfo {
             continue;
           }
 
-          let key = ffi::to_string((* ptr).keyword)?;
-          let value = ffi::to_string((* ptr).val)?;
+          let key = ffi::to_string_lossy((* ptr).keyword);
+          let value = ffi::to_string_lossy((* ptr).val);
 
           values.push((key, value));
         }
