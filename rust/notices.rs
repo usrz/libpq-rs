@@ -1,4 +1,4 @@
-//! LibPQ notice processing.
+//! LibPQ notice processing (logs).
 
 use crate::debug::*;
 use crate::ffi::*;

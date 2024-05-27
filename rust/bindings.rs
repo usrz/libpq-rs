@@ -1,4 +1,4 @@
-//! Connection-related functions
+//! Straight bindings to LibPQ for Node/Neon.
 
 use crate::connection::Connection;
 use crate::connection::PollingInterest;

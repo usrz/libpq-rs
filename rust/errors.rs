@@ -1,4 +1,4 @@
-//! Wrappers for LibPQ errors.
+//! Errors stuff.
 
 use crate::connection::Connection;
 use neon::prelude::Context;

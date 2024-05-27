@@ -1,3 +1,5 @@
+//! Main entry point.
+
 use neon::prelude::*;
 
 pub mod bindings;
