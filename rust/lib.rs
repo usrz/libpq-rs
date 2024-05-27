@@ -5,6 +5,7 @@ pub mod connection;
 pub mod conninfo;
 pub mod errors;
 pub mod ffi;
+pub mod notices;
 
 /* ========================================================================== */
 

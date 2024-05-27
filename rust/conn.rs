@@ -1,7 +1,7 @@
 //! Connection-related functions
 
 use crate::connection::Connection;
-use crate::connection::NoticeProcessor;
+use crate::notices::NoticeProcessor;
 use crate::connection::PollingInterest;
 use crate::conninfo::Conninfo;
 use crate::debug;
