@@ -1,7 +1,13 @@
 //! LibPQ notice processing.
 
 use crate::debug;
+use crate::debug_create;
+use crate::debug_drop;
+use crate::debug_id;
+use crate::debug_self;
 use crate::ffi;
+use std::any::type_name;
+use std::fmt::Debug;
 use std::os::raw::c_char;
 use std::os::raw::c_void;
 
@@ -24,7 +30,7 @@ pub unsafe extern "C" fn shared_notice_processor(data: *mut c_void, message: *co
 
 /// The trait that defines a processor of notification events from LibPQ.
 ///
-pub trait NoticeProcessor {
+pub trait NoticeProcessor: Debug {
   fn process_notice(&self, message: String) -> ();
 }
 
@@ -35,12 +41,15 @@ pub trait NoticeProcessor {
 /// wrapper altogether) but so far I haven't thought of a better way...
 ///
 pub struct NoticeProcessorWrapper {
+  id: u64,
   notice_processor: Box<dyn NoticeProcessor>
 }
 
+debug_self!(NoticeProcessorWrapper, id);
+
 impl From::<Box<dyn NoticeProcessor>> for NoticeProcessorWrapper {
   fn from(notice_processor: Box<dyn NoticeProcessor>) -> Self {
-    NoticeProcessorWrapper{ notice_processor }
+    debug_create!(NoticeProcessorWrapper{ id: debug_id(), notice_processor })
   }
 }
 
@@ -53,18 +62,21 @@ impl NoticeProcessorWrapper {
 
 impl Drop for NoticeProcessorWrapper {
   fn drop(&mut self) {
-    debug!("Dropping NoticeProcessorWrapper");
+    debug_drop!(self);
   }
 }
 
 /// The default notice processor simply dumps notices to the console...
 ///
-pub struct DefaultNoticeProcessor {}
+pub struct DefaultNoticeProcessor {
+  id: u64,
+}
+
+debug_self!(DefaultNoticeProcessor, id);
 
 impl DefaultNoticeProcessor {
   pub fn new() -> Self {
-    debug!("Creating DefaultNoticeProcessor");
-    DefaultNoticeProcessor{}
+    debug_create!(DefaultNoticeProcessor { id: debug_id() })
   }
 }
 
@@ -76,6 +88,6 @@ impl NoticeProcessor for DefaultNoticeProcessor {
 
 impl Drop for DefaultNoticeProcessor {
   fn drop(&mut self) {
-    debug!("Dropping DefaultNoticeProcessor");
+    debug_drop!(self);
   }
 }
