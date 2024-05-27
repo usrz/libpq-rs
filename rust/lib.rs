@@ -15,6 +15,15 @@ pub mod runners;
 
 /* ========================================================================== */
 
+/// Check is LibPQ is _thread safe_
+///
+/// See [PQisthreadsafe](https://www.postgresql.org/docs/current/libpq-threading.html#LIBPQ-PQISTHREADSAFE)
+///
+fn libpq_threadsafe() -> bool {
+  unsafe { pq_sys::PQisthreadsafe() == 1 }
+}
+
+
 /// Return the LibPQ version as a `String`
 ///
 /// See [PQlibVersion](https://www.postgresql.org/docs/current/libpq-misc.html#LIBPQ-PQLIBVERSION)
@@ -47,6 +56,12 @@ fn openssl_version() -> String {
 
 #[neon::main]
 fn main(mut cx: ModuleContext) -> NeonResult<()> {
+  if ! libpq_threadsafe() {
+    cx.throw_error("Sorry, your LibPQ is NOT thread safe")?;
+  }
+
+  /* ===== VERSIONS ========================================================= */
+
   let libpq_version = cx.string(libpq_version());
   let openssl_version = cx.string(openssl_version());
 
