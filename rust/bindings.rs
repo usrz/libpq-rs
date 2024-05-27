@@ -10,6 +10,7 @@ use crate::response::PQResponse;
 use neon::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
+use crate::notices::NoticeSeverity;
 
 /* ========================================================================== *
  * STRUCTS                                                                    *
@@ -86,17 +87,25 @@ impl JsNoticeProcessor {
 }
 
 impl NoticeProcessor for JsNoticeProcessor {
-  fn process_notice(&self, message: String) -> () {
+  fn process_notice(&self, severity: NoticeSeverity, message: String) -> () {
     let proc: Arc<Root<JsFunction>> = self.processor.clone();
 
     self.channel.send(move |mut cx| {
       debug!("Message from JS notice processor: {}", message);
 
+      let severity = match severity {
+        NoticeSeverity::Debug => cx.string("debug").as_value(&mut cx),
+        NoticeSeverity::Log => cx.string("log").as_value(&mut cx),
+        NoticeSeverity::Info => cx.string("info").as_value(&mut cx),
+        NoticeSeverity::Notice => cx.string("notice").as_value(&mut cx),
+        NoticeSeverity::Warning => cx.string("warning").as_value(&mut cx),
+      };
+
       let processor = proc.to_inner(&mut cx);
-      let string = cx.string(message).as_value(&mut cx);
+      let message = cx.string(message).as_value(&mut cx);
       let null = cx.null();
 
-      processor.call(&mut cx, null, vec![string]).and(Ok(()))
+      processor.call(&mut cx, null, vec![severity, message]).and(Ok(()))
     });
   }
 }
@@ -516,10 +525,10 @@ pub fn pq_result_status(mut cx: FunctionContext) -> JsResult<JsString> {
   Ok(cx.string(string))
 }
 
-pub fn pq_result_error_essage(mut cx: FunctionContext) -> JsResult<JsValue> {
+pub fn pq_result_error_message(mut cx: FunctionContext) -> JsResult<JsValue> {
   let response = response_arg_0!(cx);
 
-  match response.pq_result_error_essage() {
+  match response.pq_result_error_message() {
     Some(string) => Ok(cx.string(string).as_value(&mut cx)),
     None => Ok(cx.undefined().as_value(&mut cx)),
   }

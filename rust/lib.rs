@@ -100,7 +100,7 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
    * ======================================================================== */
 
   cx.export_function("pq_result_status", crate::bindings::pq_result_status)?;
-  cx.export_function("pq_result_error_essage", crate::bindings::pq_result_error_essage)?;
+  cx.export_function("pq_result_error_message", crate::bindings::pq_result_error_message)?;
   cx.export_function("pq_cmd_status", crate::bindings::pq_cmd_status)?;
   cx.export_function("pq_cmd_tuples", crate::bindings::pq_cmd_tuples)?;
   cx.export_function("pq_ntuples", crate::bindings::pq_ntuples)?;

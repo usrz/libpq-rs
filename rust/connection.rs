@@ -298,6 +298,7 @@ impl Connection {
   /// Sets the current notice processor.
   ///
   /// See [PQnoticeProcessor](https://www.postgresql.org/docs/current/libpq-notice-processing.html)
+  /// See [PQnoticeReceiverr](https://www.postgresql.org/docs/current/libpq-notice-processing.html)
   pub fn pq_set_notice_processor(&self, notice_processor: Box<dyn NoticeProcessor>) {
     #[cfg(debug_assertions)]
     let to_string = format!("{:?}", notice_processor);
@@ -311,7 +312,7 @@ impl Connection {
     debug!("Setting up new notice processor at {:?}: {:?}", pointer, to_string);
 
     unsafe {
-      pq_sys::PQsetNoticeProcessor(
+      pq_sys::PQsetNoticeReceiver(
         self.connection,
         Some(shared_notice_processor),
         pointer as *mut c_void,

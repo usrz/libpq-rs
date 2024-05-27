@@ -109,7 +109,7 @@ impl PQResponse {
   ///
   /// See [`PQresultErrorMessage`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQRESULTERRORMESSAGE)
   ///
-  pub fn pq_result_error_essage(&self) -> Option<String> {
+  pub fn pq_result_error_message(&self) -> Option<String> {
     let message = unsafe {
       to_string_lossy(pq_sys::PQresultErrorMessage(self.result))
     };
