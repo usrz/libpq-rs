@@ -12,8 +12,6 @@ use crate::errors::*;
 use crate::notices::NoticeProcessor;
 use crate::response::PQResponse;
 use neon::prelude::*;
-use std::any::type_name;
-use std::fmt::Debug;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -24,7 +22,7 @@ use std::time::Duration;
 /// Simple struct wrapping a [`Connection`].
 ///
 pub struct JsConnection {
-  id: u64,
+  id: usize,
   pub connection: Arc<Connection>,
 }
 
@@ -48,7 +46,7 @@ impl Finalize for JsConnection {
 /// Simple struct wrapping a [`PQResponse`]
 ///
 pub struct  JsResponse {
-  id: u64,
+  id: usize,
   pub response: Arc<PQResponse>,
 }
 
@@ -70,7 +68,7 @@ impl Finalize for JsResponse {
 /* ========================================================================== */
 
 pub struct  JsNoticeProcessor {
-  id: u64,
+  id: usize,
   channel: Channel,
   processor: Arc<Root<JsFunction>>,
 }

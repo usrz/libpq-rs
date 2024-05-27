@@ -1,10 +1,10 @@
 //! Utilities to deal with the "C" types used by LibPQ.
 
+use crate::errors::*;
 use std::ffi::CStr;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::ptr::null;
-use crate::errors::PQResult;
 
 /* ========================================================================== *
  * CONVERSION FUNCTIONS                                                       *

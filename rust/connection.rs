@@ -4,25 +4,21 @@ use crate::conninfo::Conninfo;
 use crate::debug;
 use crate::debug_create;
 use crate::debug_drop;
+use crate::debug_id;
 use crate::debug_self;
 use crate::errors::*;
 use crate::ffi;
-use crate::notices::DefaultNoticeProcessor;
-use crate::notices::NoticeProcessor;
-use crate::notices::NoticeProcessorWrapper;
-use crate::notices::shared_notice_processor;
+use crate::notices::*;
 use crate::notifications::PQNotification;
 use crate::response::PQResponse;
 use polling::Event;
 use polling::Events;
 use polling::Poller;
-use std::any::type_name;
 use std::fmt::Debug;
 use std::os::fd::BorrowedFd;
 use std::os::raw::c_void;
 use std::ptr::null_mut;
 use std::sync::atomic::AtomicPtr;
-use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
@@ -30,9 +26,6 @@ use std::time::Duration;
 static ENCODING_KEY: &str = "client_encoding";
 /// Value for our `client_encoding` which must be always `UTF8`
 static ENCODING_VAL: &str = "UTF8";
-/// Poller key, shared atomically across all threads that might poll on the
-/// connection (we increment this every time we do a new `poll`).
-static POLLER_KEY: AtomicUsize = AtomicUsize::new(1);
 
 /* ========================================================================== *
  * ENUMS                                                                      *
@@ -654,7 +647,7 @@ impl Connection {
   ///
   pub fn poll(&self, interest: PollingInterest, timeout: Option<Duration>) -> PQResult<()> {
 
-    let key = POLLER_KEY.fetch_add(1, Ordering::Relaxed);
+    let key = debug_id();
 
     let event = match interest {
       PollingInterest::Readable => Event::readable(key),

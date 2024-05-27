@@ -1,8 +1,7 @@
 //! Wrap LibPQ's own `pgNotify` struct.
 
-use crate::errors::PQError;
+use crate::errors::*;
 use crate::ffi;
-use crate::errors::PQResult;
 
 pub struct PQNotification {
   pub channel: String,

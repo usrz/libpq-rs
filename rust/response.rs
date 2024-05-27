@@ -1,15 +1,13 @@
 //! Wrap LibPQ's own `pg_result` struct.
 
 use crate::debug;
-use crate::errors::*;
-use neon::prelude::*;
-use std::fmt::Debug;
-use std::any::type_name;
-use crate::debug_self;
-use crate::debug_drop;
 use crate::debug_create;
+use crate::debug_drop;
+use crate::debug_self;
+use crate::errors::*;
 use crate::ffi::to_string;
 use crate::ffi::to_string_lossy;
+use neon::prelude::*;
 
 /// The result status of the command.
 ///

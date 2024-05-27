@@ -6,7 +6,6 @@ use crate::debug_drop;
 use crate::debug_id;
 use crate::debug_self;
 use crate::ffi;
-use std::any::type_name;
 use std::fmt::Debug;
 use std::os::raw::c_char;
 use std::os::raw::c_void;
@@ -41,7 +40,7 @@ pub trait NoticeProcessor: Debug {
 /// wrapper altogether) but so far I haven't thought of a better way...
 ///
 pub struct NoticeProcessorWrapper {
-  id: u64,
+  id: usize,
   notice_processor: Box<dyn NoticeProcessor>
 }
 
@@ -69,7 +68,7 @@ impl Drop for NoticeProcessorWrapper {
 /// The default notice processor simply dumps notices to the console...
 ///
 pub struct DefaultNoticeProcessor {
-  id: u64,
+  id: usize,
 }
 
 debug_self!(DefaultNoticeProcessor, id);

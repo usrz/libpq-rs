@@ -1,5 +1,5 @@
 use neon::prelude::*;
-use std::sync::atomic::AtomicU64;
+use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 pub mod bindings;
@@ -60,9 +60,9 @@ macro_rules! debug_self {
   };
 
   ($t:ty, $field:ident, $name:expr) => {
-    impl Debug for $t {
+    impl std::fmt::Debug for $t {
       fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct(type_name::<Self>().rsplit_once(":").unwrap().1)
+        f.debug_struct(std::any::type_name::<Self>().rsplit_once(":").unwrap().1)
           .field($name, &self.$field)
           .finish()
       }
@@ -70,11 +70,11 @@ macro_rules! debug_self {
   };
 }
 
-static DEBUG_ID: AtomicU64 = AtomicU64::new(1);
+static DEBUG_ID: AtomicUsize = AtomicUsize::new(1);
 
 /// Create a new unique debugging identifier
 ///
-pub fn debug_id() -> u64 {
+pub fn debug_id() -> usize {
   DEBUG_ID.fetch_add(1, Ordering::Relaxed)
 }
 
