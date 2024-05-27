@@ -1,7 +1,6 @@
 //! Wrap LibPQ's own `PQconninfoOption`.
 
-use crate::errors::PQError;
-use crate::errors::PQResult;
+use crate::errors::*;
 use crate::ffi;
 use neon::prelude::*;
 use std::slice::Iter;

@@ -1,6 +1,8 @@
+//! Wrappers for LibPQ errors.
+
+use crate::connection::Connection;
 use neon::prelude::Context;
 use neon::prelude::NeonResult;
-use crate::connection::Connection;
 
 /// The root of all evil: any error thrown by LibPQ.
 ///
