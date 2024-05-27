@@ -8,6 +8,7 @@ use crate::notices::DefaultNoticeProcessor;
 use crate::notices::NoticeProcessor;
 use crate::notices::NoticeProcessorWrapper;
 use crate::notices::shared_notice_processor;
+use crate::result::ToDoResult;
 use polling::Event;
 use polling::Events;
 use polling::Poller;
@@ -18,8 +19,6 @@ use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use crate::conn;
-use crate::result::ToDoResult;
 
 /// Key for our `client_encoding` which must be always `UTF8`
 static ENCODING_KEY: &str = "client_encoding";
@@ -558,14 +557,6 @@ impl Connection {
         true => None,
       }
     }
-
-      // match result.is_null() {
-      //   true => Ok("DONE".to_string()),
-      //   false => {
-      //     pq_sys::PQclear(result);
-      //     Ok(format!("RESULT STATUS {:?}", pq_sys::PQresultStatus(result)))
-      //   }
-      // }
   }
 
   // ===== PIPELINE MODE =======================================================
