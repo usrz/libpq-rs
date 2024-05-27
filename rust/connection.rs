@@ -20,6 +20,11 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 use crate::notifications::PQNotification;
+use std::fmt::Debug;
+use std::any::type_name;
+use crate::debug_self;
+use crate::debug_drop;
+use crate::debug_create;
 
 /// Key for our `client_encoding` which must be always `UTF8`
 static ENCODING_KEY: &str = "client_encoding";
@@ -171,7 +176,6 @@ pub enum PollingInterest {
 
 /// Struct wrapping the LibPQ functions related to a _connection_.
 ///
-#[derive(Debug)]
 pub struct Connection {
   connection: *mut pq_sys::pg_conn,
   notice_processor: AtomicPtr<NoticeProcessorWrapper>,
@@ -179,13 +183,15 @@ pub struct Connection {
 
 // ===== TRAITS ================================================================
 
+debug_self!(Connection, connection, "@");
+
 impl Drop for Connection {
   /// Closes the connection to the server. Also frees memory used by the PGconn object.
   ///
   /// See [`PQfinish`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQFINISH)
   ///
   fn drop(&mut self) {
-    debug!("Dropping connection {:?}", self);
+    debug_drop!(self);
     unsafe { pq_sys::PQfinish(self.connection) };
   }
 }
@@ -262,7 +268,7 @@ impl TryFrom<*mut pq_sys::pg_conn> for Connection {
       _ => Ok(Connection { connection: conn, notice_processor })
     }?;
 
-    debug!("Created connection {:?}", connection);
+    let connection = debug_create!(connection);
 
     let notice_processor = DefaultNoticeProcessor::new();
     connection.pq_set_notice_processor(Box::new(notice_processor));
@@ -304,13 +310,16 @@ impl Connection {
   ///
   /// See [PQnoticeProcessor](https://www.postgresql.org/docs/current/libpq-notice-processing.html)
   pub fn pq_set_notice_processor(&self, notice_processor: Box<dyn NoticeProcessor>) {
+    #[cfg(debug_assertions)]
+    let to_string = format!("{:?}", notice_processor);
+
     let wrapper = NoticeProcessorWrapper::from(notice_processor);
 
     let boxed = Box::new(wrapper);
     let pointer = Box::into_raw(boxed);
     let old_pointer = self.notice_processor.swap(pointer, Ordering::Relaxed);
 
-    debug!("Setting up new notice processor at {:?}", pointer);
+    debug!("Setting up new notice processor at {:?}: {:?}", pointer, to_string);
 
     unsafe {
       pq_sys::PQsetNoticeProcessor(
@@ -321,7 +330,7 @@ impl Connection {
     };
 
     if old_pointer.is_null() {
-      debug!("Not reclaiming old notice processor at {:?}", old_pointer);
+      debug!("Not reclaiming old notice processor (null ptr)");
     } else {
       debug!("Reclaiming old notice processor at {:?}", old_pointer);
       drop(unsafe { Box::from_raw(old_pointer) });
