@@ -192,18 +192,11 @@ pub fn pq_connectdb_params(mut cx: FunctionContext) -> JsResult<JsPromise> {
     }
   }?;
 
-  let promise = cx.task( || {
-    let connection = PQConnection::try_from(info)?;
-
-    connection.pq_setnonblocking(true)?;
-    match connection.pq_isnonblocking() {
-      false => Err("Unable to set non-blocking status".into()),
-      true => Ok(connection),
-    }
-  }).promise(move | mut cx, result: PQResult<PQConnection> | {
-    let connection = result.or_throw(&mut cx)?;
-    Ok(cx.boxed(JSConnection::from(connection)))
-  });
+  let promise = cx.task( || PQConnection::try_from(info))
+    .promise(move | mut cx, result: PQResult<PQConnection> | {
+      let connection = result.or_throw(&mut cx)?;
+      Ok(cx.boxed(JSConnection::from(connection)))
+    });
 
   Ok(promise)
 }
