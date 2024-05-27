@@ -362,8 +362,7 @@ impl Connection {
 
       if message.is_null() { return None }
 
-      let msg = ffi::to_string(message)
-        .unwrap_or("Unable to decode error message".to_string());
+      let msg = ffi::to_string_lossy(message);
 
       if msg.is_empty() { return None }
       Some(msg.trim().to_string())
@@ -417,8 +416,8 @@ impl Connection {
             continue;
           }
 
-          let key = ffi::to_string(key_ptr)?;
-          let val = ffi::to_string(val_ptr)?;
+          let key = ffi::to_string_lossy(key_ptr);
+          let val = ffi::to_string_lossy(val_ptr);
           strings.push((key, val));
         }
       }
