@@ -43,6 +43,8 @@ impl Finalize for JsConnection {
   }
 }
 
+/* ========================================================================== */
+
 /// Simple struct wrapping a [`PQResponse`]
 ///
 pub struct  JsResponse {
@@ -64,6 +66,8 @@ impl Finalize for JsResponse {
     drop(self)
   }
 }
+
+/* ========================================================================== */
 
 pub struct  JsNoticeProcessor {
   id: u64,
@@ -113,12 +117,21 @@ impl Drop for JsNoticeProcessor {
  * MACROS                                                                     *
  * ========================================================================== */
 
-/// Convenience macro to extract from a `Handle<<JsBox<ArcConnection>>>`.
+/// Convenience macro to extract from a [`Handle<<JsBox<JsConnection>>>`].
 ///
 macro_rules! connection_arg_0 {
   ( $x:expr ) => { {
     let arg = $x.argument::<JsBox<JsConnection>>(0)?;
     arg.connection.clone()
+  } };
+}
+
+/// Convenience macro to extract from a [`Handle<<JsBox<JsResponse>>>`].
+///
+macro_rules! response_arg_0 {
+  ( $x:expr ) => { {
+    let arg = $x.argument::<JsBox<JsResponse>>(0)?;
+    arg.response.clone()
   } };
 }
 
@@ -494,4 +507,91 @@ pub fn poll_can_read(cx: FunctionContext) -> JsResult<JsPromise> {
 ///
 pub fn poll_can_write(cx: FunctionContext) -> JsResult<JsPromise> {
   poll(cx, PollingInterest::Writable)
+}
+
+/* ========================================================================== *
+ * RESPONSE                                                                   *
+ * ========================================================================== */
+
+pub fn pq_result_status(mut cx: FunctionContext) -> JsResult<JsString> {
+  let response = response_arg_0!(cx);
+
+  let status = response.pq_result_status();
+  let string = format!("{:?}", status);
+
+  Ok(cx.string(string))
+}
+
+pub fn pq_result_error_essage(mut cx: FunctionContext) -> JsResult<JsValue> {
+  let response = response_arg_0!(cx);
+
+  match response.pq_result_error_essage() {
+    Some(string) => Ok(cx.string(string).as_value(&mut cx)),
+    None => Ok(cx.undefined().as_value(&mut cx)),
+  }
+}
+
+pub fn pq_cmd_status(mut cx: FunctionContext) -> JsResult<JsString> {
+  let response = response_arg_0!(cx);
+  Ok(cx.string(response.pq_cmd_status()))
+}
+
+pub fn pq_cmd_tuples(mut cx: FunctionContext) -> JsResult<JsNumber> {
+  let response = response_arg_0!(cx);
+  Ok(cx.number(response.pq_cmd_tuples()))
+}
+
+pub fn pq_ntuples(mut cx: FunctionContext) -> JsResult<JsNumber> {
+  let response = response_arg_0!(cx);
+  Ok(cx.number(response.pq_ntuples()))
+}
+
+pub fn pq_nfields(mut cx: FunctionContext) -> JsResult<JsNumber> {
+  let response = response_arg_0!(cx);
+  Ok(cx.number(response.pq_nfields()))
+}
+
+pub fn pq_fname(mut cx: FunctionContext) -> JsResult<JsValue> {
+  let response = response_arg_0!(cx);
+  let column = cx.argument::<JsNumber>(1)?.value(&mut cx) as i32;
+
+  match response.pq_fname(column) {
+    Some(string) => Ok(cx.string(string).as_value(&mut cx)),
+    None => Ok(cx.undefined().as_value(&mut cx)),
+  }
+}
+
+pub fn pq_ftype(mut cx: FunctionContext) -> JsResult<JsNumber> {
+  let response = response_arg_0!(cx);
+  let column = cx.argument::<JsNumber>(1)?.value(&mut cx) as i32;
+
+  Ok(cx.number(response.pq_ftype(column)))
+}
+
+pub fn pq_getisnull(mut cx: FunctionContext) -> JsResult<JsBoolean> {
+  let response = response_arg_0!(cx);
+  let row = cx.argument::<JsNumber>(1)?.value(&mut cx) as i32;
+  let col = cx.argument::<JsNumber>(2)?.value(&mut cx) as i32;
+
+  Ok(cx.boolean(response.pq_getisnull(row, col)))
+}
+
+pub fn pq_getvalue(mut cx: FunctionContext) -> JsResult<JsValue> {
+  let response = response_arg_0!(cx);
+  let row = cx.argument::<JsNumber>(1)?.value(&mut cx) as i32;
+  let col = cx.argument::<JsNumber>(2)?.value(&mut cx) as i32;
+
+  let value = response.pq_getvalue(row, col).or_throw(&mut cx)?;
+
+  match value {
+    Some(string) => Ok(cx.string(string).as_value(&mut cx)),
+    None => Ok(cx.undefined().as_value(&mut cx)),
+  }
+}
+
+// ===== WRAPPING ==============================================================
+
+pub fn unwrap_response(mut cx: FunctionContext) -> JsResult<JsObject> {
+  let response = response_arg_0!(cx);
+  response.to_js_object(&mut cx)
 }
