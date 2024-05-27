@@ -2,16 +2,22 @@
 
 use crate::conninfo::Conninfo;
 use crate::debug;
+use crate::debug_create;
+use crate::debug_drop;
+use crate::debug_self;
 use crate::errors::*;
 use crate::ffi;
 use crate::notices::DefaultNoticeProcessor;
 use crate::notices::NoticeProcessor;
 use crate::notices::NoticeProcessorWrapper;
 use crate::notices::shared_notice_processor;
+use crate::notifications::PQNotification;
 use crate::response::PQResponse;
 use polling::Event;
 use polling::Events;
 use polling::Poller;
+use std::any::type_name;
+use std::fmt::Debug;
 use std::os::fd::BorrowedFd;
 use std::os::raw::c_void;
 use std::ptr::null_mut;
@@ -19,12 +25,6 @@ use std::sync::atomic::AtomicPtr;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
-use crate::notifications::PQNotification;
-use std::fmt::Debug;
-use std::any::type_name;
-use crate::debug_self;
-use crate::debug_drop;
-use crate::debug_create;
 
 /// Key for our `client_encoding` which must be always `UTF8`
 static ENCODING_KEY: &str = "client_encoding";
