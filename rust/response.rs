@@ -68,6 +68,9 @@ pub struct PQResponse {
   result: *mut pq_sys::pg_result,
 }
 
+unsafe impl Send for PQResponse {}
+unsafe impl Sync for PQResponse {}
+
 debug_self!(PQResponse, result, "@");
 
 impl Drop for PQResponse {
