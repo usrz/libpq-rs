@@ -8,7 +8,7 @@ use crate::notices::DefaultNoticeProcessor;
 use crate::notices::NoticeProcessor;
 use crate::notices::NoticeProcessorWrapper;
 use crate::notices::shared_notice_processor;
-use crate::result::PQResponse;
+use crate::response::PQResponse;
 use polling::Event;
 use polling::Events;
 use polling::Poller;

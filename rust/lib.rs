@@ -7,7 +7,7 @@ pub mod errors;
 pub mod ffi;
 pub mod notices;
 pub mod notifications;
-pub mod result;
+pub mod response;
 
 /* ========================================================================== */
 
