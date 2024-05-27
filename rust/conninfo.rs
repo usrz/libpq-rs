@@ -10,11 +10,11 @@ use std::slice::Iter;
 /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
 ///
 #[derive(Debug)]
-pub struct Conninfo {
+pub struct PQConninfo {
   values: Vec<(String, String)>,
 }
 
-impl Default for Conninfo {
+impl Default for PQConninfo {
   /// Create an empty [`Conninfo`] struct.
   ///
   /// LibPQ will apply its defaults anyway whenever opening a connection.
@@ -24,7 +24,7 @@ impl Default for Conninfo {
   }
 }
 
-impl TryFrom<&str> for Conninfo {
+impl TryFrom<&str> for PQConninfo {
   type Error = PQError;
 
   /// Create a [`Conninfo`] struct from a PostgreSQL connection string (DSN).
@@ -56,7 +56,7 @@ impl TryFrom<&str> for Conninfo {
   }
 }
 
-impl TryFrom<String> for Conninfo {
+impl TryFrom<String> for PQConninfo {
   type Error = PQError;
 
   /// Create a [`Conninfo`] struct from a PostgreSQL connection string (DSN).
@@ -68,7 +68,7 @@ impl TryFrom<String> for Conninfo {
   }
 }
 
-impl TryFrom<*mut pq_sys::_PQconninfoOption> for Conninfo {
+impl TryFrom<*mut pq_sys::_PQconninfoOption> for PQConninfo {
   type Error = PQError;
 
   /// Create a [`Conninfo`] struct from a LibPQ `PQconninfoOption` pointer.
@@ -99,7 +99,7 @@ impl TryFrom<*mut pq_sys::_PQconninfoOption> for Conninfo {
   }
 }
 
-impl Conninfo {
+impl PQConninfo {
   /// Create a [`Conninfo`] struct from LibPQ's own defaults.
   ///
   /// This panics if the structure returned by `PQconndefaults` can not be
@@ -127,7 +127,7 @@ impl Conninfo {
   pub fn from_js_object<'a, C: Context<'a>>(
     cx: &mut C,
     object: Handle<JsObject>
-  ) -> NeonResult<Conninfo> {
+  ) -> NeonResult<PQConninfo> {
     let keys = object
       .get_own_property_names(cx)?
       .to_vec(cx)?;

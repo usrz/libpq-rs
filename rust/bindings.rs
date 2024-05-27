@@ -1,12 +1,12 @@
 //! Straight bindings to LibPQ for Node/Neon.
 
-use crate::connection::Connection;
-use crate::connection::PollingInterest;
-use crate::conninfo::Conninfo;
+use crate::connection::PQConnection;
+use crate::connection::PQPollingInterest;
+use crate::conninfo::PQConninfo;
 use crate::debug::*;
 use crate::errors::*;
-use crate::notices::NoticeProcessor;
-use crate::notices::NoticeSeverity;
+use crate::notices::PQNoticeProcessor;
+use crate::notices::PQNoticeSeverity;
 use crate::notifications::PQNotificationProcessor;
 use crate::response::PQResponse;
 use neon::prelude::*;
@@ -19,20 +19,20 @@ use std::time::Duration;
 
 /// Simple struct wrapping a [`Connection`].
 ///
-pub struct JsConnection {
+pub struct JSConnection {
   id: usize,
-  pub connection: Arc<Connection>,
+  pub connection: Arc<PQConnection>,
 }
 
-debug_self!(JsConnection, id);
+debug_self!(JSConnection, id);
 
-impl From::<Connection> for JsConnection {
-  fn from(connection: Connection) -> Self {
+impl From::<PQConnection> for JSConnection {
+  fn from(connection: PQConnection) -> Self {
     debug_create!(Self { id: debug_id(), connection: Arc::new(connection) })
   }
 }
 
-impl Finalize for JsConnection {
+impl Finalize for JSConnection {
   fn finalize<'a, C: Context<'a>>(self, _: &mut C) {
     debug!("Finalizing {:?}", self.connection);
     drop(self)
@@ -43,20 +43,20 @@ impl Finalize for JsConnection {
 
 /// Simple struct wrapping a [`PQResponse`]
 ///
-pub struct  JsResponse {
+pub struct  JSResponse {
   id: usize,
   pub response: Arc<PQResponse>,
 }
 
-debug_self!(JsResponse, id);
+debug_self!(JSResponse, id);
 
-impl From::<PQResponse> for JsResponse {
+impl From::<PQResponse> for JSResponse {
   fn from(response: PQResponse) -> Self {
       Self { id: debug_id(), response: Arc::new(response) }
   }
 }
 
-impl Finalize for JsResponse {
+impl Finalize for JSResponse {
   fn finalize<'a, C: Context<'a>>(self, _: &mut C) {
     debug!("Finalizing JsResponse {:?}", self.response);
     drop(self)
@@ -65,15 +65,15 @@ impl Finalize for JsResponse {
 
 /* ========================================================================== */
 
-pub struct  JsProcessor {
+pub struct  JSProcessor {
   id: usize,
   channel: Channel,
   processor: Arc<Root<JsFunction>>,
 }
 
-debug_self!(JsProcessor, id);
+debug_self!(JSProcessor, id);
 
-impl JsProcessor {
+impl JSProcessor {
   fn new<'a, C: Context<'a>>(cx: &mut C, processor: Handle<JsFunction>) -> Self {
     // Create a channel, and allow the Node event loop to exit
     let mut channel = cx.channel();
@@ -87,19 +87,19 @@ impl JsProcessor {
   }
 }
 
-impl NoticeProcessor for JsProcessor {
-  fn process_notice(&self, severity: NoticeSeverity, message: String) -> () {
+impl PQNoticeProcessor for JSProcessor {
+  fn process_notice(&self, severity: PQNoticeSeverity, message: String) -> () {
     let proc: Arc<Root<JsFunction>> = self.processor.clone();
 
     self.channel.send(move |mut cx| {
       debug!("Message from JS processor: {}", message);
 
       let severity = match severity {
-        NoticeSeverity::Debug => cx.string("debug").as_value(&mut cx),
-        NoticeSeverity::Log => cx.string("log").as_value(&mut cx),
-        NoticeSeverity::Info => cx.string("info").as_value(&mut cx),
-        NoticeSeverity::Notice => cx.string("notice").as_value(&mut cx),
-        NoticeSeverity::Warning => cx.string("warning").as_value(&mut cx),
+        PQNoticeSeverity::Debug => cx.string("debug").as_value(&mut cx),
+        PQNoticeSeverity::Log => cx.string("log").as_value(&mut cx),
+        PQNoticeSeverity::Info => cx.string("info").as_value(&mut cx),
+        PQNoticeSeverity::Notice => cx.string("notice").as_value(&mut cx),
+        PQNoticeSeverity::Warning => cx.string("warning").as_value(&mut cx),
       };
 
       let processor = proc.to_inner(&mut cx);
@@ -111,7 +111,7 @@ impl NoticeProcessor for JsProcessor {
   }
 }
 
-impl PQNotificationProcessor for JsProcessor {
+impl PQNotificationProcessor for JSProcessor {
   fn process_notice(&self, notification: crate::notifications::PQNotification) -> () {
     let proc: Arc<Root<JsFunction>> = self.processor.clone();
 
@@ -129,7 +129,7 @@ impl PQNotificationProcessor for JsProcessor {
   }
 }
 
-impl Drop for JsProcessor {
+impl Drop for JSProcessor {
   fn drop(&mut self) {
     debug_drop!(self);
   }
@@ -143,7 +143,7 @@ impl Drop for JsProcessor {
 ///
 macro_rules! connection_arg_0 {
   ( $x:expr ) => { {
-    let arg = $x.argument::<JsBox<JsConnection>>(0)?;
+    let arg = $x.argument::<JsBox<JSConnection>>(0)?;
     arg.connection.clone()
   } };
 }
@@ -152,7 +152,7 @@ macro_rules! connection_arg_0 {
 ///
 macro_rules! response_arg_0 {
   ( $x:expr ) => { {
-    let arg = $x.argument::<JsBox<JsResponse>>(0)?;
+    let arg = $x.argument::<JsBox<JSResponse>>(0)?;
     arg.response.clone()
   } };
 }
@@ -181,28 +181,28 @@ pub fn pq_connectdb_params(mut cx: FunctionContext) -> JsResult<JsPromise> {
 
   let info = {
     if let Ok(_) = arg.downcast::<JsUndefined, _>(&mut cx) {
-      Ok(Conninfo::default())
+      Ok(PQConninfo::default())
     } else if let Ok(_) = arg.downcast::<JsNull, _>(&mut cx) {
-      Ok(Conninfo::default())
+      Ok(PQConninfo::default())
     } else if let Ok(string) = arg.downcast::<JsString, _>(&mut cx) {
-      Conninfo::try_from(string.value(&mut cx)).or_throw(&mut cx)
+      PQConninfo::try_from(string.value(&mut cx)).or_throw(&mut cx)
     } else {
       let object = arg.downcast_or_throw::<JsObject, _>(&mut cx)?;
-      Conninfo::from_js_object(&mut cx, object)
+      PQConninfo::from_js_object(&mut cx, object)
     }
   }?;
 
   let promise = cx.task( || {
-    let connection = Connection::try_from(info)?;
+    let connection = PQConnection::try_from(info)?;
 
     connection.pq_setnonblocking(true)?;
     match connection.pq_isnonblocking() {
       false => Err("Unable to set non-blocking status".into()),
       true => Ok(connection),
     }
-  }).promise(move | mut cx, result: PQResult<Connection> | {
+  }).promise(move | mut cx, result: PQResult<PQConnection> | {
     let connection = result.or_throw(&mut cx)?;
-    Ok(cx.boxed(JsConnection::from(connection)))
+    Ok(cx.boxed(JSConnection::from(connection)))
   });
 
   Ok(promise)
@@ -227,7 +227,7 @@ pub fn pq_conninfo(mut cx: FunctionContext) -> JsResult<JsObject> {
 pub fn pq_set_notice_processor(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   let connection = connection_arg_0!(cx);
   let processor = cx.argument::<JsFunction>(1)?;
-  let processor = JsProcessor::new(&mut cx, processor);
+  let processor = JSProcessor::new(&mut cx, processor);
   connection.pq_set_notice_processor(Box::new(processor));
   Ok(cx.undefined())
 }
@@ -463,7 +463,7 @@ pub fn pq_get_result(mut cx: FunctionContext) -> JsResult<JsValue> {
   match connection.pq_get_result() {
     None => Ok(cx.undefined().as_value(&mut cx)),
     Some(response) => {
-      let boxed = cx.boxed(JsResponse::from(response));
+      let boxed = cx.boxed(JSResponse::from(response));
       Ok(boxed.as_value(&mut cx))
     },
   }
@@ -487,7 +487,7 @@ pub fn pq_set_single_row_mode(mut cx: FunctionContext) -> JsResult<JsBoolean> {
 
 /// Wait until reads from or writes to the connection will not block.
 ///
-fn poll(mut cx: FunctionContext, interest: PollingInterest) -> JsResult<JsPromise> {
+fn poll(mut cx: FunctionContext, interest: PQPollingInterest) -> JsResult<JsPromise> {
   let connection = connection_arg_0!(cx);
 
   let timeout = match cx.argument_opt(1) {
@@ -522,13 +522,13 @@ fn poll(mut cx: FunctionContext, interest: PollingInterest) -> JsResult<JsPromis
 /// Wait until reads to the connection will not block.
 ///
 pub fn poll_can_read(cx: FunctionContext) -> JsResult<JsPromise> {
-  poll(cx, PollingInterest::Readable)
+  poll(cx, PQPollingInterest::Readable)
 }
 
 /// Wait until writes to the connection will not block.
 ///
 pub fn poll_can_write(cx: FunctionContext) -> JsResult<JsPromise> {
-  poll(cx, PollingInterest::Writable)
+  poll(cx, PQPollingInterest::Writable)
 }
 
 /* ========================================================================== *

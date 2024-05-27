@@ -12,7 +12,7 @@ use std::os::raw::c_void;
 ///
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub enum NoticeSeverity {
+pub enum PQNoticeSeverity {
   Debug = 0,
   Log = 1,
   Info = 2,
@@ -20,7 +20,7 @@ pub enum NoticeSeverity {
   Warning = 4,
 }
 
-impl From<String> for NoticeSeverity {
+impl From<String> for PQNoticeSeverity {
   fn from(value: String) -> Self {
     match value.to_lowercase().trim() {
       "debug" => Self::Debug,
@@ -50,7 +50,7 @@ pub unsafe extern "C" fn shared_notice_processor(data: *mut c_void, result: *con
 
   // This *will* return on PostgreSQL 9.5 and earlier...
   let severity = match to_string_lossy(severity_ptr) {
-    Some(string) => NoticeSeverity::from(string),
+    Some(string) => PQNoticeSeverity::from(string),
     None => return,
   };
 
@@ -77,15 +77,15 @@ pub unsafe extern "C" fn shared_notice_processor(data: *mut c_void, result: *con
   debug!("Message from shared notice processor: [{:?}] {}", severity, message);
 
   // Convert our "data" pointer into a pointer to Connection and notify
-  let wrapper = data as *mut NoticeProcessorWrapper;
+  let wrapper = data as *mut PQNoticeProcessorWrapper;
   let this = unsafe { &*(wrapper) };
   this.process_notice(severity, message.to_string());
 }
 
 /// The trait that defines a processor of notice events from LibPQ.
 ///
-pub trait NoticeProcessor: Debug {
-  fn process_notice(&self, severity: NoticeSeverity, message: String) -> ();
+pub trait PQNoticeProcessor: Debug {
+  fn process_notice(&self, severity: PQNoticeSeverity, message: String) -> ();
 }
 
 /// Wrap a [`NoticeProcessor`] trait to safely decouple LibPQ's "extern C"
@@ -94,27 +94,27 @@ pub trait NoticeProcessor: Debug {
 /// Maybe there's a better way to handle this (and we can just get rid of this
 /// wrapper altogether) but so far I haven't thought of a better way...
 ///
-pub struct NoticeProcessorWrapper {
+pub struct PQNoticeProcessorWrapper {
   id: usize,
-  notice_processor: Box<dyn NoticeProcessor>
+  notice_processor: Box<dyn PQNoticeProcessor>
 }
 
-debug_self!(NoticeProcessorWrapper, id);
+debug_self!(PQNoticeProcessorWrapper, id);
 
-impl From::<Box<dyn NoticeProcessor>> for NoticeProcessorWrapper {
-  fn from(notice_processor: Box<dyn NoticeProcessor>) -> Self {
-    debug_create!(NoticeProcessorWrapper{ id: debug_id(), notice_processor })
+impl From::<Box<dyn PQNoticeProcessor>> for PQNoticeProcessorWrapper {
+  fn from(notice_processor: Box<dyn PQNoticeProcessor>) -> Self {
+    debug_create!(PQNoticeProcessorWrapper{ id: debug_id(), notice_processor })
   }
 }
 
-impl NoticeProcessorWrapper {
-  fn process_notice(&self, severity: NoticeSeverity, message: String) -> () {
+impl PQNoticeProcessorWrapper {
+  fn process_notice(&self, severity: PQNoticeSeverity, message: String) -> () {
     debug!("Message from notice processor wrapper: {}", message);
     self.notice_processor.process_notice(severity, message);
   }
 }
 
-impl Drop for NoticeProcessorWrapper {
+impl Drop for PQNoticeProcessorWrapper {
   fn drop(&mut self) {
     debug_drop!(self);
   }
@@ -122,25 +122,25 @@ impl Drop for NoticeProcessorWrapper {
 
 /// The default notice processor simply dumps notices to the console...
 ///
-pub struct DefaultNoticeProcessor {
+pub struct PQDefaultNoticeProcessor {
   id: usize,
 }
 
-debug_self!(DefaultNoticeProcessor, id);
+debug_self!(PQDefaultNoticeProcessor, id);
 
-impl DefaultNoticeProcessor {
+impl PQDefaultNoticeProcessor {
   pub fn new() -> Self {
-    debug_create!(DefaultNoticeProcessor { id: debug_id() })
+    debug_create!(PQDefaultNoticeProcessor { id: debug_id() })
   }
 }
 
-impl NoticeProcessor for DefaultNoticeProcessor {
-  fn process_notice(&self, severity: NoticeSeverity, message: String) -> () {
+impl PQNoticeProcessor for PQDefaultNoticeProcessor {
+  fn process_notice(&self, severity: PQNoticeSeverity, message: String) -> () {
     println!(">>> from Postgres [{:?}] {}", severity, message);
   }
 }
 
-impl Drop for DefaultNoticeProcessor {
+impl Drop for PQDefaultNoticeProcessor {
   fn drop(&mut self) {
     debug_drop!(self);
   }

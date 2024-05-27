@@ -1,6 +1,6 @@
 //! Wrap LibPQ's own `PGconn` struct.
 
-use crate::conninfo::Conninfo;
+use crate::conninfo::PQConninfo;
 use crate::debug::*;
 use crate::errors::*;
 use crate::ffi::*;
@@ -39,7 +39,7 @@ static ENCODING_VAL: &str = "UTF8";
 ///
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub enum ConnectionStatus {
+pub enum PQConnectionStatus {
   /// Connection succesful.
   Ok = 0,
   /// Connection failed.
@@ -70,7 +70,7 @@ pub enum ConnectionStatus {
   CheckStandby = 13,
 }
 
-impl From<pq_sys::ConnStatusType> for ConnectionStatus {
+impl From<pq_sys::ConnStatusType> for PQConnectionStatus {
   fn from(status: pq_sys::ConnStatusType) -> Self {
     match status {
       pq_sys::ConnStatusType::CONNECTION_OK => Self::Ok,
@@ -97,7 +97,7 @@ impl From<pq_sys::ConnStatusType> for ConnectionStatus {
 ///
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub enum TransactionStatus {
+pub enum PQTransactionStatus {
   /// Currently idle.
   Idle = 0,
   /// A command is in progress.
@@ -110,7 +110,7 @@ pub enum TransactionStatus {
   Unknown = 4,
 }
 
-impl From<pq_sys::PGTransactionStatusType> for TransactionStatus {
+impl From<pq_sys::PGTransactionStatusType> for PQTransactionStatus {
   fn from(status: pq_sys::PGTransactionStatusType) -> Self {
     match status {
       pq_sys::PGTransactionStatusType::PQTRANS_IDLE => Self::Idle,
@@ -128,7 +128,7 @@ impl From<pq_sys::PGTransactionStatusType> for TransactionStatus {
 ///
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub enum PipelineStatus {
+pub enum PQPipelineStatus {
   /// The connection is _not_ in pipeline mode.
   Off = 0,
   /// The connection is in pipeline mode.
@@ -138,7 +138,7 @@ pub enum PipelineStatus {
   Aborted = 2,
 }
 
-impl From<pq_sys::PGpipelineStatus> for PipelineStatus {
+impl From<pq_sys::PGpipelineStatus> for PQPipelineStatus {
   fn from(status: pq_sys::PGpipelineStatus) -> Self {
     match status {
       pq_sys::PGpipelineStatus::PQ_PIPELINE_OFF => Self::Off,
@@ -152,7 +152,7 @@ impl From<pq_sys::PGpipelineStatus> for PipelineStatus {
 ///
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub enum PollingInterest {
+pub enum PQPollingInterest {
   /// Wait until the connection is writable.
   Writable = 0,
   /// Wait until the connection is readable.
@@ -165,16 +165,16 @@ pub enum PollingInterest {
 
 /// Struct wrapping the LibPQ functions related to a _connection_.
 ///
-pub struct Connection {
+pub struct PQConnection {
   connection: *mut pq_sys::pg_conn,
-  notice_processor: AtomicPtr<NoticeProcessorWrapper>,
+  notice_processor: AtomicPtr<PQNoticeProcessorWrapper>,
 }
 
 // ===== TRAITS ================================================================
 
-debug_self!(Connection, connection, "@");
+debug_self!(PQConnection, connection, "@");
 
-impl Drop for Connection {
+impl Drop for PQConnection {
   /// Closes the connection to the server. Also frees memory used by the PGconn object.
   ///
   /// See [`PQfinish`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQFINISH)
@@ -185,7 +185,7 @@ impl Drop for Connection {
   }
 }
 
-impl TryFrom<&str> for Connection {
+impl TryFrom<&str> for PQConnection {
   type Error = PQError;
 
   /// Makes a new connection to the database server using a PostgreSQL
@@ -195,11 +195,11 @@ impl TryFrom<&str> for Connection {
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
   fn try_from(value: &str) -> PQResult<Self> {
-    Connection::try_from(Conninfo::try_from(value)?)
+    PQConnection::try_from(PQConninfo::try_from(value)?)
   }
 }
 
-impl TryFrom<String> for Connection {
+impl TryFrom<String> for PQConnection {
   type Error = PQError;
 
   /// Makes a new connection to the database server using a PostgreSQL
@@ -209,11 +209,11 @@ impl TryFrom<String> for Connection {
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
   fn try_from(value: String) -> PQResult<Self> {
-    Connection::try_from(Conninfo::try_from(value)?)
+    PQConnection::try_from(PQConninfo::try_from(value)?)
   }
 }
 
-impl TryFrom<Conninfo> for Connection {
+impl TryFrom<PQConninfo> for PQConnection {
   type Error = PQError;
 
   /// Makes a new connection to the database server.
@@ -221,7 +221,7 @@ impl TryFrom<Conninfo> for Connection {
   /// See [`PQconnectdbParams`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNECTDBPARAMS)
   ///
   ///
-  fn try_from(info: Conninfo) -> PQResult<Self> {
+  fn try_from(info: PQConninfo) -> PQResult<Self> {
     let mut keys = Vec::<&str>::from([ ENCODING_KEY ]);
     let mut values = Vec::<&str>::from([ ENCODING_VAL ]);
 
@@ -246,7 +246,7 @@ impl TryFrom<Conninfo> for Connection {
   }
 }
 
-impl TryFrom<*mut pq_sys::pg_conn> for Connection {
+impl TryFrom<*mut pq_sys::pg_conn> for PQConnection {
   type Error = PQError;
 
   fn try_from(conn: *mut pq_sys::pg_conn) -> PQResult<Self> {
@@ -254,27 +254,27 @@ impl TryFrom<*mut pq_sys::pg_conn> for Connection {
 
     let connection = match conn.is_null() {
       true => Err("Unable to create connection (null ptr)"),
-      _ => Ok(Connection { connection: conn, notice_processor })
+      _ => Ok(PQConnection { connection: conn, notice_processor })
     }?;
 
     let connection = debug_create!(connection);
 
-    let notice_processor = DefaultNoticeProcessor::new();
+    let notice_processor = PQDefaultNoticeProcessor::new();
     connection.pq_set_notice_processor(Box::new(notice_processor));
 
     match connection.pq_status() {
-      ConnectionStatus::Ok => Ok(connection),
+      PQConnectionStatus::Ok => Ok(connection),
       _ => Err(PQError::from(&connection)),
     }
   }
 }
 
-unsafe impl Send for Connection {}
-unsafe impl Sync for Connection {}
+unsafe impl Send for PQConnection {}
+unsafe impl Sync for PQConnection {}
 
 // ===== IMPL ==================================================================
 
-impl Connection {
+impl PQConnection {
 
   // ===== CONNECTION ==========================================================
 
@@ -284,26 +284,26 @@ impl Connection {
   /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
   ///
   pub fn new() -> PQResult<Self> {
-    Connection::try_from(Conninfo::default())
+    PQConnection::try_from(PQConninfo::default())
   }
 
   /// Returns the connection options used by a live connection.
   ///
   /// See [`PQconninfo`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFO)
   ///
-  pub fn pq_conninfo(&self) -> PQResult<Conninfo> {
-    unsafe { Conninfo::try_from(pq_sys::PQconninfo(self.connection)) }
+  pub fn pq_conninfo(&self) -> PQResult<PQConninfo> {
+    unsafe { PQConninfo::try_from(pq_sys::PQconninfo(self.connection)) }
   }
 
   /// Sets the current notice processor.
   ///
   /// See [PQnoticeProcessor](https://www.postgresql.org/docs/current/libpq-notice-processing.html)
   /// See [PQnoticeReceiverr](https://www.postgresql.org/docs/current/libpq-notice-processing.html)
-  pub fn pq_set_notice_processor(&self, notice_processor: Box<dyn NoticeProcessor>) {
+  pub fn pq_set_notice_processor(&self, notice_processor: Box<dyn PQNoticeProcessor>) {
     #[cfg(debug_assertions)]
     let to_string = format!("{:?}", notice_processor);
 
-    let wrapper = NoticeProcessorWrapper::from(notice_processor);
+    let wrapper = PQNoticeProcessorWrapper::from(notice_processor);
 
     let boxed = Box::new(wrapper);
     let pointer = Box::into_raw(boxed);
@@ -333,7 +333,7 @@ impl Connection {
   ///
   /// See [`PQstatus`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQSTATUS)
   ///
-  pub fn pq_status(&self) -> ConnectionStatus {
+  pub fn pq_status(&self) -> PQConnectionStatus {
     unsafe { pq_sys::PQstatus(self.connection).into() }
   }
 
@@ -341,7 +341,7 @@ impl Connection {
   ///
   /// See [`PQtransactionStatus`](https://www.postgresql.org/docs/current/libpq-status.html#LIBPQ-PQTRANSACTIONSTATUS)
   ///
-  pub fn pq_transaction_status(&self) -> TransactionStatus {
+  pub fn pq_transaction_status(&self) -> PQTransactionStatus {
     unsafe { pq_sys::PQtransactionStatus(self.connection).into() }
   }
 
@@ -589,7 +589,7 @@ impl Connection {
   ///
   /// See [`PQpipelineStatus`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESTATUS)
   ///
-  pub fn pq_pipeline_status(&self) -> PipelineStatus {
+  pub fn pq_pipeline_status(&self) -> PQPipelineStatus {
     unsafe { pq_sys::PQpipelineStatus(self.connection).into() }
   }
 
@@ -642,13 +642,13 @@ impl Connection {
 
   /// Wait until reads from or writes to the connection will not block.
   ///
-  pub fn poll(&self, interest: PollingInterest, timeout: Option<Duration>) -> PQResult<()> {
+  pub fn poll(&self, interest: PQPollingInterest, timeout: Option<Duration>) -> PQResult<()> {
 
     let key = debug_id();
 
     let event = match interest {
-      PollingInterest::Readable => Event::readable(key),
-      PollingInterest::Writable => Event::writable(key),
+      PQPollingInterest::Readable => Event::readable(key),
+      PQPollingInterest::Writable => Event::writable(key),
     };
 
     let poller = Poller::new()

@@ -11,7 +11,7 @@ use neon::prelude::*;
 ///
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub enum ResponseStatus {
+pub enum PQResponseStatus {
   /// The string sent to the server was empty.
   EmptyQuery = 0,
   /// Successful completion of a command returning no data.
@@ -38,7 +38,7 @@ pub enum ResponseStatus {
   PipelineAborted = 11,
 }
 
-impl From<pq_sys::ExecStatusType> for ResponseStatus {
+impl From<pq_sys::ExecStatusType> for PQResponseStatus {
   fn from(status: pq_sys::ExecStatusType) -> Self {
     match status {
       pq_sys::ExecStatusType::PGRES_EMPTY_QUERY => Self::EmptyQuery,
@@ -99,9 +99,9 @@ impl PQResponse {
   ///
   /// See [`PQresultStatus`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQRESULTSTATUS)
   ///
-  pub fn pq_result_status(&self) -> ResponseStatus {
+  pub fn pq_result_status(&self) -> PQResponseStatus {
     unsafe {
-      ResponseStatus::from(pq_sys::PQresultStatus(self.result))
+      PQResponseStatus::from(pq_sys::PQresultStatus(self.result))
     }
   }
 

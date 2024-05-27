@@ -5,8 +5,8 @@
 //! much as possible, to minimize the time spent jumping from JavaScript code
 //! to native code.
 
-use crate::connection::Connection;
-use crate::conninfo::Conninfo;
+use crate::connection::PQConnection;
+use crate::conninfo::PQConninfo;
 use crate::debug::*;
 use crate::errors::*;
 use neon::prelude::*;
@@ -20,13 +20,13 @@ use std::sync::Arc;
 ///
 pub struct StandardRunner {
   id: usize,
-  pub connection: Arc<Connection>,
+  pub connection: Arc<PQConnection>,
 }
 
 debug_self!(StandardRunner, id);
 
-impl From::<Connection> for StandardRunner {
-  fn from(connection: Connection) -> Self {
+impl From::<PQConnection> for StandardRunner {
+  fn from(connection: PQConnection) -> Self {
     debug_create!(Self { id: debug_id(), connection: Arc::new(connection) })
   }
 }
@@ -47,26 +47,26 @@ pub fn run_standard(mut cx: FunctionContext) -> JsResult<JsPromise> {
 
   let info = {
     if let Ok(_) = options.downcast::<JsUndefined, _>(&mut cx) {
-      Ok(Conninfo::default())
+      Ok(PQConninfo::default())
     } else if let Ok(_) = options.downcast::<JsNull, _>(&mut cx) {
-      Ok(Conninfo::default())
+      Ok(PQConninfo::default())
     } else if let Ok(string) = options.downcast::<JsString, _>(&mut cx) {
-      Conninfo::try_from(string.value(&mut cx)).or_throw(&mut cx)
+      PQConninfo::try_from(string.value(&mut cx)).or_throw(&mut cx)
     } else {
       let object = options.downcast_or_throw::<JsObject, _>(&mut cx)?;
-      Conninfo::from_js_object(&mut cx, object)
+      PQConninfo::from_js_object(&mut cx, object)
     }
   }?;
 
   let promise = cx.task( || {
-    let connection = Connection::try_from(info)?;
+    let connection = PQConnection::try_from(info)?;
 
     connection.pq_setnonblocking(true)?;
     match connection.pq_isnonblocking() {
       false => Err("Unable to set non-blocking status".into()),
       true => Ok(connection),
     }
-  }).promise(move | mut cx, result: PQResult<Connection> | {
+  }).promise(move | mut cx, result: PQResult<PQConnection> | {
     let connection = result.or_throw(&mut cx)?;
     Ok(cx.boxed(StandardRunner::from(connection)))
   });

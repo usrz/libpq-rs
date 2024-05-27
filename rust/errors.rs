@@ -1,6 +1,6 @@
 //! Errors stuff.
 
-use crate::connection::Connection;
+use crate::connection::PQConnection;
 use neon::prelude::Context;
 use neon::prelude::NeonResult;
 
@@ -22,11 +22,11 @@ impl From<Option<String>> for PQError {
   }
 }
 
-impl From<&Connection> for PQError {
+impl From<&PQConnection> for PQError {
   /// Create a [`PQError`] from a [`Connection`]'s own
   /// [error message][Connection::pq_error_message].
   ///
-  fn from(value: &Connection) -> Self {
+  fn from(value: &PQConnection) -> Self {
     Self::from(value.pq_error_message())
   }
 }
