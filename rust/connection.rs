@@ -1,4 +1,4 @@
-//! Wrap LibPQ's own `PGconn`.
+//! Wrap LibPQ's own `PGconn` struct.
 
 use crate::conninfo::Conninfo;
 use crate::debug;
@@ -8,7 +8,7 @@ use crate::notices::DefaultNoticeProcessor;
 use crate::notices::NoticeProcessor;
 use crate::notices::NoticeProcessorWrapper;
 use crate::notices::shared_notice_processor;
-use crate::result::ToDoResult;
+use crate::result::PQResponse;
 use polling::Event;
 use polling::Events;
 use polling::Poller;
@@ -549,11 +549,11 @@ impl Connection {
   ///
   /// See [`PQgetResult`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQGETRESULT)
   ///
-  pub fn pq_get_result(&self) -> Option<ToDoResult> {
+  pub fn pq_get_result(&self) -> Option<PQResponse> {
     unsafe {
       let result = pq_sys::PQgetResult(self.connection);
       match result.is_null() {
-        false => Some(ToDoResult::try_from(result).unwrap()),
+        false => Some(PQResponse::try_from(result).unwrap()),
         true => None,
       }
     }

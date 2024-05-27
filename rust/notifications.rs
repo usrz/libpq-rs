@@ -1,3 +1,5 @@
+//! Wrap LibPQ's own `pgNotify` struct.
+
 use crate::errors::PQError;
 use crate::ffi;
 use crate::errors::PQResult;

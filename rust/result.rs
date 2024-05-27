@@ -1,12 +1,19 @@
+//! Wrap LibPQ's own `pg_result` struct.
+
 use crate::debug;
 use crate::errors::*;
 
+/// Struct wrapping the LibPQ functions related to a _result_.
+///
+/// In order to avoid naming conflict with Rust's well known [`Result`], the
+/// name of this struct is `PQResponse`.
+///
 #[derive(Debug)]
-pub struct ToDoResult {
+pub struct PQResponse {
   result: *mut pq_sys::pg_result,
 }
 
-impl Drop for ToDoResult {
+impl Drop for PQResponse {
   /// Frees the storage associated with a `PGresult`.
   ///
   /// See [`PQclear`](https://www.postgresql.org/docs/current/libpq-exec.html#LIBPQ-PQCLEAR)
@@ -17,7 +24,7 @@ impl Drop for ToDoResult {
   }
 }
 
-impl TryFrom<*mut pq_sys::pg_result> for ToDoResult {
+impl TryFrom<*mut pq_sys::pg_result> for PQResponse {
   type Error = PQError;
 
   /// Create a [`PGResult`] from a LibPQ own `PGresult` structure.
@@ -34,7 +41,7 @@ impl TryFrom<*mut pq_sys::pg_result> for ToDoResult {
   }
 }
 
-impl ToDoResult {
+impl PQResponse {
   pub fn pq_result_status(&self) -> String {
     unsafe {
       format!("RESULT STATUS {:?}", pq_sys::PQresultStatus(self.result))
