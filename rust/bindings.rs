@@ -7,7 +7,6 @@ use crate::debug::*;
 use crate::errors::*;
 use crate::notices::PQNoticeProcessor;
 use crate::notices::PQNoticeSeverity;
-use crate::notifications::PQNotificationProcessor;
 use crate::response::PQResponse;
 use neon::prelude::*;
 use std::sync::Arc;
@@ -74,7 +73,11 @@ pub struct  JSProcessor {
 debug_self!(JSProcessor, id);
 
 impl JSProcessor {
-  pub fn new<'a, C: Context<'a>>(cx: &mut C, processor: Handle<JsFunction>) -> Self {
+  pub fn new(channel: Channel, processor: Arc<Root<JsFunction>>) -> Self {
+    debug_create!(Self { id: debug_id(), channel, processor })
+  }
+
+  pub fn create<'a, C: Context<'a>>(cx: &mut C, processor: Handle<JsFunction>) -> Self {
     // Create a channel, and allow the Node event loop to exit
     let mut channel = cx.channel();
     channel.unref(cx);
@@ -83,7 +86,8 @@ impl JSProcessor {
     let rooted = processor.root(cx);
     let processor = Arc::new(rooted);
 
-    debug_create!(Self { id: debug_id(), channel, processor })
+    // Create ourselves
+    Self::new(channel, processor)
   }
 }
 
@@ -107,24 +111,6 @@ impl PQNoticeProcessor for JSProcessor {
       let null = cx.null();
 
       processor.call(&mut cx, null, vec![severity, message]).and(Ok(()))
-    });
-  }
-}
-
-impl PQNotificationProcessor for JSProcessor {
-  fn process_notice(&self, notification: crate::notifications::PQNotification) -> () {
-    let proc: Arc<Root<JsFunction>> = self.processor.clone();
-
-    self.channel.send(move |mut cx| {
-      debug!("Notification from JS processor: {:?}", notification);
-
-      let severity = cx.string("notification").as_value(&mut cx);
-
-      let processor = proc.to_inner(&mut cx);
-      let notification = notification.to_js_object(&mut cx)?.as_value(&mut cx);
-      let null = cx.null();
-
-      processor.call(&mut cx, null, vec![severity, notification]).and(Ok(()))
     });
   }
 }
@@ -220,7 +206,7 @@ pub fn pq_conninfo(mut cx: FunctionContext) -> JsResult<JsObject> {
 pub fn pq_set_notice_processor(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   let connection = connection_arg_0!(cx);
   let processor = cx.argument::<JsFunction>(1)?;
-  let processor = JSProcessor::new(&mut cx, processor);
+  let processor = JSProcessor::create(&mut cx, processor);
   connection.pq_set_notice_processor(Box::new(processor));
   Ok(cx.undefined())
 }
