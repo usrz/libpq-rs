@@ -225,8 +225,8 @@ impl PQResponse {
   ) -> NeonResult<Handle<'a, JsObject>> {
     let object = cx.empty_object();
 
-    let status = self.pq_result_status();
-    let status = cx.string(format!("{:?}", status));
+    let result_status = self.pq_result_status();
+    let status = cx.string(format!("{:?}", result_status));
     object.set(cx, "status", status)?;
 
     let command = cx.string(self.pq_cmd_status());
@@ -238,7 +238,8 @@ impl PQResponse {
     let ntuples = self.pq_ntuples(); // rows
     let nfields = self.pq_nfields(); // columns
 
-    debug!("Received {} rows and {} columns", ntuples, nfields);
+    debug!("Converting response {:?} ({} rows, {} cols) to JavaScript", result_status, ntuples, nfields);
+
 
     let fields = cx.empty_array();
     object.set(cx, "fields", fields)?;
