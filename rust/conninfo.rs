@@ -111,13 +111,13 @@ impl PQConninfo {
     unsafe {
       let raw = pq_sys::PQconndefaults();
       Self::try_from(raw)
-        .and_then(| info | {
+        .map(| info | {
           pq_sys::PQconninfoFree(raw);
-          Ok(info)
-        }).or_else(|msg| {
+          info
+        })
+        .map_err(|msg| {
           pq_sys::PQconninfoFree(raw);
-          format!("fooo {}", 12);
-          Err(format!("Unable to access LibPQ defaults: {}", msg).into())
+          format!("Unable to access LibPQ defaults: {}", msg).into()
         })
     }
   }

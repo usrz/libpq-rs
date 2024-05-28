@@ -211,7 +211,7 @@ impl PQResponse {
       false => unsafe {
         let ptr = pq_sys::PQgetvalue(self.result, row, column);
         // This is a *result*... it must be NON LOSSY!
-        to_string(ptr).and_then(|string| Ok(Some(string)))
+        to_string(ptr).map(|string| Some(string))
       }
     }
   }

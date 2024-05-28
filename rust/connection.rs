@@ -674,7 +674,7 @@ impl PQConnection {
       let mut events = Events::new();
 
       poller.wait(&mut events, timeout)
-        .or_else(| err | Err(format!("Error waiting on poller: {}", err)))?;
+        .map_err(| err | format!("Error waiting on poller: {}", err))?;
 
       if events.is_empty() { continue 'outer }
 
