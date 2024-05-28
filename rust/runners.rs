@@ -5,27 +5,32 @@
 //! much as possible, to minimize the time spent jumping from JavaScript code
 //! to native code.
 
-use neon::prelude::*;
+use crate::bindings::JSProcessor;
 use crate::connection::PQConnection;
+use crate::connection::PQPollingInterest;
 use crate::conninfo::PQConninfo;
 use crate::debug::*;
 use crate::errors::*;
+use neon::prelude::*;
 use std::sync::Arc;
-use crate::bindings::JSProcessor;
-use neon::types::Deferred;
-use std::thread;
 use std::sync::mpsc;
-use crate::connection::PQPollingInterest;
+use std::thread;
 
 /* ========================================================================== *
  * PLAIN RUNNER: asynchronous _without_ pipelining                            *
  * ========================================================================== */
 
 pub struct PlainRequest {
-  pub query: String,
-  pub params: Option<Vec<String>>,
-  pub callback: Root<JsFunction>,
-  pub deferred: Deferred,
+  query: String,
+  params: Option<Vec<String>>,
+  callback: Root<JsFunction>,
+  single_row: bool,
+}
+
+impl PlainRequest {
+  pub fn into(self) -> (String, Option<Vec<String>>, Root<JsFunction>, bool) {
+    (self.query, self.params, self.callback, self.single_row)
+  }
 }
 
 /// Simple struct wrapping a [`Connection`].
@@ -50,7 +55,8 @@ impl PlainRunner {
     connection: PQConnection,
   ) -> Self {
     let id = debug_id();
-    let channel = cx.channel();
+    let mut channel = cx.channel();
+    channel.unref(cx);
 
     let (sender, receiver) = mpsc::channel::<PlainRequest>();
 
@@ -64,34 +70,58 @@ impl PlainRunner {
           Err(_) => break "Sender disconnected".into(),
         };
 
+        let (
+          query,
+          params,
+          callback,
+          single_row,
+        ) = request.into();
+
+        // Need to write our callback in an Arc: we use it multiple times, and
+        // it may outlive this thread, we can close the connection _before_ the
+        // last result had time to get back to JavaScript land (channels)...
+        let callback = Arc::new(callback);
+
         // Wait until we _can_ write...
-        connection.poll(PQPollingInterest::Writable, None);
-
-        // Send the request once we can write
-        match request.params {
-          None => connection.pq_send_query(request.query),
-          Some(params) => connection.pq_send_query_params(request.query, params),
-        };
-
-        // Wait until the request is flushed
-        let flushed = loop {
-          match connection.pq_flush() {
-            Ok(false) => connection.poll(PQPollingInterest::Writable, None),
-            Ok(true) => break Ok(()), // break, we're flushed
-            Err(err) => break Err(err), // error
-          };
-        };
-
-        // Error on flushing? Break out!
-        if let Err(error) = flushed {
+        if let Err(error) = connection.poll(PQPollingInterest::Writable, None) {
           break error;
         }
+
+        // Send the request once we can write
+        if let Err(error) = match params {
+          None => connection.pq_send_query(query),
+          Some(params) => connection.pq_send_query_params(query, params),
+        } {
+          break error;
+        }
+
+        // Single row mode
+        if single_row { connection.pq_set_single_row_mode(); }
+
+        // Wait until the request is flushed
+        if let Err(error) = loop {
+          match connection.pq_flush() {
+            Err(err) => break Err(err), // error in "pq_flush"
+            Ok(true) => break Ok(()), // break, we're flushed
+            Ok(false) => (), // don't break, poll!
+          }
+
+          // TODO: NOTIFICATIONS
+
+          if let Err(error) = connection.poll(PQPollingInterest::Writable, None) {
+            break Err(error);
+          }
+        } {
+          break error;
+        };
 
         // ===== READ RESPONSE =================================================
 
         let done: Result<(), PQError> = loop {
           // Wait until we _can_ read...
-          connection.poll(PQPollingInterest::Readable, None);
+          if let Err(error) = connection.poll(PQPollingInterest::Readable, None) {
+            break Err(error);
+          }
 
           if let Err(error) = connection.pq_consume_input() {
             break Err(error); // error out in case "pq_consume_input" errs
@@ -108,26 +138,44 @@ impl PlainRunner {
             }
 
             // We can safely get the result _without_ blocking
-            match connection.pq_get_result() {
-              Some(result) => {
-                // channel.send(|mut cx| {
-                //   let callback = request.callback.to_inner(&mut cx);
-                //   let null = cx.null();
-                //   let object = result.to_js_object(&mut cx);
+            let result = connection.pq_get_result();
+            let more = result.is_some(); // gets moved out by channel
 
-                //   Ok(())
+            // Invoke our callback, with the result or undefined...
+            let callback = callback.clone();
 
-                // });
-                // TODO: notify the callback of the result, and poll again
-                continue; // run "pq_is_busy" -> "pq_get_result" again
-              },
+            // TODO: notify the callback of the result, and poll again
+            channel.send(move |mut cx| {
+              let callback = callback.to_inner(&mut cx);
+              let null = cx.null();
 
-              None => {
-                // TODO: resolve the promise with "undefined" and next request
+              cx.try_catch(move |cx| {
+                // Invoke with the result object or undefined?
+                let value = match result {
+                  Some(result) => result.to_js_object(cx)?.as_value(cx),
+                  None => null.as_value(cx),
+                };
 
-                break false; // this will send us back to the next request
-              }
-            }
+                // Invoke the callback
+                callback.exec(cx, null, vec![value])
+
+              }).or_else(|error| {
+                cx.try_catch(move |cx| {
+                  let string = error.to_string(cx)?.value(cx);
+                  println!("Error invoking callback: {}", string);
+                  Ok(())
+                }).or_else(|_| {
+                  println!("Error stringifying error from callback");
+                  Ok(())
+                })
+              })
+            });
+
+            // Next step
+            match more {
+              true => continue, // result was not null, go back to check "pq_is_busy"
+              false => break false, // result was null, this will go back at the beginning
+            };
           };
 
           // Should we read some more data (poll, check busy, get result, ...)?
@@ -155,17 +203,15 @@ impl PlainRunner {
     &self,
     query: String,
     params: Option<Vec<String>>,
-    deferred: Deferred,
     callback: Root<JsFunction>,
+    single_row: bool,
   ) -> PQResult<()> {
     self.sender.send(PlainRequest {
       query,
       params,
-      deferred,
       callback,
-    });
-
-    Ok(())
+      single_row,
+    }).map_err(|_| "Receiver disconnected".into())
   }
 }
 
@@ -173,7 +219,10 @@ impl PlainRunner {
 /// connection string (DSN), or an object with the connection parameters.
 ///
 pub fn plain_create(mut cx: FunctionContext) -> JsResult<JsPromise> {
-  let options = cx.argument::<JsValue>(0)?;
+  let callback = cx.argument::<JsFunction>(0)?;
+  let options = cx.argument_opt(1)
+    .or(Some(cx.undefined().as_value(&mut cx)))
+    .unwrap();
 
   let info = {
     if let Ok(_) = options.downcast::<JsUndefined, _>(&mut cx) {
@@ -188,7 +237,6 @@ pub fn plain_create(mut cx: FunctionContext) -> JsResult<JsPromise> {
     }
   }?;
 
-  let callback = cx.argument::<JsFunction>(1)?;
   let processor = Box::new(JSProcessor::new(&mut cx, callback));
 
   let promise = cx.task( || {
@@ -210,11 +258,26 @@ pub fn plain_create(mut cx: FunctionContext) -> JsResult<JsPromise> {
   Ok(promise)
 }
 
-pub fn plain_query_params(mut cx: FunctionContext) -> JsResult<JsPromise> {
+pub fn plain_query(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   let runner = cx.argument::<JsBox<PlainRunner>>(0)?;
-
   let callback = cx.argument::<JsFunction>(1)?.root(&mut cx);
+  let command = cx.argument::<JsString>(2)?.value(&mut cx);
 
+  let single_row = cx.argument_opt(3)
+    .map(|value| value.downcast_or_throw::<JsBoolean, _>(&mut cx))
+    .or(Some(Ok(cx.boolean(false)))) // default to "false"
+    .unwrap()? // get the value (downscasted or default) or throw
+    .value(&mut cx);
+
+  runner.enqueue(command, None, callback, single_row)
+    .or_throw(&mut cx)?;
+
+  Ok(cx.undefined())
+}
+
+pub fn plain_query_params(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+  let runner = cx.argument::<JsBox<PlainRunner>>(0)?;
+  let callback = cx.argument::<JsFunction>(1)?.root(&mut cx);
   let command = cx.argument::<JsString>(2)?.value(&mut cx);
 
   let mut params = Vec::<String>::new();
@@ -224,10 +287,14 @@ pub fn plain_query_params(mut cx: FunctionContext) -> JsResult<JsPromise> {
     params.push(string);
   }
 
-  let (deferred, promise) = cx.promise();
+  let single_row = cx.argument_opt(4)
+    .map(|value| value.downcast_or_throw::<JsBoolean, _>(&mut cx))
+    .or(Some(Ok(cx.boolean(false)))) // default to "false"
+    .unwrap()? // get the value (downscasted or default) or throw
+    .value(&mut cx);
 
-  runner.enqueue(command, Some(params), deferred, callback)
+  runner.enqueue(command, Some(params), callback, single_row)
     .or_throw(&mut cx)?;
 
-  Ok(promise)
+  Ok(cx.undefined())
 }
