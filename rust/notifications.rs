@@ -5,12 +5,6 @@ use crate::ffi::*;
 use neon::prelude::*;
 use std::fmt::Debug;
 
-/// The trait that defines a processor of notification events from LibPQ.
-///
-pub trait PQNotificationProcessor: Debug {
-  fn process_notice(&self, notification: PQNotification) -> ();
-}
-
 #[derive(Debug)]
 pub struct PQNotification {
   pub channel: String,
