@@ -11,6 +11,7 @@ use crate::response::PQResponse;
 use neon::prelude::*;
 use std::sync::Arc;
 use std::time::Duration;
+use crate::connection::PQPoller;
 
 /* ========================================================================== *
  * STRUCTS                                                                    *
@@ -486,8 +487,7 @@ fn poll(mut cx: FunctionContext, interest: PQPollingInterest) -> JsResult<JsProm
   }?;
 
   let promise = cx.task( move || {
-    let poller = connection.poller(interest)?;
-    poller(timeout)
+    connection.poll(interest, timeout)
   }).promise(move | mut cx, result | {
     match result {
       Err(error) => cx.throw_error(format!("Error polling: {}", error.to_string())),
