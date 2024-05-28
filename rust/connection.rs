@@ -159,15 +159,6 @@ pub enum PQPollingInterest {
   Readable = 1,
 }
 
-/// A [`PQPoller`] is a simple function waiting for a connection to be either
-/// _readable_ or _writable_ (that is _reads_ or _writes_ can proceed without
-/// blocking).
-///
-pub trait PQPoller: Fn(Option<Duration>) -> PQResult<()> {}
-
-// Default implementation for closures.
-impl <F: Fn(Option<Duration>) -> PQResult<()>> PQPoller for F {}
-
 /* ========================================================================== *
  * CONNECTION                                                                 *
  * ========================================================================== */

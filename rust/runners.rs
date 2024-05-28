@@ -5,6 +5,7 @@
 //! much as possible, to minimize the time spent jumping from JavaScript code
 //! to native code.
 
+use crate::bindings::JSProcessor;
 use crate::connection::PQConnection;
 use crate::connection::PQPollingInterest;
 use crate::conninfo::PQConninfo;
@@ -14,7 +15,6 @@ use neon::prelude::*;
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
-use crate::bindings::JSProcessor;
 
 /* ========================================================================== *
  * PLAIN RUNNER: asynchronous _without_ pipelining                            *
@@ -157,9 +157,9 @@ impl PlainRunner {
             let result = connection.pq_get_result();
             let more = result.is_some(); // gets moved out by channel
 
-            match result {
-              Some(_) => debug!("Received result on {}", this),
-              None => debug!("Received final request on {}", this),
+            match &result {
+              Some(result) => debug!("Received \"{:?}\" result on {}", result.pq_result_status(), this),
+              None => debug!("Received final result on {}", this),
             };
 
             // Invoke our callback, with the result or undefined...
