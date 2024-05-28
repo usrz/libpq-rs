@@ -5,7 +5,6 @@
 //! much as possible, to minimize the time spent jumping from JavaScript code
 //! to native code.
 
-use crate::bindings::JSProcessor;
 use crate::connection::PQConnection;
 use crate::connection::PQPollingInterest;
 use crate::conninfo::PQConninfo;
@@ -15,6 +14,7 @@ use neon::prelude::*;
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
+use crate::bindings::JSProcessor;
 
 /* ========================================================================== *
  * PLAIN RUNNER: asynchronous _without_ pipelining                            *
@@ -53,11 +53,21 @@ impl PlainRunner {
   pub fn new<'a, C: Context<'a>>(
     cx: &mut C,
     connection: PQConnection,
+    callback: Handle<JsFunction>,
   ) -> Self {
     let id = debug_id();
     let mut channel = cx.channel();
     channel.unref(cx);
 
+    // The callback is shared between our notice processor, and our thread for
+    // send notifications from channels while processing requests
+    let callback = Arc::new(callback.root(cx));
+
+    // Setup notice processing
+    let processor = JSProcessor::new(channel.clone(), callback.clone());
+    connection.pq_set_notice_processor(Box::new(processor));
+
+    // Setup our channel for enqueueing requests
     let (sender, receiver) = mpsc::channel::<PlainRequest>();
 
     thread::spawn(move || {
@@ -237,12 +247,12 @@ pub fn plain_create(mut cx: FunctionContext) -> JsResult<JsPromise> {
     }
   }?;
 
-  let processor = Box::new(JSProcessor::new(&mut cx, callback));
+  // Root the callback until the connection is established
+  let rooted_callback = callback.root(&mut cx);
 
+  // Asynchronously (but synchronously) open our connection in a task
   let promise = cx.task( || {
     let connection = PQConnection::try_from(info)?;
-
-    connection.pq_set_notice_processor(processor);
 
     connection.pq_setnonblocking(true)?;
     match connection.pq_isnonblocking() {
@@ -251,7 +261,9 @@ pub fn plain_create(mut cx: FunctionContext) -> JsResult<JsPromise> {
     }
   }).promise(move | mut cx, result: PQResult<PQConnection> | {
     let connection = result.or_throw(&mut cx)?;
-    let runner = PlainRunner::new(&mut cx, connection);
+    let callback = rooted_callback.into_inner(&mut cx);
+
+    let runner = PlainRunner::new(&mut cx, connection, callback);
     Ok(cx.boxed(runner))
   });
 
