@@ -20,6 +20,8 @@ use std::thread;
  * PLAIN RUNNER: asynchronous _without_ pipelining                            *
  * ========================================================================== */
 
+/// Super simple struct to hold a "request" to postgres
+///
 pub struct PlainRequest {
   query: String,
   params: Option<Vec<String>>,
@@ -33,7 +35,9 @@ impl PlainRequest {
   }
 }
 
-/// Simple struct wrapping a [`Connection`].
+/* ========================================================================== */
+
+/// Plain runner, asynchronous, but no pipelining...
 ///
 pub struct PlainRunner {
   id: usize,
@@ -61,10 +65,10 @@ impl PlainRunner {
 
     // The callback is shared between our notice processor, and our thread for
     // send notifications from channels while processing requests
-    let callback = Arc::new(callback.root(cx));
+    let conn_callback = Arc::new(callback.root(cx));
 
     // Setup notice processing
-    let processor = JSProcessor::new(channel.clone(), callback.clone());
+    let processor = JSProcessor::new(channel.clone(), conn_callback.clone());
     connection.pq_set_notice_processor(Box::new(processor));
 
     // Setup our channel for enqueueing requests
@@ -143,6 +147,10 @@ impl PlainRunner {
             break 'request error; // error out in case "pq_consume_input" errs
           }
 
+          let notifies = match connection.pq_notifies() {
+            Ok(notifies) => notifies,
+            Err(error) => break 'request error,
+          };
           // TODO: NOTIFICATIONS
 
           // One more loop, call "pq_is_busy" -> "pq_get_result" until
@@ -204,10 +212,13 @@ impl PlainRunner {
       debug!("Exiting loop in PlainRunner {{ id: {} }}: {}", id, end.message);
     });
 
-
+    // Here we are!
     Self { id, sender }
   }
 
+  /// Enqueue a request (a query, its parameters, the callback where to send
+  /// the results and a flag indicating whether single row mode is active)
+  ///
   pub fn enqueue(
     &self,
     query: String,
@@ -224,8 +235,11 @@ impl PlainRunner {
   }
 }
 
+/* ========================================================================== */
+
 /// Makes a new connection to the database server using using either an optional
-/// connection string (DSN), or an object with the connection parameters.
+/// connection string (DSN), or an object with the connection parameters, and
+/// returns a [`PlainRunner`] executing queries.
 ///
 pub fn plain_create(mut cx: FunctionContext) -> JsResult<JsPromise> {
   let callback = cx.argument::<JsFunction>(0)?;
@@ -269,6 +283,8 @@ pub fn plain_create(mut cx: FunctionContext) -> JsResult<JsPromise> {
   Ok(promise)
 }
 
+/// Send a straigh query (no parameters) to a [`PlainRunner`].
+///
 pub fn plain_query(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   let runner = cx.argument::<JsBox<PlainRunner>>(0)?;
   let callback = cx.argument::<JsFunction>(1)?.root(&mut cx);
@@ -286,6 +302,8 @@ pub fn plain_query(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   Ok(cx.undefined())
 }
 
+/// Send a parameterized query to a [`PlainRunner`].
+///
 pub fn plain_query_params(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   let runner = cx.argument::<JsBox<PlainRunner>>(0)?;
   let callback = cx.argument::<JsFunction>(1)?.root(&mut cx);
