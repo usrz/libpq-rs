@@ -70,15 +70,20 @@ impl PlainRunner {
     // Setup our channel for enqueueing requests
     let (sender, receiver) = mpsc::channel::<PlainRequest>();
 
+    // The core of our process runs in a separate thread (with many many loops!)
     thread::spawn(move || {
-      let end: PQError = loop {
+      let this = format!("PlainRunner {{ id: {}, thread: {:?} }}", id, thread::current().id());
+
+      let end: PQError = 'request: loop {
 
         // ===== WRITE REQUEST =================================================
 
         let request = match receiver.recv() {
           Ok(request) => request,
-          Err(_) => break "Sender disconnected".into(),
+          Err(_) => break 'request "Sender disconnected".into(),
         };
+
+        debug!("Received request on {}", this);
 
         let (
           query,
@@ -90,11 +95,16 @@ impl PlainRunner {
         // Need to write our callback in an Arc: we use it multiple times, and
         // it may outlive this thread, we can close the connection _before_ the
         // last result had time to get back to JavaScript land (channels)...
+        //
+        // NOTE: Root<JsFunction> _is_ clonable (internally root _does_ use
+        // Arcs), but we need a context to do so... In our case this is
+        // unworkable, as we need to move it to our channel closure mutiple
+        // times, and we have a context _only_ in the closure itself!
         let callback = Arc::new(callback);
 
         // Wait until we _can_ write...
         if let Err(error) = connection.poll(PQPollingInterest::Writable, None) {
-          break error;
+          break 'request error;
         }
 
         // Send the request once we can write
@@ -102,54 +112,55 @@ impl PlainRunner {
           None => connection.pq_send_query(query),
           Some(params) => connection.pq_send_query_params(query, params),
         } {
-          break error;
+          break 'request error;
         }
 
         // Single row mode
         if single_row { connection.pq_set_single_row_mode(); }
 
         // Wait until the request is flushed
-        if let Err(error) = loop {
+        'flush: loop {
           match connection.pq_flush() {
-            Err(err) => break Err(err), // error in "pq_flush"
-            Ok(true) => break Ok(()), // break, we're flushed
+            Err(err) => break 'request err, // error in "pq_flush"
+            Ok(true) => break 'flush, // break, we're flushed
             Ok(false) => (), // don't break, poll!
           }
 
-          // TODO: NOTIFICATIONS
-
           if let Err(error) = connection.poll(PQPollingInterest::Writable, None) {
-            break Err(error);
+            break 'request error;
           }
-        } {
-          break error;
         };
 
         // ===== READ RESPONSE =================================================
 
-        let done: Result<(), PQError> = loop {
+        'response: loop {
           // Wait until we _can_ read...
           if let Err(error) = connection.poll(PQPollingInterest::Readable, None) {
-            break Err(error);
+            break 'request error;
           }
 
           if let Err(error) = connection.pq_consume_input() {
-            break Err(error); // error out in case "pq_consume_input" errs
+            break 'request error; // error out in case "pq_consume_input" errs
           }
 
           // TODO: NOTIFICATIONS
 
           // One more loop, call "pq_is_busy" -> "pq_get_result" until
-          let more = loop {
+          'partial: loop {
 
             // If "pq_get_result" would block, loop again and poll connection
             if connection.pq_is_busy() {
-              break true; // here "true" will put us back to "poll" for reading
+              continue 'response; // here "true" will put us back to "poll" for reading
             }
 
             // We can safely get the result _without_ blocking
             let result = connection.pq_get_result();
             let more = result.is_some(); // gets moved out by channel
+
+            match result {
+              Some(_) => debug!("Received result on {}", this),
+              None => debug!("Received final request on {}", this),
+            };
 
             // Invoke our callback, with the result or undefined...
             let callback = callback.clone();
@@ -183,23 +194,11 @@ impl PlainRunner {
 
             // Next step
             match more {
-              true => continue, // result was not null, go back to check "pq_is_busy"
-              false => break false, // result was null, this will go back at the beginning
+              true => continue 'partial, // result was not null, go back to check "pq_is_busy"
+              false => continue 'request, // result was null, this will go back at the beginning
             };
           };
-
-          // Should we read some more data (poll, check busy, get result, ...)?
-          match more {
-            true => continue, // more data, back to polling on reads...
-            false => break Ok(()),
-          }
         };
-
-        // Are we done with this request or did we error out?
-        match done {
-          Ok(_) => continue, // this will put us back reading the next query
-          Err(error) => break error, // got an error, bail out
-        }
       };
 
       debug!("Exiting loop in PlainRunner {{ id: {} }}: {}", id, end.message);
