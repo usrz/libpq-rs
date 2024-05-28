@@ -134,6 +134,8 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
    * ======================================================================== */
 
    cx.export_function("plain_create", crate::runners::plain_create)?;
+   cx.export_function("plain_query", crate::runners::plain_query)?;
+   cx.export_function("plain_query_params", crate::runners::plain_query_params)?;
 
    Ok(())
 }
