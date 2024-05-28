@@ -486,10 +486,9 @@ fn poll(mut cx: FunctionContext, interest: PQPollingInterest) -> JsResult<JsProm
   }?;
 
   let promise = cx.task( move || {
-    println!("POLLING ON THREAD {:?}", std::thread::current().id());
-    connection.poll(interest, timeout)
+    let poller = connection.poller(interest)?;
+    poller(timeout)
   }).promise(move | mut cx, result | {
-    println!("POLLED RESOLVING ON THREAD {:?}", std::thread::current().id());
     match result {
       Err(error) => cx.throw_error(format!("Error polling: {}", error.to_string())),
       Ok(_) => Ok(cx.undefined()),

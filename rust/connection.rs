@@ -159,6 +159,15 @@ pub enum PQPollingInterest {
   Readable = 1,
 }
 
+/// A [`PQPoller`] is a simple function waiting for a connection to be either
+/// _readable_ or _writable_ (that is _reads_ or _writes_ can proceed without
+/// blocking).
+///
+pub trait PQPoller: Fn(Option<Duration>) -> PQResult<()> {}
+
+// Default implementation for closures.
+impl <F: Fn(Option<Duration>) -> PQResult<()>> PQPoller for F {}
+
 /* ========================================================================== *
  * CONNECTION                                                                 *
  * ========================================================================== */
@@ -640,10 +649,10 @@ impl PQConnection {
 
   // ===== POLLING =============================================================
 
-  /// Wait until reads from or writes to the connection will not block.
+  /// Create a function that will wait until reads from or writes to the
+  /// connection can proceed without blocking
   ///
-  pub fn poll(&self, interest: PQPollingInterest, timeout: Option<Duration>) -> PQResult<()> {
-
+  pub fn poller(&self, interest: PQPollingInterest) -> PQResult<impl PQPoller> {
     let key = debug_id();
 
     let event = match interest {
@@ -654,7 +663,7 @@ impl PQConnection {
     let poller = Poller::new()
       .or_else(| err | Err(format!("Error creating poller: {}", err)))?;
 
-    let source = unsafe {
+    unsafe {
       let fd = pq_sys::PQsocket(self.connection);
       let source = BorrowedFd::borrow_raw(fd);
       poller.add(&source, event)
@@ -662,13 +671,33 @@ impl PQConnection {
       source
     };
 
-    let mut events = Events::new();
-    poller.wait(&mut events, timeout)
-      .or_else(| err | Err(format!("Error waiting on poller: {}", err)))?;
+    Ok(move |timeout: Option<Duration>| -> PQResult<()> {
+      'outer: loop {
+        let mut events = Events::new();
 
-    poller.delete(&source)
-      .or_else(| err | Err(format!("Error deleting poller: {}", err)))?;
+        poller.wait(&mut events, timeout)
+          .or_else(| err | Err(format!("Error waiting on poller: {}", err)))?;
 
-    Ok(())
+        if events.is_empty() { continue 'outer }
+
+        'inner: for event in events.iter() {
+          if event.key != key { continue 'inner; }
+          if event.is_interrupt() { break 'outer Err(PQError::from("Connection interrupted")) }
+          if event.is_err() == Some(true) { break 'outer Err(PQError::from("Connection error")) }
+
+          match interest {
+            PQPollingInterest::Readable => if event.readable { break 'outer Ok(()) },
+            PQPollingInterest::Writable => if event.writable { break 'outer Ok(()) },
+          }
+        }
+      }
+    })
+  }
+
+  /// Wait until reads from or writes to the connection will not block.
+  ///
+  pub fn poll(&self, interest: PQPollingInterest, timeout: Option<Duration>) -> PQResult<()> {
+    let poller = self.poller(interest)?;
+    poller(timeout)
   }
 }
