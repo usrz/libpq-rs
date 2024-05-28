@@ -122,32 +122,6 @@ impl From<pq_sys::PGTransactionStatusType> for PQTransactionStatus {
   }
 }
 
-/// The current pipeline mode status of the libpq connection.
-///
-/// See [`PQpipelineStatus`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESTATUS)
-///
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
-pub enum PQPipelineStatus {
-  /// The connection is _not_ in pipeline mode.
-  Off = 0,
-  /// The connection is in pipeline mode.
-  On = 1,
-  /// The libpq connection is in pipeline mode and an error occurred while
-  /// processing the current pipeline.
-  Aborted = 2,
-}
-
-impl From<pq_sys::PGpipelineStatus> for PQPipelineStatus {
-  fn from(status: pq_sys::PGpipelineStatus) -> Self {
-    match status {
-      pq_sys::PGpipelineStatus::PQ_PIPELINE_OFF => Self::Off,
-      pq_sys::PGpipelineStatus::PQ_PIPELINE_ON => Self::On,
-      pq_sys::PGpipelineStatus::PQ_PIPELINE_ABORTED => Self::Aborted,
-    }
-  }
-}
-
 /// Polling interest for [`Connection::poll`].
 ///
 #[repr(u32)]
@@ -542,9 +516,8 @@ impl PQConnection {
     }
   }
 
-  /// Waits for the next result from a prior [`Connection::pq_send_query`],
-  /// [`Connection::pq_send_query_params`] or,
-  /// [`Connection::pq_pipeline_sync`] call, and returns it.
+  /// Waits for the next result from a prior [`Connection::pq_send_query`], or
+  /// [`Connection::pq_send_query_params`], and returns it.
   ///
   /// See [`PQgetResult`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQGETRESULT)
   ///
@@ -580,52 +553,6 @@ impl PQConnection {
     }
 
     Ok(vec)
-  }
-
-
-  // ===== PIPELINE MODE =======================================================
-
-  /// Returns the current pipeline mode status of the libpq connection.
-  ///
-  /// See [`PQpipelineStatus`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESTATUS)
-  ///
-  pub fn pq_pipeline_status(&self) -> PQPipelineStatus {
-    unsafe { pq_sys::PQpipelineStatus(self.connection).into() }
-  }
-
-  /// Causes a connection to enter pipeline mode if it is currently idle or
-  /// already in pipeline mode.
-  ///
-  /// See [`PQenterPipelineMode`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQENTERPIPELINEMODE)
-  ///
-  pub fn pq_enter_pipeline_mode(&self) -> bool {
-    unsafe { pq_sys::PQenterPipelineMode(self.connection) == 1 }
-  }
-
-  /// Causes a connection to exit pipeline mode if it is currently in pipeline
-  /// mode with an empty queue and no pending results.
-  ///
-  /// See [`PQexitPipelineMode`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQEXITPIPELINEMODE)
-  ///
-  pub fn pq_exit_pipeline_mode(&self) -> bool {
-    unsafe { pq_sys::PQexitPipelineMode(self.connection) == 1 }
-  }
-
-  /// Marks a synchronization point in a pipeline by sending a sync message and
-  /// flushing the send buffer.
-  ///
-  /// See [`PQpipelineSync`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQPIPELINESYNC)
-  ///
-  pub fn pq_pipeline_sync(&self) -> bool {
-    unsafe { pq_sys::PQpipelineSync(self.connection) == 1 }
-  }
-
-  /// Sends a request for the server to flush its output buffer.
-  ///
-  /// See [`PQsendFlushRequest`](https://www.postgresql.org/docs/current/libpq-pipeline-mode.html#LIBPQ-PQSENDFLUSHREQUEST)
-  ///
-  pub fn pq_send_flush_request(&self) -> bool {
-    unsafe { pq_sys::PQsendFlushRequest(self.connection) == 1 }
   }
 
   // ===== SINGLE ROW MODE =====================================================
@@ -667,7 +594,7 @@ impl PQConnection {
       poller.wait(&mut events, timeout)
         .map_err(| err | format!("Error waiting on poller: {}", err))?;
 
-      if events.is_empty() { continue 'outer }
+      if events.is_empty() { println!("NOPE"); continue 'outer }
 
       'inner: for event in events.iter() {
         if event.key != key { continue 'inner; }
@@ -675,8 +602,8 @@ impl PQConnection {
         if event.is_err() == Some(true) { break 'outer Err(PQError::from("Connection error")) }
 
         match interest {
-          PQPollingInterest::Readable => if event.readable { break 'outer Ok(()) },
-          PQPollingInterest::Writable => if event.writable { break 'outer Ok(()) },
+          PQPollingInterest::Readable => if event.readable { println!("YES R"); break 'outer Ok(()) },
+          PQPollingInterest::Writable => if event.writable { println!("YES W"); break 'outer Ok(()) },
         }
       }
     };

@@ -11,7 +11,7 @@ pub mod ffi;
 pub mod notices;
 pub mod notifications;
 pub mod response;
-pub mod runners;
+pub mod runner;
 
 /* ========================================================================== */
 
@@ -133,9 +133,9 @@ fn main(mut cx: ModuleContext) -> NeonResult<()> {
    * RUNNERS                                                                  *
    * ======================================================================== */
 
-   cx.export_function("plain_create", crate::runners::plain_create)?;
-   cx.export_function("plain_query", crate::runners::plain_query)?;
-   cx.export_function("plain_query_params", crate::runners::plain_query_params)?;
+   cx.export_function("runner_create", crate::runner::runner_create)?;
+   cx.export_function("runner_query", crate::runner::runner_query)?;
+   cx.export_function("runner_query_params", crate::runner::runner_query_params)?;
 
    Ok(())
 }

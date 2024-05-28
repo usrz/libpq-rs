@@ -15,21 +15,22 @@ use neon::prelude::*;
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
+use std::time::Duration;
 
 /* ========================================================================== *
- * PLAIN RUNNER: asynchronous _without_ pipelining                            *
+ * RUNNER: asynchronous _without_ pipelining                                  *
  * ========================================================================== */
 
 /// Super simple struct to hold a "request" to postgres
 ///
-pub struct PlainRequest {
+struct RunnerRequest {
   query: String,
   params: Option<Vec<String>>,
   callback: Root<JsFunction>,
   single_row: bool,
 }
 
-impl PlainRequest {
+impl RunnerRequest {
   pub fn into(self) -> (String, Option<Vec<String>>, Root<JsFunction>, bool) {
     (self.query, self.params, self.callback, self.single_row)
   }
@@ -37,23 +38,23 @@ impl PlainRequest {
 
 /* ========================================================================== */
 
-/// Plain runner, asynchronous, but no pipelining...
+/// Our asynchronous runner of queries.
 ///
-pub struct PlainRunner {
+pub struct Runner {
   id: usize,
-  sender: mpsc::Sender<PlainRequest>,
+  sender: mpsc::Sender<RunnerRequest>,
 }
 
-debug_self!(PlainRunner, id);
+debug_self!(Runner, id);
 
-impl Finalize for PlainRunner {
+impl Finalize for Runner {
   fn finalize<'a, C: Context<'a>>(self, _: &mut C) {
     debug!("Finalizing {:?}", self);
     drop(self)
   }
 }
 
-impl PlainRunner {
+impl Runner {
   pub fn new<'a, C: Context<'a>>(
     cx: &mut C,
     connection: PQConnection,
@@ -72,11 +73,11 @@ impl PlainRunner {
     connection.pq_set_notice_processor(Box::new(processor));
 
     // Setup our channel for enqueueing requests
-    let (sender, receiver) = mpsc::channel::<PlainRequest>();
+    let (sender, receiver) = mpsc::channel::<RunnerRequest>();
 
     // The core of our process runs in a separate thread (with many many loops!)
     thread::spawn(move || {
-      let this = format!("PlainRunner {{ id: {}, thread: {:?} }}", id, thread::current().id());
+      let this = format!("Runner {{ id: {}, thread: {:?} }}", id, thread::current().id());
 
       let end: PQError = 'request: loop {
 
@@ -135,6 +136,12 @@ impl PlainRunner {
           }
         };
 
+        debug!("WE JUST WROTE, CAN WE WRITE AGAIN");
+        if let Err(error) = connection.poll(PQPollingInterest::Writable, Some(Duration::from_secs(2))) {
+          break 'request error;
+        }
+        debug!("WE JUST WROTE, CAN WE WRITE AGAIN PART 2");
+
         // ===== READ RESPONSE =================================================
 
         'response: loop {
@@ -147,10 +154,6 @@ impl PlainRunner {
             break 'request error; // error out in case "pq_consume_input" errs
           }
 
-          let notifies = match connection.pq_notifies() {
-            Ok(notifies) => notifies,
-            Err(error) => break 'request error,
-          };
           // TODO: NOTIFICATIONS
 
           // One more loop, call "pq_is_busy" -> "pq_get_result" until
@@ -209,7 +212,7 @@ impl PlainRunner {
         };
       };
 
-      debug!("Exiting loop in PlainRunner {{ id: {} }}: {}", id, end.message);
+      debug!("Exiting loop in {}: {}", this, end.message);
     });
 
     // Here we are!
@@ -226,7 +229,7 @@ impl PlainRunner {
     callback: Root<JsFunction>,
     single_row: bool,
   ) -> PQResult<()> {
-    self.sender.send(PlainRequest {
+    self.sender.send(RunnerRequest {
       query,
       params,
       callback,
@@ -239,9 +242,9 @@ impl PlainRunner {
 
 /// Makes a new connection to the database server using using either an optional
 /// connection string (DSN), or an object with the connection parameters, and
-/// returns a [`PlainRunner`] executing queries.
+/// returns a [`Runner`] executing queries.
 ///
-pub fn plain_create(mut cx: FunctionContext) -> JsResult<JsPromise> {
+pub fn runner_create(mut cx: FunctionContext) -> JsResult<JsPromise> {
   let callback = cx.argument::<JsFunction>(0)?;
   let options = cx.argument_opt(1)
     .or(Some(cx.undefined().as_value(&mut cx)))
@@ -276,17 +279,17 @@ pub fn plain_create(mut cx: FunctionContext) -> JsResult<JsPromise> {
     let connection = result.or_throw(&mut cx)?;
     let callback = rooted_callback.into_inner(&mut cx);
 
-    let runner = PlainRunner::new(&mut cx, connection, callback);
+    let runner = Runner::new(&mut cx, connection, callback);
     Ok(cx.boxed(runner))
   });
 
   Ok(promise)
 }
 
-/// Send a straigh query (no parameters) to a [`PlainRunner`].
+/// Send a straigh query (no parameters) to a [`Runner`].
 ///
-pub fn plain_query(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-  let runner = cx.argument::<JsBox<PlainRunner>>(0)?;
+pub fn runner_query(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+  let runner = cx.argument::<JsBox<Runner>>(0)?;
   let callback = cx.argument::<JsFunction>(1)?.root(&mut cx);
   let command = cx.argument::<JsString>(2)?.value(&mut cx);
 
@@ -302,10 +305,10 @@ pub fn plain_query(mut cx: FunctionContext) -> JsResult<JsUndefined> {
   Ok(cx.undefined())
 }
 
-/// Send a parameterized query to a [`PlainRunner`].
+/// Send a parameterized query to a [`Runner`].
 ///
-pub fn plain_query_params(mut cx: FunctionContext) -> JsResult<JsUndefined> {
-  let runner = cx.argument::<JsBox<PlainRunner>>(0)?;
+pub fn runner_query_params(mut cx: FunctionContext) -> JsResult<JsUndefined> {
+  let runner = cx.argument::<JsBox<Runner>>(0)?;
   let callback = cx.argument::<JsFunction>(1)?.root(&mut cx);
   let command = cx.argument::<JsString>(2)?.value(&mut cx);
 
