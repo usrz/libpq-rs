@@ -10,7 +10,7 @@ name = "pq_rs_node"
 
 [dependencies]
 neon = { version = "1.0" }
-openssl-sys = { version = "0.9", features = [ "vendored" ] }
+openssl-sys = { version = "0.9" }
 polling = { version = "3.7" }
 pq-sys = { version =  "0.6", features = [ "bundled" ] }
 libc = "0.2"
