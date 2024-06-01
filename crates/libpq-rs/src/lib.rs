@@ -49,3 +49,9 @@ fn openssl_version() -> String {
 }
 
 /* ========================================================================== */
+
+napi_ts::napi_init!(|| {
+  println!("Initializing...");
+  println!("  openssl version: {}", openssl_version());
+  println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
+});
