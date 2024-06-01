@@ -37,7 +37,7 @@ impl From<String> for PQNoticeSeverity {
 }
 
 /// This is our "shared" notice processor. It's a basic function that will be
-/// passed to LibPQ and will be invoked with a `NoticeProcessorWrapper` pointer.
+/// passed to LibPQ and will be invoked with a [`PQNoticeProcessorWrapper`] pointer.
 ///
 pub unsafe extern "C" fn shared_notice_processor(data: *mut c_void, result: *const pq_sys::pg_result) {
   // Extract error message and status
@@ -88,7 +88,7 @@ pub trait PQNoticeProcessor: Debug {
   fn process_notice(&self, severity: PQNoticeSeverity, message: String) -> ();
 }
 
-/// Wrap a [`NoticeProcessor`] trait to safely decouple LibPQ's "extern C"
+/// Wrap a [`PQNoticeProcessor`] trait to safely decouple LibPQ's "extern C"
 /// function into a Rust object.
 ///
 /// Maybe there's a better way to handle this (and we can just get rid of this

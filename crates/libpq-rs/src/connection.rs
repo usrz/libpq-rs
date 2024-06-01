@@ -30,7 +30,7 @@ static ENCODING_VAL: &str = "UTF8";
 /// Status of a PostgreSQL connection.
 ///
 /// As we establish connections in a _blocking_ fashion, the only two statuses
-/// we'll ever see are `CONNECTION_OK` and `CONNECTION_BAD`
+/// we'll ever see are `PQConnection_OK` and `PQConnection_BAD`
 ///
 /// The all other values should be returned _only_ when establishing connections
 /// asynchronously.
@@ -122,7 +122,7 @@ impl From<pq_sys::PGTransactionStatusType> for PQTransactionStatus {
   }
 }
 
-/// Polling interest for [`Connection::poll`].
+/// Polling interest for [`PQConnection::poll`].
 ///
 #[repr(u32)]
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
@@ -424,9 +424,9 @@ impl PQConnection {
     }
   }
 
-  /// Returns `true` if a command is busy, that is [`Connection::pq_get_result`]
+  /// Returns `true` if a command is busy, that is [`PQConnection::pq_get_result`]
   /// would block waiting for input. A `false` return indicates that
-  /// [`Connection::pq_get_result`] can be called with assurance of not blocking.
+  /// [`PQConnection::pq_get_result`] can be called with assurance of not blocking.
   ///
   /// See [`PQisBusy`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQISBUSY)
   ///
@@ -516,8 +516,8 @@ impl PQConnection {
     }
   }
 
-  /// Waits for the next result from a prior [`Connection::pq_send_query`], or
-  /// [`Connection::pq_send_query_params`], and returns it.
+  /// Waits for the next result from a prior [`PQConnection::pq_send_query`], or
+  /// [`PQConnection::pq_send_query_params`], and returns it.
   ///
   /// See [`PQgetResult`](https://www.postgresql.org/docs/current/libpq-async.html#LIBPQ-PQGETRESULT)
   ///

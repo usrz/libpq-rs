@@ -14,7 +14,7 @@ pub struct PQConninfo {
 }
 
 impl Default for PQConninfo {
-  /// Create an empty [`Conninfo`] struct.
+  /// Create an empty [`PQConninfo`] struct.
   ///
   /// LibPQ will apply its defaults anyway whenever opening a connection.
   ///
@@ -26,7 +26,7 @@ impl Default for PQConninfo {
 impl TryFrom<&str> for PQConninfo {
   type Error = PQError;
 
-  /// Create a [`Conninfo`] struct from a PostgreSQL connection string (DSN).
+  /// Create a [`PQConninfo`] struct from a PostgreSQL connection string (DSN).
   ///
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
@@ -58,7 +58,7 @@ impl TryFrom<&str> for PQConninfo {
 impl TryFrom<String> for PQConninfo {
   type Error = PQError;
 
-  /// Create a [`Conninfo`] struct from a PostgreSQL connection string (DSN).
+  /// Create a [`PQConninfo`] struct from a PostgreSQL connection string (DSN).
   ///
   /// See [`PQconninfoParse`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNINFOPARSE)
   ///
@@ -70,7 +70,7 @@ impl TryFrom<String> for PQConninfo {
 impl TryFrom<*mut pq_sys::_PQconninfoOption> for PQConninfo {
   type Error = PQError;
 
-  /// Create a [`Conninfo`] struct from a LibPQ `PQconninfoOption` pointer.
+  /// Create a [`PQConninfo`] struct from a LibPQ `PQconninfoOption` pointer.
   ///
   /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
   ///
@@ -99,10 +99,10 @@ impl TryFrom<*mut pq_sys::_PQconninfoOption> for PQConninfo {
 }
 
 impl PQConninfo {
-  /// Create a [`Conninfo`] struct from LibPQ's own defaults.
+  /// Create a [`PQConninfo`] struct from LibPQ's own defaults.
   ///
   /// This panics if the structure returned by `PQconndefaults` can not be
-  /// safely converted into a [`Conninfo`] struct.
+  /// safely converted into a [`PQConninfo`] struct.
   ///
   /// See [`PQconndefaults`](https://www.postgresql.org/docs/current/libpq-connect.html#LIBPQ-PQCONNDEFAULTS)
   ///
@@ -121,7 +121,7 @@ impl PQConninfo {
     }
   }
 
-  /// Iterate into a [`Conninfo`]'s own tuples.
+  /// Iterate into a [`PQConninfo`]'s own tuples.
   ///
   pub fn iter(&self) -> Iter<(String, String)> {
     self.values.iter()

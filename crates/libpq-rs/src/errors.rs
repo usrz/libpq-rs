@@ -21,8 +21,8 @@ impl From<Option<String>> for PQError {
 }
 
 impl From<&PQConnection> for PQError {
-  /// Create a [`PQError`] from a [`Connection`]'s own
-  /// [error message][Connection::pq_error_message].
+  /// Create a [`PQError`] from a [`PQConnection`]'s own
+  /// [error message][PQConnection::pq_error_message].
   ///
   fn from(value: &PQConnection) -> Self {
     Self::from(value.pq_error_message())
@@ -60,18 +60,3 @@ impl std::error::Error for PQError {}
 /// The result type for all LibPQ errors.
 ///
 pub type PQResult<T> = Result<T, PQError>;
-
-/// Extension trait for converting Rust [`Result`] values with a [`PQError`]
-/// error into [`NeonResult`] values by throwing JavaScript exceptions.
-///
-pub trait ResultExt<T> {
-  // fn or_throw<'a, C: Context<'a>>(self, cx: &mut C) -> NeonResult<T>;
-}
-
-impl <T> ResultExt<T> for Result<T, PQError> {
-  // fn or_throw<'cx, C: Context<'cx>>(self, cx: &mut C) -> NeonResult<T> {
-  //   self.or_else(|err| {
-  //     cx.throw_error(err.message)
-  //   })
-  // }
-}
