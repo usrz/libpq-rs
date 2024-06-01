@@ -1,0 +1,15 @@
+[package]
+name = "napi-ts"
+version = "0.0.1"
+edition = "2021"
+authors = ["Pier Fumagalli <pier@usrz.com>"]
+description = "Yet another wrapper to the NodeJS native API"
+repository = "https://github.com/usrz/libpq-rs"
+license = "Apache-2.0"
+
+[lib]
+crate-type = ["lib"]
+path = "src/lib.rs"
+
+[dependencies]
+nodejs-sys = { version = "0.15.0", features = [ "napi_v8" ] }

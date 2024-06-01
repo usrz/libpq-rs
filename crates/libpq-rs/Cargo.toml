@@ -2,16 +2,17 @@
 name = "libpq-rs"
 version = "0.1.0"
 edition = "2021"
+authors = ["Pier Fumagalli <pier@usrz.com>"]
+description = "Yet another wrapper of LibPQ for NodeJS"
+repository = "https://github.com/usrz/libpq-rs"
+license = "Apache-2.0"
 
 [lib]
 crate-type = ["cdylib"]
-path = "rust/lib.rs"
 name = "pq_rs_node"
 
 [dependencies]
-neon = { version = "1.0.0" }
-napi-sys = { version = "2.4.0", features = [ "napi8"] }
+napi-ts = { version = "0.0.1", path = "../napi-ts" }
 openssl-sys = { version = "0.9" }
 polling = { version = "3.7" }
 pq-sys = { version =  "0.6", features = [ "bundled" ] }
-libc = "0.2"

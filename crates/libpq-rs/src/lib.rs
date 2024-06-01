@@ -10,7 +10,6 @@ pub mod conninfo;
 pub mod debug;
 pub mod errors;
 pub mod ffi;
-pub mod napi_ts;
 pub mod notices;
 pub mod notifications;
 pub mod response;
@@ -144,25 +143,25 @@ fn openssl_version() -> String {
 //    Ok(())
 // }
 
-fn napi_start(napi: &Napi, exports: NapiObject) -> NapiResult<NapiObject> {
-  let libpq_version = libpq_version();
-  let openssl_version = openssl_version();
-  let is_threadsafe = libpq_threadsafe();
+// fn napi_start(napi: &Napi, exports: NapiObject) -> NapiResult<NapiObject> {
+//   let libpq_version = libpq_version();
+//   let openssl_version = openssl_version();
+//   let is_threadsafe = libpq_threadsafe();
 
-  let version = napi.string(&libpq_version)?;
-  exports.set_property(napi, "libpq_version", version)?;
+//   let version = napi.string(&libpq_version)?;
+//   exports.set_property(napi, "libpq_version", version)?;
 
-  Ok(exports)
-}
+//   Ok(exports)
+// }
 
-thread_local! {
-  static NAPI_ENV: Cell<napi_sys::napi_env> = Cell::new(null_mut());
-}
+// thread_local! {
+//   static NAPI_ENV: Cell<napi_sys::napi_env> = Cell::new(null_mut());
+// }
 
 
-fn init2() -> () {
-  println!("WE HAVE BEEN CALLED!!! {:?}", thread::current().id());
-}
+// fn init2() -> () {
+//   println!("WE HAVE BEEN CALLED!!! {:?}", thread::current().id());
+// }
 
 macro_rules! init_me {
   ($initializer:expr) => {
@@ -179,12 +178,12 @@ macro_rules! init_me {
 
 // init_me!(init2);
 
-init_me!(|| {
-  println!("CLOSURE CALLED!!! {:?}", thread::current().id());
-});
+// init_me!(|| {
+//   println!("CLOSURE CALLED!!! {:?}", thread::current().id());
+// });
 
 
-// #[no_mangle]
+// // #[no_mangle]
 // unsafe extern "C" fn napi_register_module_v1(
 //   env: napi_sys::napi_env,
 //   exports: napi_sys::napi_value,

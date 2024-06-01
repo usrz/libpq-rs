@@ -1,3 +1,5 @@
+bak/
+.vscode/
 Cargo.lock
-node_modules/
+libpq_rs.node
 target/
