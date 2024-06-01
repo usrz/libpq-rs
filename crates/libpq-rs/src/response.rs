@@ -3,7 +3,7 @@
 use crate::debug::*;
 use crate::errors::*;
 use crate::ffi::*;
-use neon::prelude::*;
+// use neon::prelude::*;
 
 /// The result status of the command.
 ///
@@ -216,60 +216,60 @@ impl PQResponse {
     }
   }
 
-  /// Converts the _contents_ (rows, columns, ...) of a [`PQResponse`] struct
-  /// into a JavaScript object.
-  ///
-  pub fn to_js_object<'a, C: Context<'a>>(
-    &self,
-    cx: &mut C,
-  ) -> NeonResult<Handle<'a, JsObject>> {
-    let object = cx.empty_object();
+  // /// Converts the _contents_ (rows, columns, ...) of a [`PQResponse`] struct
+  // /// into a JavaScript object.
+  // ///
+  // pub fn to_js_object<'a, C: Context<'a>>(
+  //   &self,
+  //   cx: &mut C,
+  // ) -> NeonResult<Handle<'a, JsObject>> {
+  //   let object = cx.empty_object();
 
-    let result_status = self.pq_result_status();
-    let status = cx.string(format!("{:?}", result_status));
-    object.set(cx, "status", status)?;
+  //   let result_status = self.pq_result_status();
+  //   let status = cx.string(format!("{:?}", result_status));
+  //   object.set(cx, "status", status)?;
 
-    let command = cx.string(self.pq_cmd_status());
-    let row_count = cx.number(self.pq_cmd_tuples());
+  //   let command = cx.string(self.pq_cmd_status());
+  //   let row_count = cx.number(self.pq_cmd_tuples());
 
-    object.set(cx, "command", command)?;
-    object.set(cx, "rowCount", row_count)?;
+  //   object.set(cx, "command", command)?;
+  //   object.set(cx, "rowCount", row_count)?;
 
-    let ntuples = self.pq_ntuples(); // rows
-    let nfields = self.pq_nfields(); // columns
+  //   let ntuples = self.pq_ntuples(); // rows
+  //   let nfields = self.pq_nfields(); // columns
 
-    debug!("Converting response {:?} ({} rows, {} cols) to JavaScript", result_status, ntuples, nfields);
-
-
-    let fields = cx.empty_array();
-    object.set(cx, "fields", fields)?;
-
-    for i in 0..nfields {
-      let tuple = cx.empty_array();
-      let fname = cx.string(self.pq_fname(i).unwrap());
-      let ftype = cx.number(self.pq_ftype(i));
-      tuple.set(cx, 0, fname)?;
-      tuple.set(cx, 1, ftype)?;
-      fields.set(cx, i as u32, tuple)?;
-    }
+  //   debug!("Converting response {:?} ({} rows, {} cols) to JavaScript", result_status, ntuples, nfields);
 
 
-    let rows = cx.empty_array();
-    object.set(cx, "rows", rows)?;
+  //   let fields = cx.empty_array();
+  //   object.set(cx, "fields", fields)?;
 
-    for r in 0..ntuples {
-      let row = cx.empty_array();
-      rows.set(cx, r as u32, row)?;
+  //   for i in 0..nfields {
+  //     let tuple = cx.empty_array();
+  //     let fname = cx.string(self.pq_fname(i).unwrap());
+  //     let ftype = cx.number(self.pq_ftype(i));
+  //     tuple.set(cx, 0, fname)?;
+  //     tuple.set(cx, 1, ftype)?;
+  //     fields.set(cx, i as u32, tuple)?;
+  //   }
 
-      for c in 0..nfields {
-        let value = self.pq_getvalue(r, c).or_throw(cx)?;
-        if let Some(string) = value {
-          let string = cx.string(string);
-          row.set(cx, c as u32, string)?;
-        }
-      }
-    }
 
-    Ok(object)
-  }
+  //   let rows = cx.empty_array();
+  //   object.set(cx, "rows", rows)?;
+
+  //   for r in 0..ntuples {
+  //     let row = cx.empty_array();
+  //     rows.set(cx, r as u32, row)?;
+
+  //     for c in 0..nfields {
+  //       let value = self.pq_getvalue(r, c).or_throw(cx)?;
+  //       if let Some(string) = value {
+  //         let string = cx.string(string);
+  //         row.set(cx, c as u32, string)?;
+  //       }
+  //     }
+  //   }
+
+  //   Ok(object)
+  // }
 }

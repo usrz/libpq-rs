@@ -2,7 +2,6 @@
 
 use crate::errors::*;
 use crate::ffi::*;
-use neon::prelude::*;
 use std::slice::Iter;
 
 /// A wrapper for an array of LibPQ's own `PQconninfoOption`.
@@ -122,44 +121,44 @@ impl PQConninfo {
     }
   }
 
-  /// Create a [`Conninfo`] struct from a JavaScript object.
-  ///
-  pub fn from_js_object<'a, C: Context<'a>>(
-    cx: &mut C,
-    object: Handle<JsObject>
-  ) -> NeonResult<PQConninfo> {
-    let keys = object
-      .get_own_property_names(cx)?
-      .to_vec(cx)?;
+  // /// Create a [`Conninfo`] struct from a JavaScript object.
+  // ///
+  // pub fn from_js_object<'a, C: Context<'a>>(
+  //   cx: &mut C,
+  //   object: Handle<JsObject>
+  // ) -> NeonResult<PQConninfo> {
+  //   let keys = object
+  //     .get_own_property_names(cx)?
+  //     .to_vec(cx)?;
 
-    let mut values = Vec::<(String, String)>::new();
-    for k in keys {
-      let key = k.downcast_or_throw::<JsString, _>(cx)?.value(cx);
-      let value = object.get_value(cx, k)?
-        .downcast_or_throw::<JsString, _>(cx)?
-        .value(cx);
-      values.push((key, value));
-    }
+  //   let mut values = Vec::<(String, String)>::new();
+  //   for k in keys {
+  //     let key = k.downcast_or_throw::<JsString, _>(cx)?.value(cx);
+  //     let value = object.get_value(cx, k)?
+  //       .downcast_or_throw::<JsString, _>(cx)?
+  //       .value(cx);
+  //     values.push((key, value));
+  //   }
 
-    Ok(Self { values })
-  }
+  //   Ok(Self { values })
+  // }
 
-  /// Convert a [`Conninfo`] struct into a JavaScript object.
-  ///
-  pub fn to_js_object<'a, C: Context<'a>>(
-    &self,
-    cx: &mut C,
-  ) -> NeonResult<Handle<'a, JsObject>> {
-    let object = cx.empty_object();
+  // /// Convert a [`Conninfo`] struct into a JavaScript object.
+  // ///
+  // pub fn to_js_object<'a, C: Context<'a>>(
+  //   &self,
+  //   cx: &mut C,
+  // ) -> NeonResult<Handle<'a, JsObject>> {
+  //   let object = cx.empty_object();
 
-    for (key, value) in self.iter() {
-      let k = cx.string(key);
-      let v = cx.string(value);
-      object.set(cx, k, v)?;
-    };
+  //   for (key, value) in self.iter() {
+  //     let k = cx.string(key);
+  //     let v = cx.string(value);
+  //     object.set(cx, k, v)?;
+  //   };
 
-    Ok(object)
-  }
+  //   Ok(object)
+  // }
 
   /// Iterate into a [`Conninfo`]'s own tuples.
   ///

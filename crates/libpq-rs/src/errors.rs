@@ -1,8 +1,6 @@
 //! Errors stuff.
 
 use crate::connection::PQConnection;
-use neon::prelude::Context;
-use neon::prelude::NeonResult;
 
 /// The root of all evil: any error thrown by LibPQ.
 ///
@@ -67,13 +65,13 @@ pub type PQResult<T> = Result<T, PQError>;
 /// error into [`NeonResult`] values by throwing JavaScript exceptions.
 ///
 pub trait ResultExt<T> {
-  fn or_throw<'a, C: Context<'a>>(self, cx: &mut C) -> NeonResult<T>;
+  // fn or_throw<'a, C: Context<'a>>(self, cx: &mut C) -> NeonResult<T>;
 }
 
 impl <T> ResultExt<T> for Result<T, PQError> {
-  fn or_throw<'cx, C: Context<'cx>>(self, cx: &mut C) -> NeonResult<T> {
-    self.or_else(|err| {
-      cx.throw_error(err.message)
-    })
-  }
+  // fn or_throw<'cx, C: Context<'cx>>(self, cx: &mut C) -> NeonResult<T> {
+  //   self.or_else(|err| {
+  //     cx.throw_error(err.message)
+  //   })
+  // }
 }

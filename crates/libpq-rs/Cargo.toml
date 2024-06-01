@@ -9,7 +9,8 @@ path = "rust/lib.rs"
 name = "pq_rs_node"
 
 [dependencies]
-neon = { version = "1.0" }
+neon = { version = "1.0.0" }
+napi-sys = { version = "2.4.0", features = [ "napi8"] }
 openssl-sys = { version = "0.9" }
 polling = { version = "3.7" }
 pq-sys = { version =  "0.6", features = [ "bundled" ] }
