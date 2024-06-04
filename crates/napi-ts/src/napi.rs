@@ -38,19 +38,6 @@ pub fn is_exception_pending() -> bool {
   }
 }
 
-// TODO: should this *panic* ??????
-// pub fn throw_error(code: Option<&str>, message: &str) -> ! {
-//   let message = ffi::CString::new(message).unwrap().as_ptr();
-//   let code = match code {
-//     Some(code) => ffi::CString::new(code).unwrap().as_ptr(),
-//     None => ptr::null(),
-//   };
-
-//   unsafe {
-//     napi_check!(napi_throw_error, code, message);
-//   }
-// }
-
 /* ========================================================================== *
  * TYPES RELATED                                                              *
  * ========================================================================== */

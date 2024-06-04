@@ -49,10 +49,4 @@ impl Napi {
   pub fn boolean(&self, value: bool) -> NapiBoolean {
     NapiBoolean::from(value)
   }
-
-
-  // TODO: we should throw, but init should not attempt to throw **again**
-  // pub fn throw_error(&self, message: &str) -> NapiResult<()> {
-  //   Err(napi::throw_error(self.env, None, message))
-  // }
 }
