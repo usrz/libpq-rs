@@ -1,5 +1,10 @@
 //! Main entry point.
 
+use napi_ts::types::NapiObject;
+use napi_ts::types::NapiValueWithProperties;
+use ffi::to_string_lossy;
+use napi_ts::types::NapiString;
+
 pub mod connection;
 pub mod conninfo;
 pub mod debug;
@@ -33,25 +38,34 @@ fn libpq_version() -> String {
 
 /// Return the OpenSSL version as a `String`
 ///
-/// See [OPENSSL_VERSION_NUMBER](https://github.com/openssl/openssl/blob/master/include/openssl/opensslv.h.in#L92)
-///
+/// See [OpenSSL_version](https://github.com/openssl/openssl/blob/master/include/openssl/opensslv.h.in#L92)
+/// See [OPENSSL_FULL_VERSION_STRING](https://github.com/openssl/openssl/blob/master/include/openssl/crypto.h.in#L166)
 fn openssl_version() -> String {
-  let version = unsafe { openssl_sys::OpenSSL_version_num() };
-  let major = (version >> 28) & 0xF;
-  let minor = (version >> 20) & 0xFF;
-  let patch = (version >> 4) & 0xFFFF; // higher bite should be zero...
-  let pre = version & 0xF;
-
-  match pre {
-    0 => format!("{major}.{minor}.{patch}"),
-    _ => format!("{major}.{minor}.{patch}-pre{pre}"),
-  }
+  // We lifted "OPENSSL_FULL_VERSION_STRING" (7) directly from OpenSSL
+  let version = unsafe { openssl_sys::OpenSSL_version(7) };
+  to_string_lossy(version).unwrap()
 }
 
 /* ========================================================================== */
 
-napi_ts::napi_init!(|| {
+napi_ts::napi_init!(|napi, exports| {
   println!("Initializing...");
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
+  println!("             napi: {:?}", napi);
+
+  let foobar = "foo\0bar";
+  let string: NapiString = foobar.into();
+  let raboof = string.as_string();
+
+  println!("FOOBAR => \"{:?}\"", foobar);
+  println!("RABOOF => \"{:?}\"", raboof);
+
+  exports
+    .set_property_string("openssl_version", openssl_version())
+    .set_property_string("libpq_version", libpq_version())
+    .set_property_bool("libpq_threadsafe", libpq_threadsafe())
+    .set_property("baz", &NapiObject::new());
+
+  exports.into()
 });

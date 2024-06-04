@@ -13,3 +13,4 @@ path = "src/lib.rs"
 
 [dependencies]
 nodejs-sys = { version = "0.15.0", features = [ "napi_v8" ] }
+openssl-sys = { version = "0.9" }

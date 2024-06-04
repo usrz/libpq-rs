@@ -3,11 +3,13 @@
 PROFILE=${1:-debug}
 
 if test "${PROFILE}" == "release" ; then
-  ARGUMENTS="--release"
+  ARGUMENTS="build --release"
 elif test "${PROFILE}" == "debug" ; then
-  ARGUMENTS=""
+  ARGUMENTS="build"
+elif test "${PROFILE}" == "doc" ; then
+  ARGUMENTS="doc --no-deps"
 else
-  echo "Invalid argument \"${PROFILE}\""
+  echo "Invalid argument \"${PROFILE}\" (debug, release, doc)"
   exit 1
 fi
 
@@ -42,7 +44,13 @@ OPENSSL_LIB_DIR="${NODE_LIB_DIR}" \
 OPENSSL_INCLUDE_DIR="${NODE_INCLUDE_DIR}" \
 OPENSSL_STATIC="0" \
 OPENSSL_LIBS="" \
-  cargo build ${ARGUMENTS}
+  cargo ${ARGUMENTS}
+
+# Bail out if we're building docs
+echo "$PROFILE"
+if test "${PROFILE}" = "doc" ; then
+  exit 0
+fi
 
 # Copy our library file here, for testing...
 cp "./target/${PROFILE}/libpq_rs_node.dylib" ./libpq_rs.node
