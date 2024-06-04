@@ -1,17 +1,19 @@
 use crate::napi;
 use crate::errors::*;
-use super::NapiString;
-use super::NapiNull;
-use super::NapiBoolean;
-use super::NapiUndefined;
-use super::NapiObject;
-use super::NapiNumber;
 use super::NapiBigint;
+use super::NapiBoolean;
+use super::NapiNull;
+use super::NapiNumber;
+use super::NapiObject;
+use super::NapiString;
+use super::NapiSymbol;
+use super::NapiUndefined;
 
 pub trait NapiValue: TryFrom<napi::Value> + Into<NapiResult<NapiValues>> {
   unsafe fn as_napi_value(&self) -> napi::Value;
 }
 
+#[derive(Debug)]
 pub enum NapiValues {
   Bigint(NapiBigint),
   Boolean(NapiBoolean),
@@ -19,6 +21,7 @@ pub enum NapiValues {
   Number(NapiNumber),
   Object(NapiObject),
   String(NapiString),
+  Symbol(NapiSymbol),
   Undefined(NapiUndefined),
 }
 
@@ -58,30 +61,34 @@ impl From<NapiString> for NapiValues {
   }
 }
 
+impl From<NapiSymbol> for NapiValues {
+  fn from(value: NapiSymbol) -> Self {
+    NapiValues::Symbol(value)
+  }
+}
+
 impl From<NapiUndefined> for NapiValues {
   fn from(value: NapiUndefined) -> Self {
     NapiValues::Undefined(value)
   }
 }
 
-impl TryFrom<napi::Value> for NapiValues {
-  type Error = NapiError;
-
-  fn try_from(value: napi::Value) -> NapiResult<Self> {
+impl From<napi::Value> for NapiValues {
+  fn from(value: napi::Value) -> Self {
     let value_type = napi::type_of(value);
     match value_type {
-      nodejs_sys::napi_valuetype::napi_bigint => Ok(NapiValues::Bigint(NapiBigint { value })),
-      nodejs_sys::napi_valuetype::napi_boolean => Ok(NapiValues::Boolean(NapiBoolean { value })),
+      nodejs_sys::napi_valuetype::napi_bigint => NapiValues::Bigint(NapiBigint { value }),
+      nodejs_sys::napi_valuetype::napi_boolean => NapiValues::Boolean(NapiBoolean { value }),
       nodejs_sys::napi_valuetype::napi_external => todo!(),
       nodejs_sys::napi_valuetype::napi_function => todo!(),
-      nodejs_sys::napi_valuetype::napi_null => Ok(NapiValues::Null(NapiNull { value })),
-      nodejs_sys::napi_valuetype::napi_number => Ok(NapiValues::Number(NapiNumber { value })),
-      nodejs_sys::napi_valuetype::napi_object => Ok(NapiValues::Object(NapiObject { value })),
-      nodejs_sys::napi_valuetype::napi_string => Ok(NapiValues::String(NapiString { value })),
-      nodejs_sys::napi_valuetype::napi_symbol => todo!(),
-      nodejs_sys::napi_valuetype::napi_undefined => Ok(NapiValues::Undefined(NapiUndefined { value })),
-      #[allow(unreachable_patterns)]
-      _ => Err(NapiError::from(format!("Unsupported JavaScript type \"{:?}\"", value_type)))
+      nodejs_sys::napi_valuetype::napi_null => NapiValues::Null(NapiNull { value }),
+      nodejs_sys::napi_valuetype::napi_number => NapiValues::Number(NapiNumber { value }),
+      nodejs_sys::napi_valuetype::napi_object => NapiValues::Object(NapiObject { value }),
+      nodejs_sys::napi_valuetype::napi_string => NapiValues::String(NapiString { value }),
+      nodejs_sys::napi_valuetype::napi_symbol => NapiValues::Symbol(NapiSymbol { value }),
+      nodejs_sys::napi_valuetype::napi_undefined => NapiValues::Undefined(NapiUndefined { value }),
+      #[allow(unreachable_patterns)] // this should *really* never happen...
+      _ => panic!("Unsupported JavaScript type \"{:?}\"", value_type)
     }
   }
 }
@@ -95,6 +102,7 @@ impl NapiValue for NapiValues {
       NapiValues::Number(value) => value.value,
       NapiValues::Object(value) => value.value,
       NapiValues::String(value) => value.value,
+      NapiValues::Symbol(value) => value.value,
       NapiValues::Undefined(value) => value.value,
     }
   }

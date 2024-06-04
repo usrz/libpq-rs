@@ -2,11 +2,10 @@ use crate::env::Napi;
 use crate::errors::*;
 
 use nodejs_sys::*;
-use std::ffi;
 use std::mem::MaybeUninit;
 use std::ptr::null_mut;
 use std::os::raw;
-use std::ffi::c_uchar;
+use std::collections::btree_map::Values;
 
 pub type Env = nodejs_sys::napi_env;
 pub type Status = nodejs_sys::napi_status;
@@ -40,12 +39,6 @@ macro_rules! napi_check {
   };
 }
 
-
-impl From<ffi::NulError> for NapiError {
-  fn from(_: ffi::NulError) -> Self {
-    "Null detected in string".into()
-  }
-}
 
 /* ========================================================================== *
  * ERRORS RELATED                                                             *
@@ -344,13 +337,13 @@ pub fn get_value_string_utf8(value: Value) -> String {
   unsafe {
     let mut size = MaybeUninit::<usize>::zeroed();
 
-    // First, get the *length* of the string to return
+    // First, get the string *length* in bytes (it's safe, UTF8)
     napi_check!(napi_get_value_string_utf8, value, null_mut(), 0, size.as_mut_ptr());
 
-    // Now allocate a buffer of the correct size (plus 1 for the null terminator)
+    // Allocate a buffer of the correct size (plus 1 for null)
     let mut buffer = vec![0; size.assume_init() + 1];
 
-    // Get the real string, once again
+    // Now properly get the string data
     napi_check!(
       napi_get_value_string_utf8,
       value,
@@ -361,6 +354,42 @@ pub fn get_value_string_utf8(value: Value) -> String {
 
     // Slice up the buffer, removing the trailing null terminator
     String::from_utf8_unchecked(buffer[0..size.assume_init()].to_vec())
+  }
+}
+
+// ===== SYMBOL ================================================================
+
+pub fn create_symbol(value: Value) -> Value {
+  unsafe {
+    let mut result = MaybeUninit::<napi_value>::zeroed();
+    napi_check!(napi_create_symbol, value, result.as_mut_ptr());
+    result.assume_init()
+  }
+}
+
+// this doesn't seem to esist in "nodejs_sys"
+extern "C" {
+  fn node_api_symbol_for(
+    env: napi_env,
+    descr: *const raw::c_char,
+    length: usize,
+    result: *mut napi_value,
+  ) -> napi_status;
+}
+
+
+pub fn symbol_for(description: &str) -> Value {
+  unsafe {
+    let mut result = MaybeUninit::<napi_value>::zeroed();
+
+    napi_check!(
+      node_api_symbol_for,
+      description.as_ptr() as *const raw::c_char,
+      description.len(),
+      result.as_mut_ptr()
+    );
+
+    result.assume_init()
   }
 }
 
@@ -381,5 +410,13 @@ pub fn get_undefined() -> Value {
 pub fn set_named_property(object: Value, key: Value, value: Value) {
   unsafe {
     napi_check!(napi_set_property, object, key, value);
+  }
+}
+
+pub fn get_named_property(object: Value, key: Value) -> Value {
+  unsafe {
+    let mut result = MaybeUninit::<napi_value>::zeroed();
+    napi_get_property(Napi::env(), object, key, result.as_mut_ptr());
+    result.assume_init()
   }
 }
