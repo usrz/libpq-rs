@@ -337,6 +337,32 @@ pub fn get_value_bool(value: Value) -> bool {
   }
 }
 
+pub fn call_function(this: Value, function: Value, args: Vec<Value>) -> NapiResult<Value> {
+  unsafe {
+    let mut result = MaybeUninit::<napi_value>::zeroed();
+
+    napi_call_function(
+      Napi::env(),
+      this,
+      function,
+      args.len(),
+      args.as_ptr(),
+      result.as_mut_ptr(),
+    );
+
+    if ! is_exception_pending() {
+      return Ok(result.assume_init())
+    }
+
+    let mut error = MaybeUninit::<napi_value>::zeroed();
+    napi_get_and_clear_last_exception(Napi::env(), error.as_mut_ptr());
+    let error = error.assume_init();
+
+    println!("JAVASCRIPT THREW EXCEPTION... {:?} (result={:?}", error, result.assume_init());
+    Err(format!("JavaScript Threw {:?} {:?}", error, type_of(error)).into())
+  }
+}
+
 // ===== FUNCTION ==============================================================
 
 pub fn create_function<F>(name: &str, callback: F) -> Value

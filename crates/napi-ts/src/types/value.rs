@@ -134,11 +134,6 @@ impl Into<NapiResult<NapiValues>> for NapiValues {
 
 impl NapiValues {
   pub fn downcast<T: NapiValue + 'static>(&self) -> NapiResult<T> {
-
-    println!("SELF {:?} {}", TypeId::of::<Self>(), type_name::<Self>());
-    println!("   T {:?} {}", TypeId::of::<T>(), type_name::<T>());
-    println!("  BI {:?} {}", TypeId::of::<NapiBigint>(), type_name::<NapiBigint>());
-
     let result = match self {
       NapiValues::Bigint(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValues::Boolean(value) => (value as &dyn Any).downcast_ref::<T>(),
