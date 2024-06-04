@@ -31,7 +31,7 @@ pub fn register_module(
   // a result, which (if OK) will hold the napi_value to return to node or
   // (if ERR) will contain a NapiError to throw before returning
   if let Err(error) = result {
-    napi::throw_error(error.to_string(), None);
+    napi::throw(error.into());
   }
 
   // All done...

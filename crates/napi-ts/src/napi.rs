@@ -8,6 +8,7 @@ use std::mem::MaybeUninit;
 use std::panic;
 use std::ptr;
 use std::os::raw;
+use std::ptr::null_mut;
 
 pub type CallbackInfo = nodejs_sys::napi_callback_info;
 pub type Env = nodejs_sys::napi_env;
@@ -41,33 +42,26 @@ pub fn is_exception_pending() -> bool {
   }
 }
 
-// TODO: convert this to throw a proper "Error" alongside NapiResult/NapiError
-pub fn throw_error(message: String, code: Option<String>) {
-  let mut message = message.to_owned();
-  message.push('\0'); // make sure we're null terminated!!!
-
-  let code = match code {
-    None => "\0".to_string(),
-    Some(code) => {
-      let mut code = code.to_owned();
-      code.push('\0');
-      code
-    },
-  };
-
+pub fn create_error(message: String) -> Value {
   unsafe {
-    let status = napi_throw_error(
-      Napi::env(),
-      code.as_ptr() as *const raw::c_char,
-      message.as_ptr() as *const raw::c_char
-    );
+    let message = create_string_utf8(&message);
 
+    let mut result = MaybeUninit::<Value>::zeroed();
+    napi_check!(napi_create_error, null_mut(), message, result.as_mut_ptr());
+
+    result.assume_init()
+  }
+}
+
+pub fn throw(error: Value) {
+  unsafe {
+    let status = napi_throw(Napi::env(), error);
     if status == Status::napi_ok {
       return
     }
 
     let location = format!("{} line {}", file!(), line!());
-    let message = format!("Error throwing \"{}\" (status={:?})", message, status);
+    let message = format!("Error throwing (status={:?})", status);
     nodejs_sys::napi_fatal_error(
       location.as_ptr() as *const raw::c_char,
       location.len(),
@@ -122,7 +116,7 @@ extern "C" fn callback_trampoline(env: napi_env, info: napi_callback_info) -> na
   // a result, which (if OK) will hold the napi_value to return to node or
   // (if ERR) will contain a NapiError to throw before returning
   if let Err(error) = result {
-    throw_error(error.to_string(), None);
+    throw(error.into());
   }
 
   // All done...
@@ -337,32 +331,6 @@ pub fn get_value_bool(value: Value) -> bool {
   }
 }
 
-pub fn call_function(this: Value, function: Value, args: Vec<Value>) -> NapiResult<Value> {
-  unsafe {
-    let mut result = MaybeUninit::<napi_value>::zeroed();
-
-    napi_call_function(
-      Napi::env(),
-      this,
-      function,
-      args.len(),
-      args.as_ptr(),
-      result.as_mut_ptr(),
-    );
-
-    if ! is_exception_pending() {
-      return Ok(result.assume_init())
-    }
-
-    let mut error = MaybeUninit::<napi_value>::zeroed();
-    napi_get_and_clear_last_exception(Napi::env(), error.as_mut_ptr());
-    let error = error.assume_init();
-
-    println!("JAVASCRIPT THREW EXCEPTION... {:?} (result={:?}", error, result.assume_init());
-    Err(format!("JavaScript Threw {:?} {:?}", error, type_of(error)).into())
-  }
-}
-
 // ===== FUNCTION ==============================================================
 
 pub fn create_function<F>(name: &str, callback: F) -> Value
@@ -385,6 +353,29 @@ where
       result.as_mut_ptr()
     );
     result.assume_init()
+  }
+}
+
+pub fn call_function(this: Value, function: Value, args: Vec<Value>) -> NapiResult<Value> {
+  unsafe {
+    let mut result = MaybeUninit::<napi_value>::zeroed();
+
+    napi_call_function(
+      Napi::env(),
+      this,
+      function,
+      args.len(),
+      args.as_ptr(),
+      result.as_mut_ptr(),
+    );
+
+    if ! is_exception_pending() {
+      return Ok(result.assume_init())
+    }
+
+    let mut error = MaybeUninit::<napi_value>::zeroed();
+    napi_get_and_clear_last_exception(Napi::env(), error.as_mut_ptr());
+    Err(error.assume_init().into())
   }
 }
 
