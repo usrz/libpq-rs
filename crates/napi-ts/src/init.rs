@@ -9,7 +9,7 @@ use std::panic;
 pub fn register_module(
   env: napi::Env,
   exports: napi::Value,
-  init: fn(NapiObject) -> NapiResult<NapiValues>
+  init: fn(NapiObject) -> NapiResult<NapiReturn>
 ) -> napi::Value {
 
   // Create a new "Napi" environment
@@ -18,7 +18,7 @@ pub fn register_module(
   // Call up our initialization function with exports wrapped in a NapiObject
   // and unwrap the result into a simple "napi_value" (the pointer)
   let panic = panic::catch_unwind(|| {
-    let exports = NapiValues::from_napi_value(exports).downcast::<NapiObject>()?;
+    let exports = NapiObject::from_napi_value(exports);
     init(exports).map(|exports| { exports.as_napi_value() })
   });
 

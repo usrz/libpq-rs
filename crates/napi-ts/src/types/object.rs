@@ -6,9 +6,9 @@ pub struct NapiObject {
   value: napi::Value,
 }
 
-impl NapiValue for NapiObject {}
+impl NapiShape for NapiObject {}
 
-impl NapiValueInternal for NapiObject {
+impl NapiShapeInternal for NapiObject {
   fn as_napi_value(&self) -> napi::Value {
     self.value
   }

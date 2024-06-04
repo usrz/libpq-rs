@@ -4,21 +4,61 @@ use crate::types::*;
 
 use std::any::type_name;
 use std::any::Any;
+use std::fmt::Debug;
 
-pub(crate) trait NapiValueInternal: Clone {
+// ========================================================================== //
+// TRAITS                                                                     //
+// ========================================================================== //
+
+pub(crate) trait NapiShapeInternal: Clone + Debug {
   fn as_napi_value(&self) -> napi::Value;
   fn from_napi_value(value: napi::Value) -> Self;
 }
 
 #[allow(private_bounds)]
-pub trait NapiValue: NapiValueInternal {
-  fn ok(self) -> NapiResult<NapiValues> {
-    Ok(NapiValues::from_napi_value(self.as_napi_value()))
+pub trait NapiShape: NapiShapeInternal {
+  fn ok(self) -> NapiResult<NapiReturn> {
+    Ok(NapiReturn::from_napi_value(self.as_napi_value()))
   }
 }
 
+// ========================================================================== //
+// RETURN VALUE                                                               //
+// ========================================================================== //
+
 #[derive(Clone,Debug)]
-pub enum NapiValues {
+pub struct NapiReturn {
+  value: napi::Value
+}
+
+impl NapiShapeInternal for NapiReturn {
+  fn as_napi_value(&self) -> napi::Value {
+    self.value
+  }
+
+  fn from_napi_value(value: napi::Value) -> Self {
+    Self { value }
+  }
+}
+
+impl <T: NapiShape> From<T> for NapiReturn {
+  fn from(value: T) -> Self {
+    Self::from_napi_value(value.as_napi_value())
+  }
+}
+
+impl NapiReturn {
+  pub fn void() -> NapiResult<NapiReturn> {
+    Ok(Self { value: napi::get_undefined() })
+  }
+}
+
+// ========================================================================== //
+// VALUE ENUM (ALL TYPES)                                                     //
+// ========================================================================== //
+
+#[derive(Clone,Debug)]
+pub enum NapiValue {
   Bigint(NapiBigint),
   Boolean(NapiBoolean),
   Function(NapiFunction),
@@ -30,129 +70,73 @@ pub enum NapiValues {
   Undefined(NapiUndefined),
 }
 
-impl From<NapiBigint> for NapiValues {
-  fn from(value: NapiBigint) -> Self {
-    NapiValues::Bigint(value)
+impl <T: NapiShape> From<T> for NapiValue {
+  fn from(value: T) -> Self {
+    Self::from_napi_value(value.as_napi_value())
   }
 }
 
-impl From<NapiBoolean> for NapiValues {
-  fn from(value: NapiBoolean) -> Self {
-    NapiValues::Boolean(value)
-  }
-}
-
-impl From<NapiFunction> for NapiValues {
-  fn from(value: NapiFunction) -> Self {
-    NapiValues::Function(value)
-  }
-}
-
-impl From<NapiNull> for NapiValues {
-  fn from(value: NapiNull) -> Self {
-    NapiValues::Null(value)
-  }
-}
-
-impl From<NapiNumber> for NapiValues {
-  fn from(value: NapiNumber) -> Self {
-    NapiValues::Number(value)
-  }
-}
-
-impl From<NapiObject> for NapiValues {
-  fn from(value: NapiObject) -> Self {
-    NapiValues::Object(value)
-  }
-}
-
-impl From<NapiString> for NapiValues {
-  fn from(value: NapiString) -> Self {
-    NapiValues::String(value)
-  }
-}
-
-impl From<NapiSymbol> for NapiValues {
-  fn from(value: NapiSymbol) -> Self {
-    NapiValues::Symbol(value)
-  }
-}
-
-impl From<NapiUndefined> for NapiValues {
-  fn from(value: NapiUndefined) -> Self {
-    NapiValues::Undefined(value)
-  }
-}
-
-impl NapiValue for NapiValues {}
-
-impl NapiValueInternal for NapiValues {
+impl NapiShapeInternal for NapiValue {
   fn as_napi_value(&self) -> napi::Value {
     match self {
-      NapiValues::Bigint(value) => value.as_napi_value(),
-      NapiValues::Boolean(value) => value.as_napi_value(),
-      NapiValues::Function(value) => value.as_napi_value(),
-      NapiValues::Null(value) => value.as_napi_value(),
-      NapiValues::Number(value) => value.as_napi_value(),
-      NapiValues::Object(value) => value.as_napi_value(),
-      NapiValues::String(value) => value.as_napi_value(),
-      NapiValues::Symbol(value) => value.as_napi_value(),
-      NapiValues::Undefined(value) => value.as_napi_value(),
+      NapiValue::Bigint(value) => value.as_napi_value(),
+      NapiValue::Boolean(value) => value.as_napi_value(),
+      NapiValue::Function(value) => value.as_napi_value(),
+      NapiValue::Null(value) => value.as_napi_value(),
+      NapiValue::Number(value) => value.as_napi_value(),
+      NapiValue::Object(value) => value.as_napi_value(),
+      NapiValue::String(value) => value.as_napi_value(),
+      NapiValue::Symbol(value) => value.as_napi_value(),
+      NapiValue::Undefined(value) => value.as_napi_value(),
     }
   }
 
   fn from_napi_value(value: napi::Value) -> Self {
     let value_type = napi::type_of(value);
     match value_type {
-      nodejs_sys::napi_valuetype::napi_bigint => NapiValues::Bigint(NapiBigint::from_napi_value(value)),
-      nodejs_sys::napi_valuetype::napi_boolean => NapiValues::Boolean(NapiBoolean::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_bigint => NapiValue::Bigint(NapiBigint::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_boolean => NapiValue::Boolean(NapiBoolean::from_napi_value(value)),
       nodejs_sys::napi_valuetype::napi_external => todo!(),
-      nodejs_sys::napi_valuetype::napi_function => NapiValues::Function(NapiFunction::from_napi_value(value)),
-      nodejs_sys::napi_valuetype::napi_null => NapiValues::Null(NapiNull::from_napi_value(value)),
-      nodejs_sys::napi_valuetype::napi_number => NapiValues::Number(NapiNumber::from_napi_value(value)),
-      nodejs_sys::napi_valuetype::napi_object => NapiValues::Object(NapiObject::from_napi_value(value)),
-      nodejs_sys::napi_valuetype::napi_string => NapiValues::String(NapiString::from_napi_value(value)),
-      nodejs_sys::napi_valuetype::napi_symbol => NapiValues::Symbol(NapiSymbol::from_napi_value(value)),
-      nodejs_sys::napi_valuetype::napi_undefined => NapiValues::Undefined(NapiUndefined::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_function => NapiValue::Function(NapiFunction::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_null => NapiValue::Null(NapiNull::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_number => NapiValue::Number(NapiNumber::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_object => NapiValue::Object(NapiObject::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_string => NapiValue::String(NapiString::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_symbol => NapiValue::Symbol(NapiSymbol::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_undefined => NapiValue::Undefined(NapiUndefined::from_napi_value(value)),
       #[allow(unreachable_patterns)] // this should *really* never happen...
       _ => panic!("Unsupported JavaScript type \"{:?}\"", value_type)
     }
   }
 }
 
-impl Into<NapiResult<NapiValues>> for NapiValues {
-  fn into(self) -> NapiResult<NapiValues> {
-    Ok(self)
-  }
-}
-
-impl NapiValues {
-  pub fn downcast<T: NapiValue + 'static>(&self) -> NapiResult<T> {
+impl NapiValue {
+  pub fn downcast<T: NapiShape + 'static>(&self) -> NapiResult<T> {
     let result = match self {
-      NapiValues::Bigint(value) => (value as &dyn Any).downcast_ref::<T>(),
-      NapiValues::Boolean(value) => (value as &dyn Any).downcast_ref::<T>(),
-      NapiValues::Function(value) => (value as &dyn Any).downcast_ref::<T>(),
-      NapiValues::Null(value) => (value as &dyn Any).downcast_ref::<T>(),
-      NapiValues::Number(value) => (value as &dyn Any).downcast_ref::<T>(),
-      NapiValues::Object(value) => (value as &dyn Any).downcast_ref::<T>(),
-      NapiValues::String(value) => (value as &dyn Any).downcast_ref::<T>(),
-      NapiValues::Symbol(value) => (value as &dyn Any).downcast_ref::<T>(),
-      NapiValues::Undefined(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValue::Bigint(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValue::Boolean(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValue::Function(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValue::Null(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValue::Number(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValue::Object(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValue::String(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValue::Symbol(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValue::Undefined(value) => (value as &dyn Any).downcast_ref::<T>(),
     };
 
     match result {
       Some(downcasted) => Ok(downcasted.clone()),
       None => {
         let from = match self {
-          NapiValues::Bigint(_) => "Bigint",
-          NapiValues::Boolean(_) => "Boolean",
-          NapiValues::Function(_) => "Function",
-          NapiValues::Null(_) => "Null",
-          NapiValues::Number(_) => "Number",
-          NapiValues::Object(_) => "Object",
-          NapiValues::String(_) => "String",
-          NapiValues::Symbol(_) => "Symbol",
-          NapiValues::Undefined(_) => "Undefined",
+          NapiValue::Bigint(_) => "NapiBigint",
+          NapiValue::Boolean(_) => "NapiBoolean",
+          NapiValue::Function(_) => "NapiFunction",
+          NapiValue::Null(_) => "NapiNull",
+          NapiValue::Number(_) => "NapiNumber",
+          NapiValue::Object(_) => "NapiObject",
+          NapiValue::String(_) => "NapiString",
+          NapiValue::Symbol(_) => "NapiSymbol",
+          NapiValue::Undefined(_) => "NapiUndefined",
         };
         let into = type_name::<T>().rsplit_once(":").unwrap().1;
         Err(format!("Unable to downcast \"{}\" into \"{}\"", from, into).into())
@@ -162,8 +146,8 @@ impl NapiValues {
 }
 
 
-pub trait NapiValueWithProperties: NapiValue {
-  fn set_property(&self, key: &str, value: &impl NapiValue) -> &Self {
+pub trait NapiValueWithProperties: NapiShape {
+  fn set_property(&self, key: &str, value: &impl NapiShape) -> &Self {
     let key = napi::create_string_utf8(key);
     let value = value.as_napi_value();
     let this = self.as_napi_value();

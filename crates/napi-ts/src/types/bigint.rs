@@ -7,9 +7,9 @@ pub struct NapiBigint {
   value: napi::Value,
 }
 
-impl NapiValue for NapiBigint {}
+impl NapiShape for NapiBigint {}
 
-impl NapiValueInternal for NapiBigint {
+impl NapiShapeInternal for NapiBigint {
   fn as_napi_value(&self) -> napi::Value {
     self.value
   }

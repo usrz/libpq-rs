@@ -51,7 +51,7 @@ napi_ts::napi_init!(|exports| {
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
-  let _f = NapiFunction::new("my great function", |this, args| {
+  let _f = NapiFunction::new("my great function", |_this, args| {
     match args[2].downcast::<NapiFunction>() {
       Ok(value) => {
         println!("{:?}", value.call(&[ &NapiNull::new() ]));
@@ -60,12 +60,12 @@ napi_ts::napi_init!(|exports| {
     }
 
     println!("YOOOO DOUBLE CALLBACK!!!");
-    Ok(NapiUndefined::new().into())
+    NapiReturn::void()
   });
 
-  let _f2 = NapiFunction::new("another function", |this, args| {
+  let _f2 = NapiFunction::new("another function", |_this, _args| {
     println!("SECOND CALLBACK!!!");
-    Ok(NapiUndefined::new().into())
+    NapiReturn::void()
   });
 
 
@@ -82,5 +82,5 @@ napi_ts::napi_init!(|exports| {
     .set_property_bool("libpq_threadsafe", libpq_threadsafe())
     .set_property("baz", &NapiObject::new());
 
-  exports.ok()
+  Ok(exports.into())
 });

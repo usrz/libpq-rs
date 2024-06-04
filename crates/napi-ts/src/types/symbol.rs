@@ -6,9 +6,9 @@ pub struct NapiSymbol {
   value: napi::Value,
 }
 
-impl NapiValue for NapiSymbol {}
+impl NapiShape for NapiSymbol {}
 
-impl NapiValueInternal for NapiSymbol {
+impl NapiShapeInternal for NapiSymbol {
   fn as_napi_value(&self) -> napi::Value {
     self.value
   }
@@ -34,11 +34,11 @@ impl NapiSymbol {
     let key = napi::create_string_utf8("description");
     let value = napi::get_named_property(self.value, key);
     // TODO: how does the Node API handles symbols with undefined description?
-    let property = NapiValues::from_napi_value(value);
+    let property = NapiValue::from_napi_value(value);
     match property {
-      NapiValues::String(string) => Some(string.into()),
-      NapiValues::Null(_) => None,
-      NapiValues::Undefined(_) => None,
+      NapiValue::String(string) => Some(string.into()),
+      NapiValue::Null(_) => None,
+      NapiValue::Undefined(_) => None,
       _ => panic!("Unsupported symbol description {:?}", property),
     }
   }
