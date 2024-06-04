@@ -1,7 +1,7 @@
 use crate::napi;
 use crate::types::*;
 
-#[derive(Clone,Debug)]
+#[derive(Debug)]
 pub struct NapiNumber {
   value: napi::Value,
 }

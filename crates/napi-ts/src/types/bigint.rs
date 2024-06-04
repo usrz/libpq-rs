@@ -2,7 +2,7 @@ use crate::errors::*;
 use crate::napi;
 use crate::types::*;
 
-#[derive(Clone,Debug)]
+#[derive(Debug)]
 pub struct NapiBigint {
   value: napi::Value,
 }

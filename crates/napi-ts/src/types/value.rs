@@ -10,14 +10,14 @@ use std::fmt::Debug;
 // TRAITS                                                                     //
 // ========================================================================== //
 
-pub(crate) trait NapiShapeInternal: Clone + Debug {
+pub(crate) trait NapiShapeInternal: Debug {
   fn as_napi_value(&self) -> napi::Value;
   fn from_napi_value(value: napi::Value) -> Self;
 }
 
 #[allow(private_bounds)]
 pub trait NapiShape: NapiShapeInternal {
-  fn ok(self) -> NapiResult<NapiReturn> {
+  fn ok(&self) -> NapiResult<NapiReturn> {
     Ok(NapiReturn::from_napi_value(self.as_napi_value()))
   }
 }
@@ -26,7 +26,7 @@ pub trait NapiShape: NapiShapeInternal {
 // RETURN VALUE                                                               //
 // ========================================================================== //
 
-#[derive(Clone,Debug)]
+#[derive(Debug)]
 pub struct NapiReturn {
   value: napi::Value
 }
@@ -57,7 +57,7 @@ impl NapiReturn {
 // VALUE ENUM (ALL TYPES)                                                     //
 // ========================================================================== //
 
-#[derive(Clone,Debug)]
+#[derive(Debug)]
 pub enum NapiValue {
   Bigint(NapiBigint),
   Boolean(NapiBoolean),
@@ -111,7 +111,7 @@ impl NapiShapeInternal for NapiValue {
 }
 
 impl NapiValue {
-  pub fn downcast<T: NapiShape + 'static>(&self) -> NapiResult<T> {
+  pub fn downcast<T: NapiShape + 'static>(&self) -> NapiResult<&T> {
     let result = match self {
       NapiValue::Bigint(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Boolean(value) => (value as &dyn Any).downcast_ref::<T>(),
@@ -125,7 +125,7 @@ impl NapiValue {
     };
 
     match result {
-      Some(downcasted) => Ok(downcasted.clone()),
+      Some(downcasted) => Ok(downcasted),
       None => {
         let from = match self {
           NapiValue::Bigint(_) => "NapiBigint",

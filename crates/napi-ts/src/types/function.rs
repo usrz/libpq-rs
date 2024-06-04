@@ -2,7 +2,7 @@ use crate::errors::*;
 use crate::napi;
 use crate::types::*;
 
-#[derive(Clone,Debug)]
+#[derive(Debug)]
 pub struct NapiFunction {
   value: napi::Value,
 }
@@ -22,7 +22,7 @@ impl NapiShapeInternal for NapiFunction {
 impl NapiFunction {
   pub fn new<F>(name: &str, callback: F) -> Self
   where
-    F: Fn(NapiValue, Vec<NapiValue>) -> NapiResult<NapiReturn> + 'static,
+    F: Fn(NapiValue, Vec<NapiValue>) -> NapiResult<NapiReturn> + Send + 'static,
   {
     let value = napi::create_function(name, move |this, args| {
       let this = NapiValue::from_napi_value(this);
