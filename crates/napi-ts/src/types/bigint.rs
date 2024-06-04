@@ -3,7 +3,7 @@ use crate::types::*;
 use crate::errors::NapiError;
 use crate::errors::NapiResult;
 
-#[derive(Copy,Clone,Debug)]
+#[derive(Debug)]
 pub struct NapiBigint {
   pub(super) value: napi::Value,
 }

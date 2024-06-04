@@ -2,6 +2,7 @@ use crate::napi;
 use crate::errors::*;
 use crate::types::*;
 
+#[derive(Debug)]
 pub struct NapiNumber {
   pub(super) value: napi::Value,
 }

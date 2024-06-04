@@ -3,6 +3,7 @@ use crate::types::*;
 use crate::errors::NapiResult;
 use crate::errors::NapiError;
 
+#[derive(Debug)]
 pub struct NapiUndefined {
   pub(super) value: napi::Value,
 }
