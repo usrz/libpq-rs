@@ -1,7 +1,6 @@
+use crate::errors::*;
 use crate::napi;
 use crate::types::*;
-use crate::errors::NapiResult;
-use crate::napi::call_function;
 
 #[derive(Clone,Debug)]
 pub struct NapiFunction {
@@ -17,12 +16,6 @@ impl NapiValueInternal for NapiFunction {
 
   fn from_napi_value(value: napi::Value) -> Self {
     Self { value }
-  }
-}
-
-impl Into<NapiResult<NapiValues>> for NapiFunction {
-  fn into(self) -> NapiResult<NapiValues> {
-    Ok(self.into())
   }
 }
 
@@ -54,7 +47,7 @@ impl NapiFunction {
       .map(|value| value.as_napi_value())
       .collect();
 
-    call_function(this.as_napi_value(), self.value, args)
+    napi::call_function(this.as_napi_value(), self.value, args)
       .map(|value| NapiValues::from_napi_value(value))
   }
 }

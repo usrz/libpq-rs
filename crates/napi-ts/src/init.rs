@@ -13,7 +13,7 @@ pub fn register_module(
 ) -> napi::Value {
 
   // Create a new "Napi" environment
-  let napi = unsafe { Napi::new(env) };
+  let napi = Napi::new(env);
 
   // Call up our initialization function with exports wrapped in a NapiObject
   // and unwrap the result into a simple "napi_value" (the pointer)

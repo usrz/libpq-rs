@@ -1,5 +1,4 @@
 use crate::napi;
-use crate::errors::*;
 use crate::types::*;
 
 #[derive(Clone,Debug)]
@@ -16,12 +15,6 @@ impl NapiValueInternal for NapiNumber {
 
   fn from_napi_value(value: napi::Value) -> Self {
     Self { value }
-  }
-}
-
-impl Into<NapiResult<NapiValues>> for NapiNumber {
-  fn into(self) -> NapiResult<NapiValues> {
-    Ok(self.into())
   }
 }
 

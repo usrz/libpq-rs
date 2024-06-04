@@ -104,7 +104,7 @@ impl Callback {
 }
 
 extern "C" fn callback_trampoline(env: napi_env, info: napi_callback_info) -> napi_value {
-  let env = unsafe { Napi::new(env) };
+  let env = Napi::new(env);
 
   // Call up our initialization function with exports wrapped in a NapiObject
   // and unwrap the result into a simple "napi_value" (the pointer)

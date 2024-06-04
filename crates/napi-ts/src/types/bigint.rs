@@ -1,7 +1,6 @@
+use crate::errors::*;
 use crate::napi;
 use crate::types::*;
-use crate::errors::NapiError;
-use crate::errors::NapiResult;
 
 #[derive(Clone,Debug)]
 pub struct NapiBigint {
@@ -17,12 +16,6 @@ impl NapiValueInternal for NapiBigint {
 
   fn from_napi_value(value: napi::Value) -> Self {
     Self { value }
-  }
-}
-
-impl Into<NapiResult<NapiValues>> for NapiBigint {
-  fn into(self) -> NapiResult<NapiValues> {
-    Ok(self.into())
   }
 }
 

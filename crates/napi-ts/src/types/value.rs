@@ -1,26 +1,20 @@
 use crate::errors::*;
 use crate::napi;
-use super::NapiBigint;
-use super::NapiBoolean;
-use super::NapiFunction;
-use super::NapiNull;
-use super::NapiNumber;
-use super::NapiObject;
-use super::NapiString;
-use super::NapiSymbol;
-use super::NapiUndefined;
-use std::any::TypeId;
+use crate::types::*;
+
 use std::any::type_name;
 use std::any::Any;
 
-pub(crate) trait NapiValueInternal: Into<NapiResult<NapiValues>> + Clone {
+pub(crate) trait NapiValueInternal: Clone {
   fn as_napi_value(&self) -> napi::Value;
   fn from_napi_value(value: napi::Value) -> Self;
 }
 
 #[allow(private_bounds)]
 pub trait NapiValue: NapiValueInternal {
-  // Public marker of "NapiValueInternal"
+  fn ok(self) -> NapiResult<NapiValues> {
+    Ok(NapiValues::from_napi_value(self.as_napi_value()))
+  }
 }
 
 #[derive(Clone,Debug)]
@@ -169,7 +163,6 @@ impl NapiValues {
 
 
 pub trait NapiValueWithProperties: NapiValue {
-
   fn set_property(&self, key: &str, value: &impl NapiValue) -> &Self {
     let key = napi::create_string_utf8(key);
     let value = value.as_napi_value();

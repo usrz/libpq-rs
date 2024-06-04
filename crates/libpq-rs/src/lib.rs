@@ -1,11 +1,8 @@
 //! Main entry point.
 
-use napi_ts::types::NapiObject;
-use napi_ts::types::NapiValueWithProperties;
-use ffi::to_string_lossy;
-use napi_ts::types::NapiString;
-use napi_ts::types::NapiSymbol;
+use napi_ts::*;
 
+use ffi::to_string_lossy;
 pub mod connection;
 pub mod conninfo;
 pub mod debug;
@@ -49,11 +46,28 @@ fn openssl_version() -> String {
 
 /* ========================================================================== */
 
-napi_ts::napi_init!(|napi, exports| {
+napi_ts::napi_init!(|exports| {
   println!("Initializing...");
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
-  println!("             napi: {:?}", napi);
+
+  let _f = NapiFunction::new("my great function", |this, args| {
+    match args[2].downcast::<NapiFunction>() {
+      Ok(value) => {
+        println!("{:?}", value.call(&[ &NapiNull::new() ]));
+      }
+      Err(error) => println!("DOWNCAST {:?}", error),
+    }
+
+    println!("YOOOO DOUBLE CALLBACK!!!");
+    Ok(NapiUndefined::new().into())
+  });
+
+  let _f2 = NapiFunction::new("another function", |this, args| {
+    println!("SECOND CALLBACK!!!");
+    Ok(NapiUndefined::new().into())
+  });
+
 
   let _s1 = NapiSymbol::new("foobar");
   let _s2 = NapiSymbol::symbol_for("foobar");
@@ -61,10 +75,12 @@ napi_ts::napi_init!(|napi, exports| {
   println!("S2 {:?}", _s2.description());
 
   exports
+    .set_property("foo", &_f)
+    .set_property("bar", &_f2)
     .set_property_string("openssl_version", openssl_version())
     .set_property_string("libpq_version", libpq_version())
     .set_property_bool("libpq_threadsafe", libpq_threadsafe())
     .set_property("baz", &NapiObject::new());
 
-  exports.into()
+  exports.ok()
 });
