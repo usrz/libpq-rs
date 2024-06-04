@@ -52,12 +52,11 @@ napi_ts::napi_init!(|exports| {
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
   let _f = NapiFunction::new("my great function", |_this, args| {
-    match args[2].downcast::<NapiFunction>() {
-      Ok(value) => {
-        println!("{:?}", value.call(&[ &NapiNull::new() ]));
-      }
-      Err(error) => println!("DOWNCAST {:?}", error),
-    }
+    args[2].downcast::<NapiFunction>()
+      .and_then(|value| value.call(&[ &NapiNull::new() ]))?;
+
+      // Err(error) => println!("DOWNCAST {:?}", error),
+    // }
 
     println!("YOOOO DOUBLE CALLBACK!!!");
     NapiReturn::void()
