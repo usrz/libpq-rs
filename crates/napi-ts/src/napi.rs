@@ -1,11 +1,15 @@
+// pub use nodejs_sys;
+
 use crate::env::Napi;
 use crate::errors::*;
 
 use nodejs_sys::*;
 use std::mem::MaybeUninit;
-use std::ptr::null_mut;
+use std::panic;
+use std::ptr;
 use std::os::raw;
 
+pub type CallbackInfo = nodejs_sys::napi_callback_info;
 pub type Env = nodejs_sys::napi_env;
 pub type Status = nodejs_sys::napi_status;
 pub type Value = nodejs_sys::napi_value;
@@ -25,7 +29,6 @@ macro_rules! napi_check {
   };
 }
 
-
 // ========================================================================== //
 // ERRORS RELATED                                                             //
 // ========================================================================== //
@@ -35,6 +38,136 @@ pub fn is_exception_pending() -> bool {
     let mut result = MaybeUninit::<bool>::zeroed();
     napi_check!(napi_is_exception_pending, result.as_mut_ptr());
     result.assume_init()
+  }
+}
+
+// TODO: convert this to throw a proper "Error" alongside NapiResult/NapiError
+pub fn throw_error(message: String, code: Option<String>) {
+  let mut message = message.to_owned();
+  message.push('\0'); // make sure we're null terminated!!!
+
+  let code = match code {
+    None => "\0".to_string(),
+    Some(code) => {
+      let mut code = code.to_owned();
+      code.push('\0');
+      code
+    },
+  };
+
+  unsafe {
+    let status = napi_throw_error(
+      Napi::env(),
+      code.as_ptr() as *const raw::c_char,
+      message.as_ptr() as *const raw::c_char
+    );
+
+    if status == Status::napi_ok {
+      return
+    }
+
+    let location = format!("{} line {}", file!(), line!());
+    let message = format!("Error throwing \"{}\" (status={:?})", message, status);
+    nodejs_sys::napi_fatal_error(
+      location.as_ptr() as *const raw::c_char,
+      location.len(),
+      message.as_ptr() as *const raw::c_char,
+      message.len());
+  }
+}
+
+// ========================================================================== //
+// FUNCTIONS CALLBACK                                                         //
+// ========================================================================== //
+
+struct CallbackWrapper {
+  callback: Box<dyn Fn(Value, Vec<Value>) -> NapiResult<Value> + 'static>
+}
+
+impl CallbackWrapper {
+  fn call(&self, this: Value, args: Vec<Value>) -> NapiResult<Value> {
+    let callback = &self.callback;
+    callback(this, args)
+  }
+}
+
+pub struct Callback {
+  this: Value,
+  args: Vec<Value>,
+  wrapper: &'static CallbackWrapper,
+}
+
+impl Callback {
+  pub fn call(self) -> NapiResult<Value> {
+    self.wrapper.call(self.this, self.args)
+  }
+}
+
+extern "C" fn callback_trampoline(env: napi_env, info: napi_callback_info) -> napi_value {
+  let env = unsafe { Napi::new(env) };
+
+  // Call up our initialization function with exports wrapped in a NapiObject
+  // and unwrap the result into a simple "napi_value" (the pointer)
+  let panic = panic::catch_unwind(|| {
+    let callback = get_cb_info(info);
+    callback.call()
+  });
+
+  // See if the initialization panicked
+  let result = panic.unwrap_or_else(|error| {
+    Err(NapiError::from(format!("PANIC: {:?}", error)))
+  });
+
+  // When we get here, we dealt with possible panic situations, now we have
+  // a result, which (if OK) will hold the napi_value to return to node or
+  // (if ERR) will contain a NapiError to throw before returning
+  if let Err(error) = result {
+    throw_error(error.to_string(), None);
+  }
+
+  // All done...
+  drop(env);
+  return ptr::null_mut()
+}
+
+pub fn get_cb_info(info: CallbackInfo) -> Callback {
+  unsafe {
+    let mut argc = MaybeUninit::<usize>::zeroed();
+    let mut this = MaybeUninit::<napi_value>::zeroed();
+    let mut data = MaybeUninit::<*mut raw::c_void>::zeroed();
+
+    // Figure out arguments count, "this" and our data (NapiCallbackWrapper)
+    napi_check!(
+      napi_get_cb_info,
+      info,
+      argc.as_mut_ptr(),
+      ptr::null_mut(),
+      this.as_mut_ptr(),
+      data.as_mut_ptr()
+    );
+
+    // If we have arguments, extract them from our call info
+    let args = match argc.assume_init() < 1 {
+      true => vec![], // no args
+      false => {
+        let mut argv = vec![ptr::null_mut(); argc.assume_init()];
+        napi_check!(
+          napi_get_cb_info,
+          info,
+          argc.as_mut_ptr(),
+          argv.as_mut_ptr(),
+          ptr::null_mut(),
+          ptr::null_mut()
+        );
+        argv
+      }
+    };
+
+    // Build up our CallbacKData
+    let pointer = data.assume_init() as *mut CallbackWrapper;
+    let wrapper = &*{pointer};
+
+    Callback { this: this.assume_init(), args, wrapper }
   }
 }
 
@@ -204,6 +337,31 @@ pub fn get_value_bool(value: Value) -> bool {
   }
 }
 
+// ===== FUNCTION ==============================================================
+
+pub fn create_function<F>(name: &str, callback: F) -> Value
+where
+  F: Fn(Value, Vec<Value>) -> NapiResult<Value> + Sized + 'static
+{
+  let wrapper = CallbackWrapper { callback: Box::new(callback) };
+  let boxed = Box::new(wrapper);
+  let pointer = Box::into_raw(boxed);
+
+  // Shove everything in our wrapper...
+  unsafe {
+    let mut result = MaybeUninit::<napi_value>::zeroed();
+    napi_check!(
+      napi_create_function,
+      name.as_ptr() as *const raw::c_char,
+      name.len(),
+      Some(callback_trampoline),
+      pointer as *mut raw::c_void,
+      result.as_mut_ptr()
+    );
+    result.assume_init()
+  }
+}
+
 // ===== NULL ==================================================================
 
 pub fn get_null() -> Value {
@@ -311,7 +469,7 @@ pub fn get_value_string_utf8(value: Value) -> String {
     let mut size = MaybeUninit::<usize>::zeroed();
 
     // First, get the string *length* in bytes (it's safe, UTF8)
-    napi_check!(napi_get_value_string_utf8, value, null_mut(), 0, size.as_mut_ptr());
+    napi_check!(napi_get_value_string_utf8, value, ptr::null_mut(), 0, size.as_mut_ptr());
 
     // Allocate a buffer of the correct size (plus 1 for null)
     let mut buffer = vec![0; size.assume_init() + 1];
@@ -349,7 +507,6 @@ extern "C" {
     result: *mut napi_value,
   ) -> napi_status;
 }
-
 
 pub fn symbol_for(description: &str) -> Value {
   unsafe {

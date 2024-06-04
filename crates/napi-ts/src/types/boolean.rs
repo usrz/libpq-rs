@@ -3,7 +3,7 @@ use crate::types::*;
 use crate::errors::NapiError;
 use crate::errors::NapiResult;
 
-#[derive(Debug)]
+#[derive(Clone,Debug)]
 pub struct NapiBoolean {
   pub(super) value: napi::Value,
 }

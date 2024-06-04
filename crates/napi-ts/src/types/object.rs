@@ -3,7 +3,7 @@ use crate::types::*;
 use crate::errors::NapiError;
 use crate::errors::NapiResult;
 
-#[derive(Debug)]
+#[derive(Clone,Debug)]
 pub struct NapiObject {
   pub(super) value: napi::Value,
 }
@@ -25,14 +25,6 @@ impl TryFrom<napi::Value> for NapiObject {
 
   fn try_from(value: napi::Value) -> NapiResult<Self> {
     Ok(Self { value: expect_type(value, napi::ValueType::napi_object)? })
-  }
-}
-
-impl ToOwned for NapiObject {
-  type Owned = NapiObject;
-
-  fn to_owned(&self) -> NapiObject {
-    Self { value: self.value }
   }
 }
 

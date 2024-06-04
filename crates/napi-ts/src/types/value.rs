@@ -1,22 +1,27 @@
-use crate::napi;
 use crate::errors::*;
+use crate::napi;
 use super::NapiBigint;
 use super::NapiBoolean;
+use super::NapiFunction;
 use super::NapiNull;
 use super::NapiNumber;
 use super::NapiObject;
 use super::NapiString;
 use super::NapiSymbol;
 use super::NapiUndefined;
+use std::any::TypeId;
+use std::any::type_name;
+use std::any::Any;
 
-pub trait NapiValue: TryFrom<napi::Value> + Into<NapiResult<NapiValues>> {
+pub trait NapiValue: TryFrom<napi::Value> + Into<NapiResult<NapiValues>> + Clone {
   unsafe fn as_napi_value(&self) -> napi::Value;
 }
 
-#[derive(Debug)]
+#[derive(Clone,Debug)]
 pub enum NapiValues {
   Bigint(NapiBigint),
   Boolean(NapiBoolean),
+  Function(NapiFunction),
   Null(NapiNull),
   Number(NapiNumber),
   Object(NapiObject),
@@ -34,6 +39,12 @@ impl From<NapiBigint> for NapiValues {
 impl From<NapiBoolean> for NapiValues {
   fn from(value: NapiBoolean) -> Self {
     NapiValues::Boolean(value)
+  }
+}
+
+impl From<NapiFunction> for NapiValues {
+  fn from(value: NapiFunction) -> Self {
+    NapiValues::Function(value)
   }
 }
 
@@ -80,7 +91,7 @@ impl From<napi::Value> for NapiValues {
       nodejs_sys::napi_valuetype::napi_bigint => NapiValues::Bigint(NapiBigint { value }),
       nodejs_sys::napi_valuetype::napi_boolean => NapiValues::Boolean(NapiBoolean { value }),
       nodejs_sys::napi_valuetype::napi_external => todo!(),
-      nodejs_sys::napi_valuetype::napi_function => todo!(),
+      nodejs_sys::napi_valuetype::napi_function => NapiValues::Function(NapiFunction { value }),
       nodejs_sys::napi_valuetype::napi_null => NapiValues::Null(NapiNull { value }),
       nodejs_sys::napi_valuetype::napi_number => NapiValues::Number(NapiNumber { value }),
       nodejs_sys::napi_valuetype::napi_object => NapiValues::Object(NapiObject { value }),
@@ -98,6 +109,7 @@ impl NapiValue for NapiValues {
     match self {
       NapiValues::Bigint(value) => value.value,
       NapiValues::Boolean(value) => value.value,
+      NapiValues::Function(value) => value.value,
       NapiValues::Null(value) => value.value,
       NapiValues::Number(value) => value.value,
       NapiValues::Object(value) => value.value,
@@ -111,6 +123,46 @@ impl NapiValue for NapiValues {
 impl Into<NapiResult<NapiValues>> for NapiValues {
   fn into(self) -> NapiResult<NapiValues> {
     Ok(self)
+  }
+}
+
+impl NapiValues {
+  pub fn downcast<T: NapiValue + 'static>(&self) -> NapiResult<T> {
+
+    println!("SELF {:?} {}", TypeId::of::<Self>(), type_name::<Self>());
+    println!("   T {:?} {}", TypeId::of::<T>(), type_name::<T>());
+    println!("  BI {:?} {}", TypeId::of::<NapiBigint>(), type_name::<NapiBigint>());
+
+    let result = match self {
+      NapiValues::Bigint(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValues::Boolean(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValues::Function(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValues::Null(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValues::Number(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValues::Object(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValues::String(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValues::Symbol(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValues::Undefined(value) => (value as &dyn Any).downcast_ref::<T>(),
+    };
+
+    match result {
+      Some(downcasted) => Ok(downcasted.to_owned()),
+      None => {
+        let from = match self {
+          NapiValues::Bigint(_) => "Bigint",
+          NapiValues::Boolean(_) => "Boolean",
+          NapiValues::Function(_) => "Function",
+          NapiValues::Null(_) => "Null",
+          NapiValues::Number(_) => "Number",
+          NapiValues::Object(_) => "Object",
+          NapiValues::String(_) => "String",
+          NapiValues::Symbol(_) => "Symbol",
+          NapiValues::Undefined(_) => "Undefined",
+        };
+        let into = type_name::<T>().rsplit_once(":").unwrap().1;
+        Err(format!("Unable to downcast \"{}\" into \"{}\"", from, into).into())
+      }
+    }
   }
 }
 

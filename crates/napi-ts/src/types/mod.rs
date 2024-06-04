@@ -1,5 +1,6 @@
 mod bigint;
 mod boolean;
+mod function;
 mod null;
 mod number;
 mod object;
@@ -10,6 +11,7 @@ mod value;
 
 pub use bigint::*;
 pub use boolean::*;
+pub use function::*;
 pub use null::*;
 pub use number::*;
 pub use object::*;

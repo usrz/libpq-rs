@@ -10,9 +10,7 @@ thread_local! {
 }
 
 #[derive(Debug)]
-pub struct Napi {
-  env: napi::Env,
-}
+pub struct Napi {}
 
 impl Drop for Napi {
   fn drop(&mut self) {
@@ -34,7 +32,7 @@ impl Napi {
       false => panic!("NAPI environment already initialized for thread {:?}", thread::current().id())
     };
 
-    Self { env }
+    Self {}
   }
 
   pub(crate) fn env() -> napi::Env {
