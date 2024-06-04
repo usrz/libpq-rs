@@ -13,8 +13,14 @@ use std::any::TypeId;
 use std::any::type_name;
 use std::any::Any;
 
-pub trait NapiValue: TryFrom<napi::Value> + Into<NapiResult<NapiValues>> + Clone {
-  unsafe fn as_napi_value(&self) -> napi::Value;
+pub(crate) trait NapiValueInternal: Into<NapiResult<NapiValues>> + Clone {
+  fn as_napi_value(&self) -> napi::Value;
+  fn from_napi_value(value: napi::Value) -> Self;
+}
+
+#[allow(private_bounds)]
+pub trait NapiValue: NapiValueInternal {
+  // Public marker of "NapiValueInternal"
 }
 
 #[derive(Clone,Debug)]
@@ -84,38 +90,38 @@ impl From<NapiUndefined> for NapiValues {
   }
 }
 
-impl From<napi::Value> for NapiValues {
-  fn from(value: napi::Value) -> Self {
-    let value_type = napi::type_of(value);
-    match value_type {
-      nodejs_sys::napi_valuetype::napi_bigint => NapiValues::Bigint(NapiBigint { value }),
-      nodejs_sys::napi_valuetype::napi_boolean => NapiValues::Boolean(NapiBoolean { value }),
-      nodejs_sys::napi_valuetype::napi_external => todo!(),
-      nodejs_sys::napi_valuetype::napi_function => NapiValues::Function(NapiFunction { value }),
-      nodejs_sys::napi_valuetype::napi_null => NapiValues::Null(NapiNull { value }),
-      nodejs_sys::napi_valuetype::napi_number => NapiValues::Number(NapiNumber { value }),
-      nodejs_sys::napi_valuetype::napi_object => NapiValues::Object(NapiObject { value }),
-      nodejs_sys::napi_valuetype::napi_string => NapiValues::String(NapiString { value }),
-      nodejs_sys::napi_valuetype::napi_symbol => NapiValues::Symbol(NapiSymbol { value }),
-      nodejs_sys::napi_valuetype::napi_undefined => NapiValues::Undefined(NapiUndefined { value }),
-      #[allow(unreachable_patterns)] // this should *really* never happen...
-      _ => panic!("Unsupported JavaScript type \"{:?}\"", value_type)
+impl NapiValue for NapiValues {}
+
+impl NapiValueInternal for NapiValues {
+  fn as_napi_value(&self) -> napi::Value {
+    match self {
+      NapiValues::Bigint(value) => value.as_napi_value(),
+      NapiValues::Boolean(value) => value.as_napi_value(),
+      NapiValues::Function(value) => value.as_napi_value(),
+      NapiValues::Null(value) => value.as_napi_value(),
+      NapiValues::Number(value) => value.as_napi_value(),
+      NapiValues::Object(value) => value.as_napi_value(),
+      NapiValues::String(value) => value.as_napi_value(),
+      NapiValues::Symbol(value) => value.as_napi_value(),
+      NapiValues::Undefined(value) => value.as_napi_value(),
     }
   }
-}
 
-impl NapiValue for NapiValues {
-  unsafe fn as_napi_value(&self) -> napi::Value {
-    match self {
-      NapiValues::Bigint(value) => value.value,
-      NapiValues::Boolean(value) => value.value,
-      NapiValues::Function(value) => value.value,
-      NapiValues::Null(value) => value.value,
-      NapiValues::Number(value) => value.value,
-      NapiValues::Object(value) => value.value,
-      NapiValues::String(value) => value.value,
-      NapiValues::Symbol(value) => value.value,
-      NapiValues::Undefined(value) => value.value,
+  fn from_napi_value(value: napi::Value) -> Self {
+    let value_type = napi::type_of(value);
+    match value_type {
+      nodejs_sys::napi_valuetype::napi_bigint => NapiValues::Bigint(NapiBigint::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_boolean => NapiValues::Boolean(NapiBoolean::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_external => todo!(),
+      nodejs_sys::napi_valuetype::napi_function => NapiValues::Function(NapiFunction::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_null => NapiValues::Null(NapiNull::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_number => NapiValues::Number(NapiNumber::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_object => NapiValues::Object(NapiObject::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_string => NapiValues::String(NapiString::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_symbol => NapiValues::Symbol(NapiSymbol::from_napi_value(value)),
+      nodejs_sys::napi_valuetype::napi_undefined => NapiValues::Undefined(NapiUndefined::from_napi_value(value)),
+      #[allow(unreachable_patterns)] // this should *really* never happen...
+      _ => panic!("Unsupported JavaScript type \"{:?}\"", value_type)
     }
   }
 }
@@ -146,7 +152,7 @@ impl NapiValues {
     };
 
     match result {
-      Some(downcasted) => Ok(downcasted.to_owned()),
+      Some(downcasted) => Ok(downcasted.clone()),
       None => {
         let from = match self {
           NapiValues::Bigint(_) => "Bigint",
@@ -171,8 +177,8 @@ pub trait NapiValueWithProperties: NapiValue {
 
   fn set_property(&self, key: &str, value: &impl NapiValue) -> &Self {
     let key = napi::create_string_utf8(key);
-    let value = unsafe { value.as_napi_value() };
-    let this = unsafe { self.as_napi_value() };
+    let value = value.as_napi_value();
+    let this = self.as_napi_value();
     napi::set_named_property(this, key, value);
     self
   }
@@ -203,14 +209,5 @@ pub trait NapiValueWithProperties: NapiValue {
 
   fn set_property_undefined(&self, key: &str) -> &Self {
     self.set_property(key, &NapiUndefined::new())
-  }
-}
-
-pub(super) fn expect_type(value: napi::Value, expected: napi::ValueType) -> NapiResult<napi::Value> {
-  let actual = napi::type_of(value);
-
-  match actual == expected {
-    false => Err(NapiError::from(format!("Type \"{:?}\" is not the expected \"{:?}\" type", actual, expected))),
-    true => Ok(value),
   }
 }

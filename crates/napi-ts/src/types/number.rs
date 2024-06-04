@@ -4,26 +4,24 @@ use crate::types::*;
 
 #[derive(Clone,Debug)]
 pub struct NapiNumber {
-  pub(super) value: napi::Value,
+  value: napi::Value,
 }
 
-impl NapiValue for NapiNumber {
-  unsafe fn as_napi_value(&self) -> napi::Value {
+impl NapiValue for NapiNumber {}
+
+impl NapiValueInternal for NapiNumber {
+  fn as_napi_value(&self) -> napi::Value {
     self.value
+  }
+
+  fn from_napi_value(value: napi::Value) -> Self {
+    Self { value }
   }
 }
 
 impl Into<NapiResult<NapiValues>> for NapiNumber {
   fn into(self) -> NapiResult<NapiValues> {
     Ok(self.into())
-  }
-}
-
-impl TryFrom<napi::Value> for NapiNumber {
-  type Error = NapiError;
-
-  fn try_from(value: napi::Value) -> NapiResult<Self> {
-    Ok(Self { value: expect_type(value, napi::ValueType::napi_string)? })
   }
 }
 

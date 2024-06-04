@@ -18,8 +18,8 @@ pub fn register_module(
   // Call up our initialization function with exports wrapped in a NapiObject
   // and unwrap the result into a simple "napi_value" (the pointer)
   let panic = panic::catch_unwind(|| {
-    init(NapiObject::try_from(exports).unwrap())
-      .map(|exports| unsafe { exports.as_napi_value() })
+    let exports = NapiValues::from_napi_value(exports).downcast::<NapiObject>()?;
+    init(exports).map(|exports| { exports.as_napi_value() })
   });
 
   // See if the initialization panicked

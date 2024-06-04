@@ -1,30 +1,27 @@
 use crate::napi;
 use crate::types::*;
-use crate::errors::NapiError;
 use crate::errors::NapiResult;
 
 #[derive(Clone,Debug)]
 pub struct NapiObject {
-  pub(super) value: napi::Value,
+  value: napi::Value,
 }
 
-impl NapiValue for NapiObject {
-  unsafe fn as_napi_value(&self) -> napi::Value {
+impl NapiValue for NapiObject {}
+
+impl NapiValueInternal for NapiObject {
+  fn as_napi_value(&self) -> napi::Value {
     self.value
+  }
+
+  fn from_napi_value(value: napi::Value) -> Self {
+    Self { value }
   }
 }
 
 impl Into<NapiResult<NapiValues>> for NapiObject {
   fn into(self) -> NapiResult<NapiValues> {
     Ok(self.into())
-  }
-}
-
-impl TryFrom<napi::Value> for NapiObject {
-  type Error = NapiError;
-
-  fn try_from(value: napi::Value) -> NapiResult<Self> {
-    Ok(Self { value: expect_type(value, napi::ValueType::napi_object)? })
   }
 }
 
