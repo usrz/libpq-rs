@@ -5,7 +5,6 @@ use nodejs_sys::*;
 use std::mem::MaybeUninit;
 use std::ptr::null_mut;
 use std::os::raw;
-use std::collections::btree_map::Values;
 
 pub type Env = nodejs_sys::napi_env;
 pub type Status = nodejs_sys::napi_status;
@@ -13,36 +12,23 @@ pub type Value = nodejs_sys::napi_value;
 pub type ValueType = nodejs_sys::napi_valuetype;
 
 // ========================================================================== //
-// PANIC! When NodeJS' API fails we *panic* with a NapiPanic payload. We'll   //
-// "catch_unwind" this in our function wrappers and *try* to throw an error   //
+// PANIC! When NodeJS' API fails we *panic* with a nice error message         //
 // ========================================================================== //
-
-#[derive(Debug)]
-pub struct NapiPanic {
-  pub syscall: String,
-  pub status: Status,
-}
-
-impl NapiPanic {
-  fn new(syscall: &str, status: Status) -> Self {
-    Self { syscall: syscall.to_string(), status }
-  }
-}
 
 /// Call a NodeJS API returning a status and check it's OK or panic.
 macro_rules! napi_check {
   ($syscall:ident, $($args:expr), +) => {
     match { $syscall(Napi::env(), $($args),+) } {
       Status::napi_ok => (),
-      status => std::panic::panic_any(NapiPanic::new(stringify!($syscall), status)),
+      status => panic!("Error calling \"{}\": {:?}", stringify!($syscall), status),
     }
   };
 }
 
 
-/* ========================================================================== *
- * ERRORS RELATED                                                             *
- * ========================================================================== */
+// ========================================================================== //
+// ERRORS RELATED                                                             //
+// ========================================================================== //
 
 pub fn is_exception_pending() -> bool {
   unsafe {

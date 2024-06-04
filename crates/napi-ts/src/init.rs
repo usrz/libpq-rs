@@ -29,20 +29,7 @@ pub fn napi_init(
 
   // See if the initialization panicked
   let result = panic.unwrap_or_else(|error| {
-    match error.downcast_ref::<napi::NapiPanic>() {
-      // This is a normal panic, we'll throw it later
-      None => Err(NapiError::from(format!("{:?}", error))),
-      // This is our "NAPI" panic, we have to handle it depending on status
-      Some(napi_panic) => match napi_panic.status {
-        // If the thread panicked because of an exception, well, it's thrown!
-        napi::Status::napi_pending_exception => Ok(exports),
-        // Any other status from Node should be handled...
-        status => {
-          let message = format!("Error calling \"{}\": {:?}", napi_panic.syscall, status);
-          Err(NapiError::from(message))
-        }
-      }
-    }
+    Err(NapiError::from(format!("PANIC: {:?}", error)))
   });
 
   // When we get here, we dealt with possible panic situations, now we have

@@ -4,6 +4,7 @@ use napi_ts::types::NapiObject;
 use napi_ts::types::NapiValueWithProperties;
 use ffi::to_string_lossy;
 use napi_ts::types::NapiString;
+use napi_ts::types::NapiSymbol;
 
 pub mod connection;
 pub mod conninfo;
@@ -54,12 +55,10 @@ napi_ts::napi_init!(|napi, exports| {
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
   println!("             napi: {:?}", napi);
 
-  let foobar = "foo\0bar";
-  let string: NapiString = foobar.into();
-  let raboof = string.as_string();
-
-  println!("FOOBAR => \"{:?}\"", foobar);
-  println!("RABOOF => \"{:?}\"", raboof);
+  let _s1 = NapiSymbol::new("foobar");
+  let _s2 = NapiSymbol::symbol_for("foobar");
+  println!("S1 {:?}", _s1.description());
+  println!("S2 {:?}", _s2.description());
 
   exports
     .set_property_string("openssl_version", openssl_version())
