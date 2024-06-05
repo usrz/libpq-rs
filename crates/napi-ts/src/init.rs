@@ -25,7 +25,13 @@ pub fn register_module(
 
   // See if the initialization panicked
   let result = panic.unwrap_or_else(|error| {
-    Err(NapiError::from(format!("PANIC: {:?}", error)))
+    if let Some(message) = error.downcast_ref::<&str>() {
+      Err(NapiError::from(format!("PANIC: {}", message)))
+    } else if let Some(message) = error.downcast_ref::<String>() {
+      Err(NapiError::from(format!("PANIC: {}", message)))
+    } else {
+      Err(NapiError::from("PANIC: Unknown error".to_owned()))
+    }
   });
 
   // When we get here, we dealt with possible panic situations, now we have
