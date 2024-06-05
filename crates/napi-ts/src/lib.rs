@@ -4,7 +4,6 @@ pub mod env;
 pub mod napi;
 pub mod types;
 
-pub use env::Napi;
 pub use errors::*;
 pub use types::*;
 
