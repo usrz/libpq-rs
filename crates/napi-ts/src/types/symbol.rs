@@ -48,12 +48,12 @@ impl NapiSymbol {
   pub fn description(&self) -> Option<String> {
     let key = napi::create_string_utf8("description");
     let value = napi::get_property(self.value, key);
-    // TODO: how does the Node API handles symbols with undefined description?
+
     let property = NapiValue::from_napi_value(value);
     match property {
       NapiValue::String(string) => Some(string.into()),
-      NapiValue::Null(_) => None,
       NapiValue::Undefined(_) => None,
+      NapiValue::Null(_) => None,
       _ => panic!("Unsupported symbol description {:?}", property),
     }
   }
