@@ -24,6 +24,10 @@ impl CallbackWrapper {
   }
 }
 
+// ========================================================================== //
+// TRAMPOLINE                                                                 //
+// ========================================================================== //
+
 extern "C" fn callback_trampoline(env: napi_env, info: napi_callback_info) -> Value {
   let env = Napi::new(env);
 
@@ -36,7 +40,13 @@ extern "C" fn callback_trampoline(env: napi_env, info: napi_callback_info) -> Va
 
   // See if the initialization panicked
   let result = panic.unwrap_or_else(|error| {
-    Err(NapiError::from(format!("PANIC: {:?}", error)))
+    if let Some(message) = error.downcast_ref::<&str>() {
+      Err(NapiError::from(format!("PANIC: {}", message)))
+    } else if let Some(message) = error.downcast_ref::<String>() {
+      Err(NapiError::from(format!("PANIC: {}", message)))
+    } else {
+      Err(NapiError::from("PANIC: Unknown error".to_owned()))
+    }
   });
 
   // When we get here, we dealt with possible panic situations, now we have
@@ -118,8 +128,6 @@ where
   let boxed = Box::new(wrapper);
   let pointer = Box::into_raw(boxed);
 
-  // todo: finalize!
-
   // Shove everything in our wrapper...
   unsafe {
     let mut result = MaybeUninit::<Value>::zeroed();
@@ -131,7 +139,10 @@ where
       pointer as *mut raw::c_void,
       result.as_mut_ptr()
     );
-    result.assume_init()
+
+    let function = result.assume_init();
+    add_finalizer(function, pointer);
+    function
   }
 }
 

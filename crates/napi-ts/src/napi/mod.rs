@@ -1,10 +1,12 @@
 mod errors;
+mod externals;
 mod functions;
 mod objects;
 mod primitives;
 mod references;
 
 pub use errors::*;
+pub use externals::*;
 pub use functions::*;
 pub use objects::*;
 pub use primitives::*;
