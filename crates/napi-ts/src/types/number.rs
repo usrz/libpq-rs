@@ -9,7 +9,7 @@ pub struct NapiNumber {
 impl NapiShape for NapiNumber {}
 
 impl NapiShapeInternal for NapiNumber {
-  fn as_napi_value(&self) -> napi::Value {
+  fn as_napi_value(self) -> napi::Value {
     napi::create_double(self.value)
   }
 

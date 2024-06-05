@@ -24,7 +24,7 @@ impl Drop for NapiFunction {
 }
 
 impl NapiShapeInternal for NapiFunction {
-  fn as_napi_value(&self) -> napi::Value {
+  fn as_napi_value(self) -> napi::Value {
     self.value
   }
 
@@ -51,17 +51,17 @@ impl NapiFunction {
     Self::from_napi_value(value)
   }
 
-  pub fn call(&self, args: &[&impl NapiShape]) -> NapiResult<NapiReturn> {
+  pub fn call(&self, args: &[impl NapiShape]) -> NapiResult<NapiReturn> {
     self.call_with(&NapiNull::new(), args)
   }
 
-  pub fn call_with(&self, this: &impl NapiShape, args: &[&impl NapiShape]) -> NapiResult<NapiReturn> {
+  pub fn call_with(&self, this: &impl NapiShape, args: &[impl NapiShape]) -> NapiResult<NapiReturn> {
     let args = args
       .into_iter()
-      .map(|value| value.as_napi_value())
+      .map(|value| value.clone().as_napi_value())
       .collect();
 
-    napi::call_function(this.as_napi_value(), self.value, args)
+    napi::call_function(this.clone().as_napi_value(), self.value, args)
       .map(|value| NapiReturn::from_napi_value(value))
   }
 }

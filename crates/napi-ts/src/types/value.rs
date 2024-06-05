@@ -12,13 +12,13 @@ use std::any::TypeId;
 // ========================================================================== //
 
 pub(crate) trait NapiShapeInternal: Clone + Debug {
-  fn as_napi_value(&self) -> napi::Value;
+  fn as_napi_value(self) -> napi::Value;
   fn from_napi_value(value: napi::Value) -> Self;
 }
 
 #[allow(private_bounds)]
 pub trait NapiShape: NapiShapeInternal {
-  fn ok(&self) -> NapiResult<NapiReturn> {
+  fn ok(self) -> NapiResult<NapiReturn> {
     Ok(NapiReturn::from_napi_value(self.as_napi_value()))
   }
 }
@@ -35,7 +35,7 @@ pub struct NapiReturn {
 unsafe impl Send for NapiReturn {}
 
 impl NapiShapeInternal for NapiReturn {
-  fn as_napi_value(&self) -> napi::Value {
+  fn as_napi_value(self) -> napi::Value {
     self.value
   }
 
@@ -82,7 +82,7 @@ impl <T: NapiShape> From<T> for NapiValue {
 }
 
 impl NapiShapeInternal for NapiValue {
-  fn as_napi_value(&self) -> napi::Value {
+  fn as_napi_value(self) -> napi::Value {
     match self {
       NapiValue::Bigint(value) => value.as_napi_value(),
       NapiValue::Boolean(value) => value.as_napi_value(),
@@ -133,15 +133,53 @@ impl NapiValue {
       return Ok(downcasted.clone())
     }
 
-    // special cases
-    if TypeId::of::<T>() == TypeId::of::<String>() {
-      if let NapiValue::String(value) = self {
-        let string = &value.value();
-        let result = (string as &dyn Any).downcast_ref::<T>().unwrap();
+    // Special cases for primitives:
+    // * bigint => u128
+    // * boolean => bool
+    // * number => f64 / i32
+    // * string => String
+    if TypeId::of::<T>() == TypeId::of::<i128>() {
+      if let NapiValue::Bigint(value) = self {
+        let primitive = &value.value();
+        let result = (primitive as &dyn Any).downcast_ref::<T>().unwrap();
         return Ok(result.clone())
       }
     };
 
+    if TypeId::of::<T>() == TypeId::of::<bool>() {
+      if let NapiValue::Boolean(value) = self {
+        let primitive = &value.value();
+        let result = (primitive as &dyn Any).downcast_ref::<T>().unwrap();
+        return Ok(result.clone())
+      }
+    };
+
+    if TypeId::of::<T>() == TypeId::of::<f64>() {
+      if let NapiValue::Number(value) = self {
+        let primitive = &value.value();
+        let result = (primitive as &dyn Any).downcast_ref::<T>().unwrap();
+        return Ok(result.clone())
+      }
+    };
+
+    if TypeId::of::<T>() == TypeId::of::<i32>() {
+      if let NapiValue::Number(value) = self {
+        let primitive = &value.value();
+        let converted = &(*primitive as i32);
+        let result = (converted as &dyn Any).downcast_ref::<T>().unwrap();
+        return Ok(result.clone())
+      }
+    };
+
+    if TypeId::of::<T>() == TypeId::of::<String>() {
+      if let NapiValue::String(value) = self {
+        let primitive = &value.value();
+        let result = (primitive as &dyn Any).downcast_ref::<T>().unwrap();
+        return Ok(result.clone())
+      }
+    };
+
+    // No way to downcast our value...
     let from = match self {
       NapiValue::Bigint(_) => "NapiBigint",
       NapiValue::Boolean(_) => "NapiBoolean",
@@ -165,8 +203,8 @@ impl NapiValue {
 pub trait NapiValueWithProperties: NapiShape {
   fn set_property(&self, key: &str, value: &impl NapiShape) -> &Self {
     let key = napi::create_string_utf8(key);
-    let value = value.as_napi_value();
-    let this = self.as_napi_value();
+    let value = value.clone().as_napi_value();
+    let this = self.clone().as_napi_value();
     napi::set_named_property(this, key, value);
     self
   }

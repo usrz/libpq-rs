@@ -23,7 +23,7 @@ impl Drop for NapiObject {
 }
 
 impl NapiShapeInternal for NapiObject {
-  fn as_napi_value(&self) -> napi::Value {
+  fn as_napi_value(self) -> napi::Value {
     self.value
   }
 

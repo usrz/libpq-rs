@@ -9,7 +9,7 @@ pub struct NapiBoolean {
 impl NapiShape for NapiBoolean {}
 
 impl NapiShapeInternal for NapiBoolean {
-  fn as_napi_value(&self) -> napi::Value {
+  fn as_napi_value(self) -> napi::Value {
     napi::get_boolean(self.value)
   }
 
@@ -28,14 +28,14 @@ impl From<bool> for NapiBoolean {
 
 impl Into<bool> for NapiBoolean {
   fn into(self) -> bool {
-    self.as_bool()
+    self.value
   }
 }
 
 // ===== EXTRA METHODS =========================================================
 
 impl NapiBoolean {
-  pub fn as_bool(&self) -> bool {
+  pub fn value(&self) -> bool {
     self.value
   }
 }
