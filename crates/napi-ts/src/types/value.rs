@@ -27,32 +27,12 @@ unsafe impl Send for NapiValue {}
 
 impl <T: NapiShape> From<T> for NapiValue {
   fn from(value: T) -> Self {
-    Self::from_napi_value(value.as_napi_value())
+    Self::from(value.into_napi_value())
   }
 }
 
 impl From<napi::Value> for NapiValue {
   fn from(value: napi::Value) -> Self {
-    Self::from_napi_value(value)
-  }
-}
-
-impl NapiShapeInternal for NapiValue {
-  fn as_napi_value(self) -> napi::Value {
-    match self {
-      NapiValue::Bigint(value) => value.as_napi_value(),
-      NapiValue::Boolean(value) => value.as_napi_value(),
-      NapiValue::Function(value) => value.as_napi_value(), // REF
-      NapiValue::Null(value) => value.as_napi_value(),
-      NapiValue::Number(value) => value.as_napi_value(),
-      NapiValue::Object(value) => value.as_napi_value(), // REF
-      NapiValue::String(value) => value.as_napi_value(),
-      NapiValue::Symbol(value) => value.as_napi_value(), // REF
-      NapiValue::Undefined(value) => value.as_napi_value(),
-    }
-  }
-
-  fn from_napi_value(value: napi::Value) -> Self {
     let value_type = napi::type_of(value);
     match value_type {
       nodejs_sys::napi_valuetype::napi_bigint => NapiValue::Bigint(NapiBigint::from_napi_value(value)),
@@ -68,6 +48,32 @@ impl NapiShapeInternal for NapiValue {
       #[allow(unreachable_patterns)] // this should *really* never happen...
       _ => panic!("Unsupported JavaScript type \"{:?}\"", value_type)
     }
+  }
+}
+
+impl Into<napi::Value> for NapiValue {
+  fn into(self) -> napi::Value {
+    match self {
+      NapiValue::Bigint(value) => value.into_napi_value(),
+      NapiValue::Boolean(value) => value.into_napi_value(),
+      NapiValue::Function(value) => value.into_napi_value(), // REF
+      NapiValue::Null(value) => value.into_napi_value(),
+      NapiValue::Number(value) => value.into_napi_value(),
+      NapiValue::Object(value) => value.into_napi_value(), // REF
+      NapiValue::String(value) => value.into_napi_value(),
+      NapiValue::Symbol(value) => value.into_napi_value(), // REF
+      NapiValue::Undefined(value) => value.into_napi_value(),
+    }
+  }
+}
+
+impl NapiShapeInternal for NapiValue {
+  fn into_napi_value(self) -> napi::Value {
+    self.into()
+  }
+
+  fn from_napi_value(value: napi::Value) -> Self {
+    Self::from(value)
   }
 }
 
@@ -159,9 +165,9 @@ impl NapiValue {
 pub trait NapiValueWithProperties: NapiShape {
   fn get_property(&self, key: &str) -> Option<NapiValue> {
     let key = napi::create_string_utf8(key);
-    let this = self.clone().as_napi_value();
+    let this = self.clone().into_napi_value();
     let result = napi::get_property(this, key);
-    let value = NapiValue::from_napi_value(result);
+    let value = NapiValue::from(result);
 
     match value {
       NapiValue::Undefined(_) => None,
@@ -171,8 +177,8 @@ pub trait NapiValueWithProperties: NapiShape {
 
   fn set_property(&self, key: &str, value: &impl NapiShape) -> &Self {
     let key = napi::create_string_utf8(key);
-    let value = value.clone().as_napi_value();
-    let this = self.clone().as_napi_value();
+    let value = value.clone().into_napi_value();
+    let this = self.clone().into_napi_value();
     napi::set_property(this, key, value);
     self
   }

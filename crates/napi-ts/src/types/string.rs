@@ -9,7 +9,7 @@ pub struct NapiString {
 impl NapiShape for NapiString {}
 
 impl NapiShapeInternal for NapiString {
-  fn as_napi_value(self) -> napi::Value {
+  fn into_napi_value(self) -> napi::Value {
     napi::create_string_utf8(&self.value)
   }
 

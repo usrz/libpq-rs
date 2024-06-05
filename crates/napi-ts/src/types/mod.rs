@@ -25,8 +25,8 @@ pub use symbol::*;
 pub use undefined::*;
 pub use value::*;
 
-pub(super) trait NapiShapeInternal: Clone + Debug {
-  fn as_napi_value(self) -> napi::Value;
+pub(self) trait NapiShapeInternal: Clone + Debug {
+  fn into_napi_value(self) -> napi::Value;
   fn from_napi_value(value: napi::Value) -> Self;
 }
 

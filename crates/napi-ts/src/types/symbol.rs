@@ -9,7 +9,7 @@ pub struct NapiSymbol {
 impl NapiShape for NapiSymbol {}
 
 impl NapiShapeInternal for NapiSymbol {
-  fn as_napi_value(self) -> napi::Value {
+  fn into_napi_value(self) -> napi::Value {
     self.reference.value()
   }
 
@@ -34,7 +34,7 @@ impl NapiSymbol {
     let key = napi::create_string_utf8("description");
     let value = napi::get_property(self.reference.value(), key);
 
-    let property = NapiValue::from_napi_value(value);
+    let property = NapiValue::from(value);
     match property {
       NapiValue::String(string) => Some(string.into()),
       NapiValue::Undefined(_) => None,

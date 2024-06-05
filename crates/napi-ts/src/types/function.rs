@@ -10,7 +10,7 @@ pub struct NapiFunction {
 impl NapiShape for NapiFunction {}
 
 impl NapiShapeInternal for NapiFunction {
-  fn as_napi_value(self) -> napi::Value {
+  fn into_napi_value(self) -> napi::Value {
     self.value.value()
   }
 
@@ -25,10 +25,10 @@ impl NapiFunction {
     F: Fn(NapiValue, Vec<NapiValue>) -> NapiResult<NapiReturn> + Send + 'static,
   {
     let value = napi::create_function(name, move |this, args| {
-      let this = NapiValue::from_napi_value(this);
+      let this = NapiValue::from(this);
       let args: Vec<NapiValue> = args
         .into_iter()
-        .map(|value| NapiValue::from_napi_value(value))
+        .map(|value| NapiValue::from(value))
         .collect();
 
       callback(this, args).map(|ret| ret.into())
@@ -44,10 +44,10 @@ impl NapiFunction {
   pub fn call_with(&self, this: &impl NapiShape, args: &[impl NapiShape]) -> NapiResult<NapiReturn> {
     let args = args
       .into_iter()
-      .map(|value| value.clone().as_napi_value())
+      .map(|value| value.clone().into_napi_value())
       .collect();
 
-    napi::call_function(this.clone().as_napi_value(), self.value.value(), args)
-      .map(|value| NapiReturn::from(NapiValue::from(value)))
+    napi::call_function(this.clone().into_napi_value(), self.value.value(), args)
+      .map(|value| value.into())
   }
 }

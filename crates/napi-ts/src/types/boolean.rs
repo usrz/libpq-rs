@@ -9,7 +9,7 @@ pub struct NapiBoolean {
 impl NapiShape for NapiBoolean {}
 
 impl NapiShapeInternal for NapiBoolean {
-  fn as_napi_value(self) -> napi::Value {
+  fn into_napi_value(self) -> napi::Value {
     napi::get_boolean(self.value)
   }
 
