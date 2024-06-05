@@ -13,6 +13,14 @@ pub fn type_of(value: Value) -> ValueType {
   }
 }
 
+pub fn coerce_to_string(value: Value) -> String {
+  unsafe {
+    let mut result = MaybeUninit::<Value>::zeroed();
+    napi_check!(napi_coerce_to_string, value, result.as_mut_ptr());
+    get_value_string_utf8(result.assume_init())
+  }
+}
+
 // ===== BIGINT ================================================================
 
 pub fn create_bigint_words(value: i128) -> Value {

@@ -11,6 +11,10 @@ pub fn create_reference(value: Value, initial: u32) -> Reference {
   }
 }
 
+pub fn delete_reference(reference: Reference) {
+  unsafe { napi_check!(napi_delete_reference, reference) }
+}
+
 pub fn reference_ref(reference: Reference) -> u32 {
   unsafe {
     let mut result = MaybeUninit::<u32>::zeroed();

@@ -1,6 +1,5 @@
 use crate::env::Napi;
-use crate::errors::NapiError;
-use crate::errors::NapiResult;
+use crate::errors::*;
 use crate::napi;
 use crate::types::*;
 
@@ -18,8 +17,10 @@ pub fn register_module(
   // Call up our initialization function with exports wrapped in a NapiObject
   // and unwrap the result into a simple "napi_value" (the pointer)
   let panic = panic::catch_unwind(|| {
-    let exports = NapiObject::from_napi_value(exports);
-    init(exports).map(|exports| { exports.as_napi_value() })
+    let value: NapiValue = exports.into();
+    let object = value.downcast::<NapiObject>().unwrap();
+    init(object)
+      .map(|ret| -> napi::Value { ret.into() })
   });
 
   // See if the initialization panicked

@@ -1,60 +1,10 @@
-use crate::errors::*;
+use crate::errors::NapiResult;
 use crate::napi;
 use crate::types::*;
 
 use std::any::type_name;
 use std::any::Any;
-use std::fmt::Debug;
 use std::any::TypeId;
-
-// ========================================================================== //
-// TRAITS                                                                     //
-// ========================================================================== //
-
-pub(crate) trait NapiShapeInternal: Clone + Debug {
-  fn as_napi_value(self) -> napi::Value;
-  fn from_napi_value(value: napi::Value) -> Self;
-}
-
-#[allow(private_bounds)]
-pub trait NapiShape: NapiShapeInternal {
-  fn ok(self) -> NapiResult<NapiReturn> {
-    Ok(NapiReturn::from_napi_value(self.as_napi_value()))
-  }
-}
-
-// ========================================================================== //
-// RETURN VALUE                                                               //
-// ========================================================================== //
-
-#[derive(Clone, Debug)]
-pub struct NapiReturn {
-  value: napi::Value
-}
-
-unsafe impl Send for NapiReturn {}
-
-impl NapiShapeInternal for NapiReturn {
-  fn as_napi_value(self) -> napi::Value {
-    self.value
-  }
-
-  fn from_napi_value(value: napi::Value) -> Self {
-    Self { value }
-  }
-}
-
-impl <T: NapiShape> From<T> for NapiReturn {
-  fn from(value: T) -> Self {
-    Self::from_napi_value(value.as_napi_value())
-  }
-}
-
-impl NapiReturn {
-  pub fn void() -> NapiResult<NapiReturn> {
-    Ok(Self { value: napi::get_undefined() })
-  }
-}
 
 // ========================================================================== //
 // VALUE ENUM (ALL TYPES)                                                     //
@@ -78,6 +28,12 @@ unsafe impl Send for NapiValue {}
 impl <T: NapiShape> From<T> for NapiValue {
   fn from(value: T) -> Self {
     Self::from_napi_value(value.as_napi_value())
+  }
+}
+
+impl From<napi::Value> for NapiValue {
+  fn from(value: napi::Value) -> Self {
+    Self::from_napi_value(value)
   }
 }
 

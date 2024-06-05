@@ -45,7 +45,7 @@ impl NapiFunction {
         .map(|value| NapiValue::from_napi_value(value))
         .collect();
 
-      callback(this, args).map(|value| value.as_napi_value())
+      callback(this, args).map(|ret| ret.into())
     });
 
     Self::from_napi_value(value)
@@ -62,6 +62,6 @@ impl NapiFunction {
       .collect();
 
     napi::call_function(this.clone().as_napi_value(), self.value, args)
-      .map(|value| NapiReturn::from_napi_value(value))
+      .map(|value| NapiReturn::from(NapiValue::from(value)))
   }
 }

@@ -12,7 +12,7 @@ impl NapiShapeInternal for NapiNull {
   }
 
   fn from_napi_value(_: napi::Value) -> Self {
-    Self {} // TODO: rethink...
+    Self {}
   }
 }
 
