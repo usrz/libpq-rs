@@ -1,5 +1,4 @@
 use crate::napi;
-
 use std::fmt::Debug;
 
 mod bigint;
@@ -8,6 +7,7 @@ mod function;
 mod null;
 mod number;
 mod object;
+mod reference;
 mod string;
 mod symbol;
 mod undefined;
@@ -19,6 +19,7 @@ pub use function::*;
 pub use null::*;
 pub use number::*;
 pub use object::*;
+pub use reference::*;
 pub use string::*;
 pub use symbol::*;
 pub use undefined::*;

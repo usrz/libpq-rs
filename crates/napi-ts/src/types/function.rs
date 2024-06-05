@@ -2,34 +2,20 @@ use crate::errors::*;
 use crate::napi;
 use crate::types::*;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct NapiFunction {
-  value: napi::Value,
-  reference: napi::Reference,
+  value: NapiReference,
 }
 
 impl NapiShape for NapiFunction {}
 
-impl Clone for NapiFunction {
-  fn clone(&self) -> Self {
-    napi::reference_ref(self.reference);
-    Self { value: self.value, reference: self.reference }
-  }
-}
-
-impl Drop for NapiFunction {
-  fn drop(&mut self) {
-    napi::reference_unref(self.reference);
-  }
-}
-
 impl NapiShapeInternal for NapiFunction {
   fn as_napi_value(self) -> napi::Value {
-    self.value
+    self.value.value()
   }
 
   fn from_napi_value(value: napi::Value) -> Self {
-    Self { value, reference: napi::create_reference(value, 1) }
+    Self { value: value.into() }
   }
 }
 
@@ -61,7 +47,7 @@ impl NapiFunction {
       .map(|value| value.clone().as_napi_value())
       .collect();
 
-    napi::call_function(this.clone().as_napi_value(), self.value, args)
+    napi::call_function(this.clone().as_napi_value(), self.value.value(), args)
       .map(|value| NapiReturn::from(NapiValue::from(value)))
   }
 }

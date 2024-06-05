@@ -1,35 +1,20 @@
 use crate::napi;
 use crate::types::*;
-use crate::napi::create_reference;
 
-#[derive(Debug)]
+#[derive(Clone,Debug)]
 pub struct NapiSymbol {
-  value: napi::Value,
-  reference: napi::Reference,
+  reference: NapiReference,
 }
 
 impl NapiShape for NapiSymbol {}
 
-impl Clone for NapiSymbol {
-  fn clone(&self) -> Self {
-    napi::reference_ref(self.reference);
-    Self { value: self.value, reference: self.reference }
-  }
-}
-
-impl Drop for NapiSymbol {
-  fn drop(&mut self) {
-    napi::reference_unref(self.reference);
-  }
-}
-
 impl NapiShapeInternal for NapiSymbol {
   fn as_napi_value(self) -> napi::Value {
-    self.value
+    self.reference.value()
   }
 
   fn from_napi_value(value: napi::Value) -> Self {
-    Self { value, reference: create_reference(value, 1) }
+    Self { reference: value.into() }
   }
 }
 
@@ -47,7 +32,7 @@ impl NapiSymbol {
 
   pub fn description(&self) -> Option<String> {
     let key = napi::create_string_utf8("description");
-    let value = napi::get_property(self.value, key);
+    let value = napi::get_property(self.reference.value(), key);
 
     let property = NapiValue::from_napi_value(value);
     match property {
