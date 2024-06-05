@@ -50,52 +50,50 @@ impl NapiReturn {
 // ========================================================================== //
 
 #[derive(Debug)]
-pub enum NapiError {
-  Message(String),
-  Error(NapiValue),
+pub struct NapiError {
+  message: String,
+  error: Option<NapiValue>,
 }
 
 impl Error for NapiError {}
 
 impl Display for NapiError {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    // Do not coerce "to_string" here... we might not have an env setup!
-    match &self {
-      Self::Message(message) => write!(f, "{}", message),
-      Self::Error(value) => write!(f, "JavaScript Error: {:?}", value),
-    }
+    write!(f, "{}", self.message)
   }
 }
 
 impl From<String> for NapiError {
   fn from(message: String) -> Self {
-    Self::Message(message)
+    Self { message, error: None }
   }
 }
 
 impl From<&str> for NapiError {
   fn from(message: &str) -> Self {
-    Self::Message(message.to_string())
+    Self { message: message.to_string(), error: None }
   }
 }
 
 impl <T: NapiShape> From<T> for NapiError {
   fn from(value: T) -> Self {
-    Self::Error(value.into())
+    let value: NapiValue = value.into();
+    value.into()
   }
 }
 
-impl From<napi::Value> for NapiError {
-  fn from(value: napi::Value) -> Self {
-    Self::Error(value.into())
+impl From<NapiValue> for NapiError {
+  fn from(value: NapiValue) -> Self {
+    Self { message: format!("JavaScript Error: {:?}", value), error: Some(value) }
   }
 }
 
 impl Into<napi::Value> for NapiError {
   fn into(self) -> napi::Value {
-    match self {
-      Self::Message(message) => napi::create_error(message.clone()),
-      Self::Error(value) => value.into(),
+    if let Some(error) = self.error {
+      return error.into()
+    } else {
+      napi::create_error(self.message)
     }
   }
 }

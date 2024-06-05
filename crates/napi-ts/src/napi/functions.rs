@@ -1,4 +1,5 @@
 use crate::env::Napi;
+use crate::types::NapiValue;
 use crate::errors::*;
 use super::*;
 
@@ -153,6 +154,6 @@ pub fn call_function(this: Value, function: Value, args: Vec<Value>) -> NapiResu
 
     let mut error = MaybeUninit::<Value>::zeroed();
     napi_get_and_clear_last_exception(Napi::env(), error.as_mut_ptr());
-    Err(error.assume_init().into())
+    Err(NapiValue::from(error.assume_init()).into())
   }
 }

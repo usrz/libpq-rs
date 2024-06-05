@@ -77,5 +77,5 @@ napi_ts::napi_init!(|exports| {
     .set_property_bool("libpq_threadsafe", libpq_threadsafe())
     .set_property("baz", &NapiObject::new());
 
-  Ok(NapiValue::from(exports).into())
+  Ok(exports.into())
 });
