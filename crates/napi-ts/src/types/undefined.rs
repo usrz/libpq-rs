@@ -1,25 +1,23 @@
 use crate::napi;
 use crate::types::*;
 
-#[derive(Debug)]
-pub struct NapiUndefined {
-  value: napi::Value,
-}
+#[derive(Clone, Debug)]
+pub struct NapiUndefined {}
 
 impl NapiShape for NapiUndefined {}
 
 impl NapiShapeInternal for NapiUndefined {
   fn as_napi_value(&self) -> napi::Value {
-    self.value
+    napi::get_undefined()
   }
 
-  fn from_napi_value(value: napi::Value) -> Self {
-    Self { value }
+  fn from_napi_value(_value: napi::Value) -> Self {
+    Self {} // TODO: rethink
   }
 }
 
 impl NapiUndefined {
   pub fn new() -> Self {
-    Self { value: napi::get_undefined() }
+    Self {}
   }
 }

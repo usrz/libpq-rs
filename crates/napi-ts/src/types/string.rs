@@ -1,20 +1,20 @@
 use crate::napi;
 use crate::types::*;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct NapiString {
-  value: napi::Value,
+  value: String,
 }
 
 impl NapiShape for NapiString {}
 
 impl NapiShapeInternal for NapiString {
   fn as_napi_value(&self) -> napi::Value {
-    self.value
+    napi::create_string_utf8(&self.value)
   }
 
   fn from_napi_value(value: napi::Value) -> Self {
-    Self { value }
+    Self { value: napi::get_value_string_utf8(value) }
   }
 }
 
@@ -22,7 +22,7 @@ impl NapiShapeInternal for NapiString {
 
 impl From<&str> for NapiString {
   fn from(value: &str) -> Self {
-    Self { value: napi::create_string_utf8(value) }
+    Self { value: value.to_string() }
   }
 }
 
@@ -30,20 +30,20 @@ impl From<&str> for NapiString {
 
 impl From<String> for NapiString {
   fn from(value: String) -> Self {
-    Self { value: napi::create_string_utf8(&value) }
+    Self { value }
   }
 }
 
 impl Into<String> for NapiString {
   fn into(self) -> String {
-    self.as_string()
+    self.value
   }
 }
 
 // ===== EXTRA METHODS =========================================================
 
 impl NapiString {
-  pub fn as_string(&self) -> String {
-    napi::get_value_string_utf8(self.value)
+  pub fn value(&self) -> String {
+    self.value.clone()
   }
 }

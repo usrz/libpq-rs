@@ -5,9 +5,23 @@ use crate::types::*;
 #[derive(Debug)]
 pub struct NapiFunction {
   value: napi::Value,
+  reference: napi::Reference,
 }
 
 impl NapiShape for NapiFunction {}
+
+impl Clone for NapiFunction {
+  fn clone(&self) -> Self {
+    napi::reference_ref(self.reference);
+    Self { value: self.value, reference: self.reference }
+  }
+}
+
+impl Drop for NapiFunction {
+  fn drop(&mut self) {
+    napi::reference_unref(self.reference);
+  }
+}
 
 impl NapiShapeInternal for NapiFunction {
   fn as_napi_value(&self) -> napi::Value {
@@ -15,7 +29,7 @@ impl NapiShapeInternal for NapiFunction {
   }
 
   fn from_napi_value(value: napi::Value) -> Self {
-    Self { value }
+    Self { value, reference: napi::create_reference(value, 1) }
   }
 }
 
@@ -34,7 +48,7 @@ impl NapiFunction {
       callback(this, args).map(|value| value.as_napi_value())
     });
 
-    Self { value }
+    Self::from_napi_value(value)
   }
 
   pub fn call(&self, args: &[&impl NapiShape]) -> NapiResult<NapiReturn> {

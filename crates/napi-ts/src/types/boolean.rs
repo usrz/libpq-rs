@@ -1,20 +1,20 @@
 use crate::napi;
 use crate::types::*;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct NapiBoolean {
-  value: napi::Value,
+  value: bool,
 }
 
 impl NapiShape for NapiBoolean {}
 
 impl NapiShapeInternal for NapiBoolean {
   fn as_napi_value(&self) -> napi::Value {
-    self.value
+    napi::get_boolean(self.value)
   }
 
   fn from_napi_value(value: napi::Value) -> Self {
-    Self { value }
+    Self { value: napi::get_value_bool(value) }
   }
 }
 
@@ -22,7 +22,7 @@ impl NapiShapeInternal for NapiBoolean {
 
 impl From<bool> for NapiBoolean {
   fn from(value: bool) -> Self {
-    Self { value: napi::get_boolean(value) }
+    Self { value }
   }
 }
 
@@ -36,6 +36,6 @@ impl Into<bool> for NapiBoolean {
 
 impl NapiBoolean {
   pub fn as_bool(&self) -> bool {
-    napi::get_value_bool(self.value)
+    self.value
   }
 }

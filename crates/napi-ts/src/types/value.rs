@@ -5,12 +5,13 @@ use crate::types::*;
 use std::any::type_name;
 use std::any::Any;
 use std::fmt::Debug;
+use std::any::TypeId;
 
 // ========================================================================== //
 // TRAITS                                                                     //
 // ========================================================================== //
 
-pub(crate) trait NapiShapeInternal: Debug {
+pub(crate) trait NapiShapeInternal: Clone + Debug {
   fn as_napi_value(&self) -> napi::Value;
   fn from_napi_value(value: napi::Value) -> Self;
 }
@@ -26,10 +27,12 @@ pub trait NapiShape: NapiShapeInternal {
 // RETURN VALUE                                                               //
 // ========================================================================== //
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct NapiReturn {
   value: napi::Value
 }
+
+unsafe impl Send for NapiReturn {}
 
 impl NapiShapeInternal for NapiReturn {
   fn as_napi_value(&self) -> napi::Value {
@@ -57,7 +60,7 @@ impl NapiReturn {
 // VALUE ENUM (ALL TYPES)                                                     //
 // ========================================================================== //
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum NapiValue {
   Bigint(NapiBigint),
   Boolean(NapiBoolean),
@@ -70,6 +73,8 @@ pub enum NapiValue {
   Undefined(NapiUndefined),
 }
 
+unsafe impl Send for NapiValue {}
+
 impl <T: NapiShape> From<T> for NapiValue {
   fn from(value: T) -> Self {
     Self::from_napi_value(value.as_napi_value())
@@ -81,12 +86,12 @@ impl NapiShapeInternal for NapiValue {
     match self {
       NapiValue::Bigint(value) => value.as_napi_value(),
       NapiValue::Boolean(value) => value.as_napi_value(),
-      NapiValue::Function(value) => value.as_napi_value(),
+      NapiValue::Function(value) => value.as_napi_value(), // REF
       NapiValue::Null(value) => value.as_napi_value(),
       NapiValue::Number(value) => value.as_napi_value(),
-      NapiValue::Object(value) => value.as_napi_value(),
+      NapiValue::Object(value) => value.as_napi_value(), // REF
       NapiValue::String(value) => value.as_napi_value(),
-      NapiValue::Symbol(value) => value.as_napi_value(),
+      NapiValue::Symbol(value) => value.as_napi_value(), // REF
       NapiValue::Undefined(value) => value.as_napi_value(),
     }
   }
@@ -111,7 +116,7 @@ impl NapiShapeInternal for NapiValue {
 }
 
 impl NapiValue {
-  pub fn downcast<T: NapiShape + 'static>(&self) -> NapiResult<&T> {
+  pub fn downcast<T: Clone + 'static>(&self) -> NapiResult<T> {
     let result = match self {
       NapiValue::Bigint(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Boolean(value) => (value as &dyn Any).downcast_ref::<T>(),
@@ -124,27 +129,38 @@ impl NapiValue {
       NapiValue::Undefined(value) => (value as &dyn Any).downcast_ref::<T>(),
     };
 
-    match result {
-      Some(downcasted) => Ok(downcasted),
-      None => {
-        let from = match self {
-          NapiValue::Bigint(_) => "NapiBigint",
-          NapiValue::Boolean(_) => "NapiBoolean",
-          NapiValue::Function(_) => "NapiFunction",
-          NapiValue::Null(_) => "NapiNull",
-          NapiValue::Number(_) => "NapiNumber",
-          NapiValue::Object(_) => "NapiObject",
-          NapiValue::String(_) => "NapiString",
-          NapiValue::Symbol(_) => "NapiSymbol",
-          NapiValue::Undefined(_) => "NapiUndefined",
-        };
-        let into = type_name::<T>().rsplit_once(":").unwrap().1;
-        Err(format!("Unable to downcast \"{}\" into \"{}\"", from, into).into())
-      }
+    if let Some(downcasted) = result {
+      return Ok(downcasted.clone())
     }
+
+    // special cases
+    if TypeId::of::<T>() == TypeId::of::<String>() {
+      if let NapiValue::String(value) = self {
+        let string = &value.value();
+        let result = (string as &dyn Any).downcast_ref::<T>().unwrap();
+        return Ok(result.clone())
+      }
+    };
+
+    let from = match self {
+      NapiValue::Bigint(_) => "NapiBigint",
+      NapiValue::Boolean(_) => "NapiBoolean",
+      NapiValue::Function(_) => "NapiFunction",
+      NapiValue::Null(_) => "NapiNull",
+      NapiValue::Number(_) => "NapiNumber",
+      NapiValue::Object(_) => "NapiObject",
+      NapiValue::String(_) => "NapiString",
+      NapiValue::Symbol(_) => "NapiSymbol",
+      NapiValue::Undefined(_) => "NapiUndefined",
+    };
+    let into = type_name::<T>().rsplit_once(":").unwrap().1;
+    Err(format!("Unable to downcast \"{}\" into \"{}\"", from, into).into())
   }
 }
 
+// ========================================================================== //
+// PROPERTIES                                                                 //
+// ========================================================================== //
 
 pub trait NapiValueWithProperties: NapiShape {
   fn set_property(&self, key: &str, value: &impl NapiShape) -> &Self {
