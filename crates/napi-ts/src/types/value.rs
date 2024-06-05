@@ -201,11 +201,23 @@ impl NapiValue {
 // ========================================================================== //
 
 pub trait NapiValueWithProperties: NapiShape {
+  fn get_property(&self, key: &str) -> Option<NapiValue> {
+    let key = napi::create_string_utf8(key);
+    let this = self.clone().as_napi_value();
+    let result = napi::get_property(this, key);
+    let value = NapiValue::from_napi_value(result);
+
+    match value {
+      NapiValue::Undefined(_) => None,
+      value => Some(value),
+    }
+  }
+
   fn set_property(&self, key: &str, value: &impl NapiShape) -> &Self {
     let key = napi::create_string_utf8(key);
     let value = value.clone().as_napi_value();
     let this = self.clone().as_napi_value();
-    napi::set_named_property(this, key, value);
+    napi::set_property(this, key, value);
     self
   }
 

@@ -47,7 +47,7 @@ impl NapiSymbol {
 
   pub fn description(&self) -> Option<String> {
     let key = napi::create_string_utf8("description");
-    let value = napi::get_named_property(self.value, key);
+    let value = napi::get_property(self.value, key);
     // TODO: how does the Node API handles symbols with undefined description?
     let property = NapiValue::from_napi_value(value);
     match property {

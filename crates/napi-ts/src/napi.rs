@@ -432,13 +432,13 @@ pub fn get_undefined() -> Value {
  * PROPERTIES                                                                 *
  * ========================================================================== */
 
-pub fn set_named_property(object: Value, key: Value, value: Value) {
+pub fn set_property(object: Value, key: Value, value: Value) {
   unsafe {
     napi_check!(napi_set_property, object, key, value);
   }
 }
 
-pub fn get_named_property(object: Value, key: Value) -> Value {
+pub fn get_property(object: Value, key: Value) -> Value {
   unsafe {
     let mut result = MaybeUninit::<Value>::zeroed();
     napi_get_property(Napi::env(), object, key, result.as_mut_ptr());
