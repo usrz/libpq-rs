@@ -3,6 +3,7 @@ use std::fmt::Debug;
 
 mod bigint;
 mod boolean;
+mod external;
 mod function;
 mod null;
 mod number;
@@ -15,15 +16,17 @@ mod value;
 
 pub use bigint::*;
 pub use boolean::*;
+pub use external::*;
 pub use function::*;
 pub use null::*;
 pub use number::*;
 pub use object::*;
-pub use reference::*;
 pub use string::*;
 pub use symbol::*;
 pub use undefined::*;
 pub use value::*;
+
+pub(self) use reference::*;
 
 pub(self) trait NapiShapeInternal: Clone + Debug {
   fn into_napi_value(self) -> napi::Value;
