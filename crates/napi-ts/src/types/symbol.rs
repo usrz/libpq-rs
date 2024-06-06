@@ -1,9 +1,17 @@
 use crate::napi;
 use crate::types::*;
 
-#[derive(Clone,Debug)]
+#[derive(Clone)]
 pub struct NapiSymbol {
   reference: NapiReference,
+}
+
+impl Debug for NapiSymbol {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("NapiExternal")
+      .field("@", &self.reference.value())
+      .finish()
+  }
 }
 
 impl NapiShape for NapiSymbol {}
