@@ -14,6 +14,7 @@ use std::any::TypeId;
 pub enum NapiValue {
   Bigint(NapiBigint),
   Boolean(NapiBoolean),
+  External(NapiExternalRef),
   Function(NapiFunction),
   Null(NapiNull),
   Number(NapiNumber),
@@ -37,7 +38,7 @@ impl From<napi::Value> for NapiValue {
     match value_type {
       nodejs_sys::napi_valuetype::napi_bigint => NapiValue::Bigint(NapiBigint::from_napi_value(value)),
       nodejs_sys::napi_valuetype::napi_boolean => NapiValue::Boolean(NapiBoolean::from_napi_value(value)),
-      nodejs_sys::napi_valuetype::napi_external => todo!(),
+      nodejs_sys::napi_valuetype::napi_external => NapiValue::External(NapiExternalRef::from_napi_value(value)),
       nodejs_sys::napi_valuetype::napi_function => NapiValue::Function(NapiFunction::from_napi_value(value)),
       nodejs_sys::napi_valuetype::napi_null => NapiValue::Null(NapiNull::from_napi_value(value)),
       nodejs_sys::napi_valuetype::napi_number => NapiValue::Number(NapiNumber::from_napi_value(value)),
@@ -56,12 +57,13 @@ impl Into<napi::Value> for NapiValue {
     match self {
       NapiValue::Bigint(value) => value.into_napi_value(),
       NapiValue::Boolean(value) => value.into_napi_value(),
-      NapiValue::Function(value) => value.into_napi_value(), // REF
+      NapiValue::External(value) => value.into_napi_value(),
+      NapiValue::Function(value) => value.into_napi_value(),
       NapiValue::Null(value) => value.into_napi_value(),
       NapiValue::Number(value) => value.into_napi_value(),
-      NapiValue::Object(value) => value.into_napi_value(), // REF
+      NapiValue::Object(value) => value.into_napi_value(),
       NapiValue::String(value) => value.into_napi_value(),
-      NapiValue::Symbol(value) => value.into_napi_value(), // REF
+      NapiValue::Symbol(value) => value.into_napi_value(),
       NapiValue::Undefined(value) => value.into_napi_value(),
     }
   }
@@ -82,6 +84,7 @@ impl NapiValue {
     let result = match self {
       NapiValue::Bigint(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Boolean(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValue::External(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Function(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Null(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Number(value) => (value as &dyn Any).downcast_ref::<T>(),
@@ -145,6 +148,7 @@ impl NapiValue {
     let from = match self {
       NapiValue::Bigint(_) => "NapiBigint",
       NapiValue::Boolean(_) => "NapiBoolean",
+      NapiValue::External(_) => "NapiExternal",
       NapiValue::Function(_) => "NapiFunction",
       NapiValue::Null(_) => "NapiNull",
       NapiValue::Number(_) => "NapiNumber",
