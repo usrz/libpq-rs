@@ -3,6 +3,7 @@
 use napi_ts::*;
 
 use ffi::to_string_lossy;
+use conninfo::PQConninfo;
 pub mod connection;
 pub mod conninfo;
 pub mod debug;
@@ -51,15 +52,25 @@ napi_ts::napi_init!(|exports| {
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
-  let _f = NapiFunction::new("my great function", move |_this, args| {
+  let info = conninfo::PQConninfo::from_libpq_defaults().unwrap();
+  let external = NapiExternal::new(info);
+  println!("EXTERNAL IS {:?}", external);
+
+  let _f = NapiFunction::new("my great function", move |_, args| {
     args[2].downcast::<NapiFunction>()
       .and_then(|value| value.call(&[ NapiNull::new() ]))?;
 
     NapiReturn::void()
   });
 
-  let _f2 = NapiFunction::new("another function", |_this, _args| {
-    println!("SECOND CALLBACK!!!");
+  let _f2 = NapiFunction::new("another function", |_, args| {
+    let result = args[0].downcast::<NapiExternalRef>().unwrap();
+    let qqqq: NapiExternal<PQConninfo> = result.downcast().unwrap();
+    // qqqq.iter().for_each(|(key, val)| {
+    //   println!("DEREFERENCED {} => {}", key, val);
+    // });
+
+    println!("SECOND CALLBACK!!! {:?}", qqqq);
     NapiReturn::void()
   });
 
@@ -72,6 +83,7 @@ napi_ts::napi_init!(|exports| {
   exports
     .set_property("foo", &_f)
     .set_property("bar", &_f2)
+    .set_property("external", &external)
     .set_property_string("openssl_version", openssl_version())
     .set_property_string("libpq_version", libpq_version())
     .set_property_bool("libpq_threadsafe", libpq_threadsafe())

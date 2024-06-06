@@ -84,6 +84,7 @@ impl NapiValue {
     let result = match self {
       NapiValue::Bigint(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Boolean(value) => (value as &dyn Any).downcast_ref::<T>(),
+      // TODO: double downcasting to NapiExternal<T> ...
       NapiValue::External(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Function(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Null(value) => (value as &dyn Any).downcast_ref::<T>(),
