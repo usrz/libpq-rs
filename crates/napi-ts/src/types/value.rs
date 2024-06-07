@@ -4,7 +4,6 @@ use crate::types::*;
 
 use std::any::type_name;
 use std::any::Any;
-use std::any::TypeId;
 
 // ========================================================================== //
 // VALUE ENUM (ALL TYPES)                                                     //
@@ -80,21 +79,11 @@ impl NapiShapeInternal for NapiValue {
 }
 
 impl NapiValue {
-  pub fn downcast<T: Clone + Debug + 'static>(&self) -> NapiResult<T> {
+  pub fn downcast<T: NapiShape + 'static>(&self) -> NapiResult<T> {
     let result = match self {
       NapiValue::Bigint(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Boolean(value) => (value as &dyn Any).downcast_ref::<T>(),
-      // TODO: double downcasting to NapiExternal<T> ...
-      NapiValue::External(value) => {
-        let x = value.downcast::<T>();
-        println!("DOWNCASTING EXTERNAL AS {} returned {:?}", type_name::<T>(), x);
-        x
-
-        // let retval = (value as &dyn Any).downcast_ref::<T>();
-        // println!("DOWNCASTING RETURNED {} => {:?}", type_name::<T>(), retval);
-        // retval
-
-      },
+      NapiValue::External(value) => return unsafe { value.downcast::<T>() },
       NapiValue::Function(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Null(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Number(value) => (value as &dyn Any).downcast_ref::<T>(),
@@ -107,52 +96,6 @@ impl NapiValue {
     if let Some(downcasted) = result {
       return Ok(downcasted.clone())
     }
-
-    // Special cases for primitives:
-    // * bigint => u128
-    // * boolean => bool
-    // * number => f64 / i32
-    // * string => String
-    if TypeId::of::<T>() == TypeId::of::<i128>() {
-      if let NapiValue::Bigint(value) = self {
-        let primitive = &value.value();
-        let result = (primitive as &dyn Any).downcast_ref::<T>().unwrap();
-        return Ok(result.clone())
-      }
-    };
-
-    if TypeId::of::<T>() == TypeId::of::<bool>() {
-      if let NapiValue::Boolean(value) = self {
-        let primitive = &value.value();
-        let result = (primitive as &dyn Any).downcast_ref::<T>().unwrap();
-        return Ok(result.clone())
-      }
-    };
-
-    if TypeId::of::<T>() == TypeId::of::<f64>() {
-      if let NapiValue::Number(value) = self {
-        let primitive = &value.value();
-        let result = (primitive as &dyn Any).downcast_ref::<T>().unwrap();
-        return Ok(result.clone())
-      }
-    };
-
-    if TypeId::of::<T>() == TypeId::of::<i32>() {
-      if let NapiValue::Number(value) = self {
-        let primitive = &value.value();
-        let converted = &(*primitive as i32);
-        let result = (converted as &dyn Any).downcast_ref::<T>().unwrap();
-        return Ok(result.clone())
-      }
-    };
-
-    if TypeId::of::<T>() == TypeId::of::<String>() {
-      if let NapiValue::String(value) = self {
-        let primitive = &value.value();
-        let result = (primitive as &dyn Any).downcast_ref::<T>().unwrap();
-        return Ok(result.clone())
-      }
-    };
 
     // No way to downcast our value...
     let from = match self {
