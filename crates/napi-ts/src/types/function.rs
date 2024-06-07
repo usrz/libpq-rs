@@ -28,7 +28,14 @@ impl NapiShapeInternal for NapiFunction {
 }
 
 impl NapiFunction {
-  pub fn new<F>(name: &str, callback: F) -> Self
+  pub fn new<F>(callback: F) -> Self
+  where
+    F: Fn(NapiValue, Vec<NapiValue>) -> NapiResult<NapiReturn> + Send + 'static,
+  {
+    Self::named("", callback)
+  }
+
+  pub fn named<F>(name: &str, callback: F) -> Self
   where
     F: Fn(NapiValue, Vec<NapiValue>) -> NapiResult<NapiReturn> + Send + 'static,
   {
