@@ -28,10 +28,6 @@ type FinalizerTrampoline =
 
 pub fn add_finalizer<T: Finalizable>(value: Value, data: *mut T) {
   unsafe {
-    // Box the data, and leak the raw pointer
-    let boxed = Box::new(data);
-    let pointer = Box::into_raw(boxed);
-
     // Get a hold on our trampoline's pointer (and erase its type!)
     let trampoline = finalizer_trampoline::<T>;
     let trampoline: FinalizerTrampoline = mem::transmute(trampoline as *mut ());
@@ -39,7 +35,7 @@ pub fn add_finalizer<T: Finalizable>(value: Value, data: *mut T) {
     napi_check!(
       napi_add_finalizer,
       value,
-      pointer as *mut raw::c_void,
+      data as *mut raw::c_void,
       Some(trampoline),
       ptr::null_mut(), // no hint
       ptr::null_mut() // no need for a napi_reference
