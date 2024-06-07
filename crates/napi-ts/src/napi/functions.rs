@@ -11,7 +11,6 @@ use std::mem;
 use std::os::raw;
 use std::panic;
 use std::ptr;
-use std::ptr::null;
 
 // ========================================================================== //
 // INTERNAL WRAPPING                                                          //
