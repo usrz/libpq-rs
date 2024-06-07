@@ -1,16 +1,16 @@
 use crate::env::Napi;
-use crate::types::NapiValue;
 use crate::errors::*;
+use crate::types::NapiValue;
 use super::*;
 
 use nodejs_sys::*;
+use std::any::TypeId;
+use std::any::type_name;
 use std::mem::MaybeUninit;
+use std::mem;
 use std::os::raw;
 use std::panic;
 use std::ptr;
-use std::mem;
-use std::any::TypeId;
-use std::any::type_name;
 
 // ========================================================================== //
 // INTERNAL WRAPPING                                                          //
