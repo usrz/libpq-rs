@@ -4,33 +4,42 @@ use crate::napi;
 pub struct NapiReference {
   value: napi::Value,
   reference: napi::Reference,
+  debug: bool
 }
 
 impl From<napi::Value> for NapiReference {
   fn from(value: napi::Value) -> Self {
-    println!(">>> CREATED REF {:?} count=1", value);
-    Self { value, reference: napi::create_reference(value, 1) }
+    Self { value, reference: napi::create_reference(value, 1), debug: false }
   }
 }
 
 impl Clone for NapiReference {
   fn clone(&self) -> Self {
     let count = napi::reference_ref(self.reference);
-    println!(">>> CLONED REF {:?} count={}", self.value, count);
-    Self { value: self.value, reference: self.reference }
+    if self.debug {
+      println!(">>> CLONED REF {:?} count={}", self.value, count);
+    }
+    Self { value: self.value, reference: self.reference, debug: self.debug }
   }
 }
 
 impl Drop for NapiReference {
   fn drop(&mut self) {
     let count = napi::reference_unref(self.reference);
-    println!(">>> DROPPED REF {:?} count={}", self.value, count);
+    if self.debug {
+      println!(">>> DROPPED REF {:?} count={}", self.value, count);
+    }
     if count == 0 { napi::delete_reference(self.reference) }
   }
 }
 
 impl NapiReference {
-  pub(crate) fn value(&self) -> napi::Value {
+  pub(super) fn verbose(value: napi::Value) -> Self {
+    println!(">>> CREATED REF {:?} count=1", value);
+    Self { value, reference: napi::create_reference(value, 1), debug: true }
+  }
+
+  pub(super) fn value(&self) -> napi::Value {
     self.value
   }
 }

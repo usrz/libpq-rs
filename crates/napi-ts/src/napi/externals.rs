@@ -6,6 +6,7 @@ use std::mem::MaybeUninit;
 use std::mem;
 use std::os::raw;
 use std::ptr;
+use std::any::Any;
 
 // ========================================================================== //
 // INTERNAL WRAPPING                                                          //
@@ -93,7 +94,7 @@ pub fn create_value_external<T>(data: *mut T) -> Value {
   }
 }
 
-pub fn get_value_external(value: Value) -> *mut raw::c_void {
+pub fn get_value_external(value: Value) -> *mut dyn Any {
   unsafe {
     let mut result = MaybeUninit::<*mut raw::c_void>::zeroed();
     napi_check!(napi_get_value_external, value, result.as_mut_ptr());

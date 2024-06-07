@@ -80,12 +80,21 @@ impl NapiShapeInternal for NapiValue {
 }
 
 impl NapiValue {
-  pub fn downcast<T: Clone + 'static>(&self) -> NapiResult<T> {
+  pub fn downcast<T: Clone + Debug + 'static>(&self) -> NapiResult<T> {
     let result = match self {
       NapiValue::Bigint(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Boolean(value) => (value as &dyn Any).downcast_ref::<T>(),
       // TODO: double downcasting to NapiExternal<T> ...
-      NapiValue::External(value) => (value as &dyn Any).downcast_ref::<T>(),
+      NapiValue::External(value) => {
+        let x = value.downcast::<T>();
+        println!("DOWNCASTING EXTERNAL AS {} returned {:?}", type_name::<T>(), x);
+        x
+
+        // let retval = (value as &dyn Any).downcast_ref::<T>();
+        // println!("DOWNCASTING RETURNED {} => {:?}", type_name::<T>(), retval);
+        // retval
+
+      },
       NapiValue::Function(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Null(value) => (value as &dyn Any).downcast_ref::<T>(),
       NapiValue::Number(value) => (value as &dyn Any).downcast_ref::<T>(),
@@ -158,7 +167,7 @@ impl NapiValue {
       NapiValue::Symbol(_) => "NapiSymbol",
       NapiValue::Undefined(_) => "NapiUndefined",
     };
-    let into = type_name::<T>().rsplit_once(":").unwrap().1;
+    let into = type_name::<T>();
     Err(format!("Unable to downcast \"{}\" into \"{}\"", from, into).into())
   }
 }

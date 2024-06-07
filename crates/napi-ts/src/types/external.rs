@@ -1,90 +1,107 @@
+use crate::napi::Value;
 use crate::napi;
 use crate::types::*;
 
+use std::any::Any;
 use std::any::type_name;
-use std::any::TypeId;
 use std::ops::Deref;
-use std::marker::PhantomData;
-
-type Marker = [u8; 50];
-static MARKER: &Marker = b"NAPI-EXTERNAL-3F6CC3B3-AEB3-403D-AEEF-74DCBDAE7054";
-
-struct NapiExternalLayout {
-  marker: Marker, // just to make sure we get the right stuff...
-  type_id: TypeId, // the type id of the payload, to check for downcasting
-  type_name: String, // the type name of the payload, for debugging
-  payload: *mut (), // the payload itself, as an *opaque* pointer
-}
+use std::ptr::null_mut;
+use std::mem::transmute;
+use std::any::TypeId;
 
 #[derive(Clone)]
 pub struct NapiExternalRef {
-  reference: NapiReference,
-  pointer: *mut NapiExternalLayout,
+  pointer: *mut dyn Any,
+  value: Value,
 }
 
 impl Debug for NapiExternalRef {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let type_name = &unsafe { &*{self.pointer} }.type_name;
-    let name = format!("NapiExternalRef<{}>", type_name);
+    let name = format!("NapiExternalRef");
     f.debug_struct(&name)
-      .field("@", &self.reference.value())
+      .field("@", &self.value)
       .finish()
   }
 }
 
 impl NapiShapeInternal for NapiExternalRef {
   fn into_napi_value(self) -> napi::Value {
-    self.reference.value()
+    // Recreate the box... It'll drop the reference
+    unsafe { Box::from_raw(self.pointer) };
+    self.value
   }
 
   fn from_napi_value(value: napi::Value) -> Self {
-    let pointer = napi::get_value_external(value) as *mut NapiExternalLayout;
-    let boxed = unsafe { Box::from_raw(pointer) };
+    let pointer = napi::get_value_external(value);
 
-    if boxed.marker == *MARKER {
-      Self { reference: value.into(), pointer: Box::into_raw(boxed) }
-    } else {
-      panic!("Invalid NapiExternal marker at {:?}", pointer)
-    }
+    println!("*** FROM NAPI VALUE {:?} for {:?}", pointer, value);
+
+
+    Self { pointer, value }
   }
 }
+
+
+// impl <T: 'static> From<NapiExternal<T>> for NapiExternalRef {
+//   fn from(external: NapiExternal<T>) -> Self {
+//     let value = external.reference.value();
+
+//     // Box up our NapiExternal, with reference and whatnot!
+//     let boxed = Box::new(external);
+//     let pointer = Box::into_raw(boxed); // as *mut dyn Any;
+
+//     let qqq = unsafe { &* {pointer} };
+
+//     println!("*** REFFING IS {:?} @ {:?}", qqq, pointer);
+
+
+//     // Done
+//     Self { pointer, value }
+//   }
+// }
 
 impl NapiExternalRef {
-  pub fn refref(&self) -> &NapiReference {
-    &self.reference
-  }
+  pub fn downcast<T: Clone + Debug + 'static>(&self) -> Option<&T> {
+    let ptr = self.pointer as *mut T;
+    let value = unsafe { &* {ptr} };
 
-  pub fn downcast<T: 'static>(self) -> Option<NapiExternal<T>> {
-    let type_id = unsafe { & (*self.pointer).type_id };
+    // WE HAVE TO CHECK TYPE IDs!!!!!!!
 
-    if TypeId::of::<T>() == *type_id {
-      Some(NapiExternal::<T> { reference: self.reference, pointer: self.pointer, phantom: PhantomData })
-    } else {
-      None
-    }
+    println!("TYPE ID ON DOWNCAST {:?}", TypeId::of::<T>());
+
+    println!("*** DOWNCASTING BOXED IS {:?} / {:?}", self.pointer, value);
+    // let qqq = value as &T;
+    // let www = unsafe { transmute::<T>(value) }
+    Some(value)
+
+    // match value.downcast_ref::<T>() {
+    //   Some(boxed) => Some(boxed.clone()),
+    //   None => None,
+    // }
   }
 }
+
 
 // ========================================================================== //
 
 pub struct NapiExternal<T> {
-  reference: NapiReference,
-  pointer: *mut NapiExternalLayout,
-  phantom: PhantomData<T>,
+  // reference: NapiReference,
+  value: napi::Value,
+  pointer: *mut T,
 }
 
 impl <T> Debug for NapiExternal<T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let name = format!("NapiExternal<{}>", type_name::<T>());
     f.debug_struct(&name)
-      .field("@", &self.reference.value())
+      // .field("@", &self.reference.value())
       .finish()
   }
 }
 
 impl <T> Clone for NapiExternal<T> {
   fn clone(&self) -> Self {
-    Self { reference: self.reference.clone(), pointer: self.pointer, phantom: PhantomData }
+    Self { value: self.value, pointer: self.pointer }
   }
 }
 
@@ -92,17 +109,17 @@ impl <T: 'static> NapiShape for NapiExternal<T> {}
 
 impl <T: 'static> NapiShapeInternal for NapiExternal<T> {
   fn into_napi_value(self) -> napi::Value {
-    self.reference.value()
+    self.value
   }
 
   fn from_napi_value(value: napi::Value) -> Self {
-    NapiExternalRef::from_napi_value(value).downcast::<T>().unwrap()
-  }
-}
+    let pointer = napi::get_value_external(value);
 
-impl <T> Into<NapiExternalRef> for NapiExternal<T> {
-  fn into(self) -> NapiExternalRef {
-    NapiExternalRef { reference: self.reference, pointer: self.pointer }
+    let any = unsafe { &* {pointer} };
+    match any.downcast_ref::<Box<T>>() {
+      Some(_) => Self { value, pointer: pointer as *mut T },
+      None => panic!("Constructing NapiValue<{}> from invalid data", type_name::<T>()),
+    }
   }
 }
 
@@ -110,35 +127,37 @@ impl <T> Deref for NapiExternal<T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
-    unsafe {
-      let layout = &*(self.pointer);
-      &*(layout.payload as *mut T)
-    }
+    unsafe { &* {self.pointer} }
   }
 }
 
-impl <T: 'static> NapiExternal<T> {
-  pub fn new(data: T) -> Self {
-    // First of all box the data payload and leak it to be handled by Node...
-    // The in-memory data will contain type information for T...
-    let data_boxed = Box::new(data);
-    let data_pointer = Box::into_raw(data_boxed);
+impl <T: Debug + 'static> NapiExternal<T> {
+  pub fn new(data: T) -> NapiExternal<T> {
+    // Create the boxed data and leak it immediately
+    let boxed = Box::new(data);
+    let pointer = Box::into_raw(boxed);
 
-    // Then we prepare our layout, which we'll use to wrap our data pointer
-    // (boxed, with type information) into an _untyped_ struct
-    let layout: Box<NapiExternalLayout> = Box::new(NapiExternalLayout {
-      marker: MARKER.to_owned(),
-      type_id: TypeId::of::<T>(),
-      type_name: type_name::<T>().to_owned(),
-      payload: data_pointer as *mut (),
-    });
+    // TODO: WE NEED TO EMBED TYPE ID IN THE NAPIEXTERNAL (SLEDGEHAMMER)
+    println!("TYPE ID ON CONSTRUCTION {:?}", TypeId::of::<NapiExternal<T>>());
 
-    // Then we leak the whole box (again) to feed it to NodeJS
-    let pointer = Box::into_raw(layout);
+    // TODO: WE NEED TO CREATE THIS WITH A "FAKE" REF... WE'LL PUT THE
+    // *REAL* ONE IN WHEN WE COME BACK FROM MEMORY... (get_external_data)
+    let sss = Self { value: null_mut(), pointer };
+    let boxed_self = Box::new(sss);
+    let pointer_self = Box::into_raw(boxed_self);
 
-    // Create the external value, set up reference counting (finalization is
-    // included with "create_value_external" - we just need to count clones)
-    let external = napi::create_value_external(pointer);
-    Self { reference: external.into(), pointer, phantom: PhantomData }
+
+    // Now create Node's "external" object
+    let value = napi::create_value_external(pointer_self);
+    let xxx = unsafe { &* {pointer_self} };
+
+    println!("*** CONSTRUCTING BOXED IS {:?} @ {:?} for {:?}", xxx, pointer_self, value);
+
+    Self { value, pointer }
+
+    // let www = xxx.clone();
+    // www.pointer = value;
+
+    // Set ourselves up..
   }
 }

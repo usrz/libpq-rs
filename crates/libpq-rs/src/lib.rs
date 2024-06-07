@@ -47,12 +47,19 @@ fn openssl_version() -> String {
 
 /* ========================================================================== */
 
+#[derive(Debug)]
+struct Foobar {
+  s: String
+}
+
+unsafe impl Send for Foobar { }
+
 napi_ts::napi_init!(|exports| {
   println!("Initializing...");
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
-  let info = conninfo::PQConninfo::from_libpq_defaults().unwrap();
+  let info = Foobar { s: "foobar BAAZ".to_string() };
   let external = NapiExternal::new(info);
   println!("EXTERNAL IS {:?}", external);
 
@@ -64,13 +71,16 @@ napi_ts::napi_init!(|exports| {
   });
 
   let _f2 = NapiFunction::new("another function", |_, args| {
-    let result = args[0].downcast::<NapiExternalRef>().unwrap();
-    let qqqq: NapiExternal<PQConninfo> = result.downcast().unwrap();
+    // println!("REAL THE EXTERNAL IS {:?}", external);
+    println!("ARG FROM EXTERNAL IS {:?}", args[0]);
+    let qqqq = args[0].downcast::<NapiExternal<Foobar>>().unwrap();
+    println!("FROM ARGUMENT {:?}", qqqq);
+    println!("FROM ARGUMENT {:?}", qqqq.s);
     // qqqq.iter().for_each(|(key, val)| {
     //   println!("DEREFERENCED {} => {}", key, val);
     // });
 
-    println!("SECOND CALLBACK!!! {:?}", qqqq);
+    println!("SECOND CALLBACK!!!");
     NapiReturn::void()
   });
 
