@@ -19,6 +19,10 @@ pub type Status = nodejs_sys::napi_status;
 pub type Value = nodejs_sys::napi_value;
 pub type ValueType = nodejs_sys::napi_valuetype;
 
+pub trait Finalizable {
+  fn finalize(self);
+}
+
 /// Call a NodeJS API returning a status and check it's OK or panic.
 macro_rules! napi_check {
   ($syscall:ident, $($args:expr), +) => {
