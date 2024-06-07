@@ -1,44 +1,47 @@
 use crate::napi;
+use std::ptr;
 
 #[derive(Debug)]
 pub struct NapiReference {
   value: napi::Value,
   reference: napi::Reference,
-  debug: bool
 }
 
 impl From<napi::Value> for NapiReference {
   fn from(value: napi::Value) -> Self {
-    Self { value, reference: napi::create_reference(value, 1), debug: false }
+    if value.is_null() {
+      Self { value, reference: ptr::null_mut() }
+    } else {
+      Self { value, reference: napi::create_reference(value, 1) }
+    }
   }
 }
 
 impl Clone for NapiReference {
   fn clone(&self) -> Self {
-    let count = napi::reference_ref(self.reference);
-    if self.debug {
-      println!(">>> CLONED REF {:?} count={}", self.value, count);
-    }
-    Self { value: self.value, reference: self.reference, debug: self.debug }
+    match self.value.is_null() {
+      false => napi::reference_ref(self.reference),
+      true => 0,
+    };
+
+    Self { value: self.value, reference: self.reference }
   }
 }
 
 impl Drop for NapiReference {
   fn drop(&mut self) {
-    let count = napi::reference_unref(self.reference);
-    if self.debug {
-      println!(">>> DROPPED REF {:?} count={}", self.value, count);
+    let count = match self.value.is_null() {
+      false => napi::reference_unref(self.reference),
+      true => 0,
+    };
+
+    if (count == 0) && (! self.value.is_null()) {
+      napi::delete_reference(self.reference)
     }
-    if count == 0 { napi::delete_reference(self.reference) }
   }
 }
 
 impl NapiReference {
-  pub(super) fn verbose(value: napi::Value) -> Self {
-    println!(">>> CREATED REF {:?} count=1", value);
-    Self { value, reference: napi::create_reference(value, 1), debug: true }
-  }
-
   pub(super) fn value(&self) -> napi::Value {
     self.value
   }
