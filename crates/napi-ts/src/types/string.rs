@@ -43,6 +43,10 @@ impl Into<String> for NapiString {
 // ===== EXTRA METHODS =========================================================
 
 impl NapiString {
+  pub fn new(string: &str) -> Self {
+    Self { value: string.to_string() }
+  }
+
   pub fn value(&self) -> String {
     self.value.clone()
   }
