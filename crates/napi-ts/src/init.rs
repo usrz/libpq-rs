@@ -18,7 +18,7 @@ pub fn register_module(
   // and unwrap the result into a simple "napi_value" (the pointer)
   let panic = panic::catch_unwind(|| {
     let value: NapiValue = exports.into();
-    let object = value.downcast::<NapiObject>().unwrap();
+    let object = value.downcast().unwrap();
     init(object)
       .map(|ret| -> napi::Value { ret.into() })
   });
