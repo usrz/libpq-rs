@@ -5,18 +5,18 @@ use std::mem::MaybeUninit;
 use std::os::raw;
 use std::ptr;
 
-pub fn type_of(value: Handle) -> Type {
+pub fn type_of(handle: Handle) -> Type {
   unsafe {
     let mut result = MaybeUninit::<Type>::zeroed();
-    napi_check!(napi_typeof, value, result.as_mut_ptr());
+    napi_check!(napi_typeof, handle, result.as_mut_ptr());
     result.assume_init()
   }
 }
 
-pub fn coerce_to_string(value: Handle) -> String {
+pub fn coerce_to_string(handle: Handle) -> String {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
-    napi_check!(napi_coerce_to_string, value, result.as_mut_ptr());
+    napi_check!(napi_coerce_to_string, handle, result.as_mut_ptr());
     get_value_string_utf8(result.assume_init())
   }
 }
@@ -42,13 +42,13 @@ pub fn create_bigint_words(value: i128) -> Handle {
   }
 }
 
-pub fn get_value_bigint_words(value: Handle) -> i128 {
+pub fn get_value_bigint_words(handle: Handle) -> i128 {
   unsafe {
     let mut sign = MaybeUninit::<i32>::zeroed();
     let mut words = MaybeUninit::<usize>::new(2);
     let mut result = MaybeUninit::<i128>::zeroed();
     napi_check!(napi_get_value_bigint_words,
-      value,
+      handle,
       sign.as_mut_ptr(),
       words.as_mut_ptr(),
       result.as_mut_ptr() as *mut u64
@@ -84,10 +84,10 @@ pub fn get_boolean(value: bool) -> Handle {
   }
 }
 
-pub fn get_value_bool(value: Handle) -> bool {
+pub fn get_value_bool(handle: Handle) -> bool {
   unsafe {
     let mut result = MaybeUninit::<bool>::zeroed();
-    napi_check!(napi_get_value_bool, value, result.as_mut_ptr());
+    napi_check!(napi_get_value_bool, handle, result.as_mut_ptr());
     result.assume_init()
   }
 }
@@ -112,34 +112,34 @@ pub fn create_double(value: f64) -> Handle {
   }
 }
 
-pub fn get_value_double(value: Handle) -> f64 {
+pub fn get_value_double(handle: Handle) -> f64 {
   unsafe {
     let mut result = MaybeUninit::<f64>::zeroed();
-    napi_check!(napi_get_value_double, value, result.as_mut_ptr());
+    napi_check!(napi_get_value_double, handle, result.as_mut_ptr());
     result.assume_init()
   }
 }
 
 // ===== STRING ================================================================
 
-pub fn create_string_utf8(string: &str) -> Handle {
+pub fn create_string_utf8(value: &str) -> Handle {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
     napi_check!(napi_create_string_utf8,
-      string.as_ptr() as *const raw::c_char,
-      string.len(),
+      value.as_ptr() as *const raw::c_char,
+      value.len(),
       result.as_mut_ptr()
     );
     result.assume_init()
   }
 }
 
-pub fn get_value_string_utf8(value: Handle) -> String {
+pub fn get_value_string_utf8(handle: Handle) -> String {
   unsafe {
     let mut size = MaybeUninit::<usize>::zeroed();
 
     // First, get the string *length* in bytes (it's safe, UTF8)
-    napi_check!(napi_get_value_string_utf8, value, ptr::null_mut(), 0, size.as_mut_ptr());
+    napi_check!(napi_get_value_string_utf8, handle, ptr::null_mut(), 0, size.as_mut_ptr());
 
     // Allocate a buffer of the correct size (plus 1 for null)
     let mut buffer = vec![0; size.assume_init() + 1];
@@ -147,7 +147,7 @@ pub fn get_value_string_utf8(value: Handle) -> String {
     // Now properly get the string data
     napi_check!(
       napi_get_value_string_utf8,
-      value,
+      handle,
       buffer.as_mut_ptr() as *mut raw::c_char,
       buffer.len(),
       size.as_mut_ptr()
@@ -160,10 +160,10 @@ pub fn get_value_string_utf8(value: Handle) -> String {
 
 // ===== SYMBOL ================================================================
 
-pub fn create_symbol(value: Handle) -> Handle {
+pub fn create_symbol(handle: Handle) -> Handle {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
-    napi_check!(napi_create_symbol, value, result.as_mut_ptr());
+    napi_check!(napi_create_symbol, handle, result.as_mut_ptr());
     result.assume_init()
   }
 }
