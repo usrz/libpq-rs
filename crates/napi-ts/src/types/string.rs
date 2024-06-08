@@ -38,7 +38,10 @@ impl <S: AsRef<str>> From<S> for NapiString {
 
 impl Into<String> for NapiString {
   fn into(self) -> String {
-    self.value()
+    match self.value.into_inner() {
+      None => napi::get_value_string_utf8(self.handle.unwrap()),
+      Some(value) => value,
+    }
   }
 }
 
