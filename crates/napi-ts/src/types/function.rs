@@ -10,7 +10,7 @@ pub struct NapiFunction {
 impl Debug for NapiFunction {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("NapiFunction")
-      .field("@", &self.reference.value())
+      .field("@", &self.reference.handle())
       .finish()
   }
 }
@@ -19,11 +19,12 @@ impl NapiShape for NapiFunction {}
 
 impl NapiShapeInternal for NapiFunction {
   fn into_napi_value(self) -> napi::Handle {
-    self.reference.value()
+    self.reference.handle()
   }
 
-  fn from_napi_value(value: napi::Handle) -> Self {
-    Self { reference: value.into() }
+  fn from_napi_value(handle: napi::Handle) -> Self {
+    napi::expect_type_of(handle, napi::Type::napi_function);
+    Self { reference: handle.into() }
   }
 }
 
@@ -39,7 +40,7 @@ impl NapiFunction {
   where
     F: Fn(NapiValue, Vec<NapiValue>) -> NapiResult<NapiReturn> + Send + 'static,
   {
-    let value = napi::create_function(name, move |this, args| {
+    let handle = napi::create_function(name, move |this, args| {
       let this = NapiValue::from(this);
       let args: Vec<NapiValue> = args
         .into_iter()
@@ -49,7 +50,7 @@ impl NapiFunction {
       callback(this, args).map(|ret| ret.into())
     });
 
-    Self::from_napi_value(value)
+    Self::from_napi_value(handle)
   }
 
   pub fn call(&self, args: &[impl NapiShape]) -> NapiResult<NapiReturn> {
@@ -62,7 +63,7 @@ impl NapiFunction {
       .map(|value| value.clone().into_napi_value())
       .collect();
 
-    napi::call_function(this.clone().into_napi_value(), self.reference.value(), args)
+    napi::call_function(this.clone().into_napi_value(), self.reference.handle(), args)
       .map(|value| value.into())
   }
 }

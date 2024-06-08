@@ -9,7 +9,7 @@ pub struct NapiSymbol {
 impl Debug for NapiSymbol {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("NapiExternal")
-      .field("@", &self.reference.value())
+      .field("@", &self.reference.handle())
       .finish()
   }
 }
@@ -18,11 +18,11 @@ impl NapiShape for NapiSymbol {}
 
 impl NapiShapeInternal for NapiSymbol {
   fn into_napi_value(self) -> napi::Handle {
-    self.reference.value()
+    self.reference.handle()
   }
 
-  fn from_napi_value(value: napi::Handle) -> Self {
-    Self { reference: value.into() }
+  fn from_napi_value(handle: napi::Handle) -> Self {
+    Self { reference: handle.into() }
   }
 }
 
@@ -30,8 +30,8 @@ impl NapiShapeInternal for NapiSymbol {
 
 impl NapiSymbol {
   pub fn new(description: &str) -> Self {
-    let value = napi::create_string_utf8(description);
-    Self::from_napi_value(napi::create_symbol(value))
+    let handle = napi::create_string_utf8(description);
+    Self::from_napi_value(napi::create_symbol(handle))
   }
 
   pub fn symbol_for(description: &str) -> Self {
@@ -40,7 +40,7 @@ impl NapiSymbol {
 
   pub fn description(&self) -> Option<String> {
     let key = napi::create_string_utf8("description");
-    let value = napi::get_property(self.reference.value(), key);
+    let value = napi::get_property(self.reference.handle(), key);
 
     let property = NapiValue::from(value);
     match property {

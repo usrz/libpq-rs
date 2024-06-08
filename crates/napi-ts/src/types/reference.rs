@@ -3,46 +3,46 @@ use std::ptr;
 
 #[derive(Debug)]
 pub struct NapiReference {
-  value: napi::Handle,
+  handle: napi::Handle,
   reference: napi::Reference,
 }
 
 impl From<napi::Handle> for NapiReference {
-  fn from(value: napi::Handle) -> Self {
-    if value.is_null() {
-      Self { value, reference: ptr::null_mut() }
+  fn from(handle: napi::Handle) -> Self {
+    if handle.is_null() {
+      Self { handle, reference: ptr::null_mut() }
     } else {
-      Self { value, reference: napi::create_reference(value, 1) }
+      Self { handle, reference: napi::create_reference(handle, 1) }
     }
   }
 }
 
 impl Clone for NapiReference {
   fn clone(&self) -> Self {
-    match self.value.is_null() {
+    match self.handle.is_null() {
       false => napi::reference_ref(self.reference),
       true => 0,
     };
 
-    Self { value: self.value, reference: self.reference }
+    Self { handle: self.handle, reference: self.reference }
   }
 }
 
 impl Drop for NapiReference {
   fn drop(&mut self) {
-    let count = match self.value.is_null() {
+    let count = match self.handle.is_null() {
       false => napi::reference_unref(self.reference),
       true => 0,
     };
 
-    if (count == 0) && (! self.value.is_null()) {
+    if (count == 0) && (! self.handle.is_null()) {
       napi::delete_reference(self.reference)
     }
   }
 }
 
 impl NapiReference {
-  pub(super) fn value(&self) -> napi::Handle {
-    self.value
+  pub(super) fn handle(&self) -> napi::Handle {
+    self.handle
   }
 }

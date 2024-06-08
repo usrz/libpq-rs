@@ -2,27 +2,23 @@ use crate::napi;
 use crate::types::*;
 
 #[derive(Clone, Debug)]
-pub struct NapiNull {
-  handle: Option<napi::Handle>
-}
+pub struct NapiNull {}
 
 impl NapiShape for NapiNull {}
 
 impl NapiShapeInternal for NapiNull {
   fn into_napi_value(self) -> napi::Handle {
-    match self.handle {
-      Some(handle) => handle,
-      None => napi::get_null(),
-    }
+    napi::get_null()
   }
 
   fn from_napi_value(handle: napi::Handle) -> Self {
-    Self { handle: Some(handle) }
+    napi::expect_type_of(handle, napi::Type::napi_null);
+    Self {}
   }
 }
 
 impl NapiNull {
   pub fn new() -> Self {
-    Self { handle: None }
+    Self {}
   }
 }

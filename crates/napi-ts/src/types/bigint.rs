@@ -1,25 +1,21 @@
 use crate::napi;
 use crate::types::*;
-use std::cell::Cell;
 
 #[derive(Clone, Debug)]
 pub struct NapiBigint {
-  value: Cell<Option<i128>>,
-  handle: Option<napi::Handle>,
+  value: i128,
 }
 
 impl NapiShape for NapiBigint {}
 
 impl NapiShapeInternal for NapiBigint {
   fn into_napi_value(self) -> napi::Handle {
-    match self.handle {
-      None => napi::create_bigint_words(self.value.get().unwrap()),
-      Some(handle) => handle,
-    }
+    napi::create_bigint_words(self.value)
   }
 
   fn from_napi_value(handle: napi::Handle) -> Self {
-    Self { value: Cell::new(None), handle: Some(handle) }
+    napi::expect_type_of(handle, napi::Type::napi_bigint);
+    Self { value: napi::get_value_bigint_words(handle) }
   }
 }
 
@@ -59,16 +55,13 @@ impl From<u64> for NapiBigint {
 
 impl From<i128> for NapiBigint {
   fn from(value: i128) -> Self {
-    Self { value: Cell::new(Some(value)), handle: None }
+    Self { value }
   }
 }
 
 impl Into<i128> for NapiBigint {
   fn into(self) -> i128 {
-    match self.value.into_inner() {
-      None => napi::get_value_bigint_words(self.handle.unwrap()),
-      Some(value) => value,
-    }
+    self.value
   }
 }
 
@@ -80,10 +73,6 @@ impl NapiBigint {
   }
 
   pub fn value(&self) -> i128 {
-    self.value.get().unwrap_or_else(|| {
-      let value = napi::get_value_bigint_words(self.handle.unwrap());
-      self.value.set(Some(value));
-      value
-    })
+    self.value
   }
 }

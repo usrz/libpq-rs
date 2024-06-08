@@ -1,25 +1,21 @@
 use crate::napi;
 use crate::types::*;
-use std::cell::Cell;
 
 #[derive(Clone, Debug)]
 pub struct NapiNumber {
-  value: Cell<Option<f64>>,
-  handle: Option<napi::Handle>,
+  value: f64,
 }
 
 impl NapiShape for NapiNumber {}
 
 impl NapiShapeInternal for NapiNumber {
   fn into_napi_value(self) -> napi::Handle {
-    match self.handle {
-      None => napi::create_double(self.value.get().unwrap()),
-      Some(handle) => handle,
-    }
+    napi::create_double(self.value)
   }
 
   fn from_napi_value(handle: napi::Handle) -> Self {
-    Self { handle: Some(handle), value: Cell::new(None) }
+    napi::expect_type_of(handle, napi::Type::napi_number);
+    Self { value: napi::get_value_double(handle) }
   }
 }
 
@@ -58,16 +54,13 @@ impl Into<u32> for NapiNumber {
 
 impl From<f64> for NapiNumber {
   fn from(value: f64) -> Self {
-    Self { value: Cell::new(Some(value)), handle: None }
+    Self { value: value }
   }
 }
 
 impl Into<f64> for NapiNumber {
   fn into(self) -> f64 {
-    match self.value.into_inner() {
-      None => napi::get_value_double(self.handle.unwrap()),
-      Some(value) => value,
-    }
+    self.value
   }
 }
 
@@ -79,10 +72,6 @@ impl NapiNumber {
   }
 
   pub fn value(&self) -> f64 {
-    self.value.get().unwrap_or_else(|| {
-      let value = napi::get_value_double(self.handle.unwrap());
-      self.value.set(Some(value));
-      value
-    })
+    self.value
   }
 }

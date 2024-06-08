@@ -9,7 +9,7 @@ pub struct NapiObject {
 impl Debug for NapiObject {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("NapiExternal")
-      .field("@", &self.reference.value())
+      .field("@", &self.reference.handle())
       .finish()
   }
 }
@@ -18,11 +18,11 @@ impl NapiShape for NapiObject {}
 
 impl NapiShapeInternal for NapiObject {
   fn into_napi_value(self) -> napi::Handle {
-    self.reference.value()
+    self.reference.handle()
   }
 
-  fn from_napi_value(value: napi::Handle) -> Self {
-    Self { reference: value.into() }
+  fn from_napi_value(handle: napi::Handle) -> Self {
+    Self { reference: handle.into() }
   }
 }
 
