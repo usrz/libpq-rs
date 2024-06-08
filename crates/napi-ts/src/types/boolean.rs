@@ -12,10 +12,9 @@ impl NapiShape for NapiBoolean {}
 
 impl NapiShapeInternal for NapiBoolean {
   fn into_napi_value(self) -> napi::Handle {
-    if let Some(handle) = self.handle {
-      return handle
-    } else {
-      napi::get_boolean(self.value.get().unwrap())
+    match self.handle {
+      None => napi::get_boolean(self.value.get().unwrap()),
+      Some(handle) => handle,
     }
   }
 

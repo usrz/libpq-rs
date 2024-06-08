@@ -12,10 +12,9 @@ impl NapiShape for NapiBigint {}
 
 impl NapiShapeInternal for NapiBigint {
   fn into_napi_value(self) -> napi::Handle {
-    if let Some(handle) = self.handle {
-      return handle
-    } else {
-      napi::create_bigint_words(self.value.get().unwrap())
+    match self.handle {
+      None => napi::create_bigint_words(self.value.get().unwrap()),
+      Some(handle) => handle,
     }
   }
 
