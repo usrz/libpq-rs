@@ -13,6 +13,18 @@ pub fn type_of(handle: Handle) -> Type {
   }
 }
 
+pub fn expect_type_of(handle: Handle, expected: Type) {
+  unsafe {
+    let mut result = MaybeUninit::<Type>::zeroed();
+    napi_check!(napi_typeof, handle, result.as_mut_ptr());
+
+    let actual = result.assume_init();
+    if actual != expected {
+      panic!("Expected type {:?}, actual {:?}", expected, actual)
+    }
+  }
+}
+
 pub fn coerce_to_string(handle: Handle) -> String {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
