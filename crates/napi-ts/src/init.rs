@@ -7,9 +7,9 @@ use std::panic;
 
 pub fn register_module(
   env: napi::Env,
-  exports: napi::Value,
+  exports: napi::Handle,
   init: fn(NapiObject) -> NapiResult<NapiReturn>
-) -> napi::Value {
+) -> napi::Handle {
 
   // Create a new "Napi" environment
   let napi = Napi::new(env);
@@ -20,7 +20,7 @@ pub fn register_module(
     let value: NapiValue = exports.into();
     let object = value.downcast().unwrap();
     init(object)
-      .map(|ret| -> napi::Value { ret.into() })
+      .map(|ret| -> napi::Handle { ret.into() })
   });
 
   // See if the initialization panicked

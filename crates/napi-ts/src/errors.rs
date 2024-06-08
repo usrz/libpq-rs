@@ -27,14 +27,14 @@ impl <T: NapiShape> From<T> for NapiReturn {
   }
 }
 
-impl From<napi::Value> for NapiReturn {
-  fn from(value: napi::Value) -> Self {
+impl From<napi::Handle> for NapiReturn {
+  fn from(value: napi::Handle) -> Self {
     Self { value: value.into() }
   }
 }
 
-impl Into<napi::Value> for NapiReturn {
-  fn into(self) -> napi::Value {
+impl Into<napi::Handle> for NapiReturn {
+  fn into(self) -> napi::Handle {
     self.value.into()
   }
 }
@@ -88,8 +88,8 @@ impl From<NapiValue> for NapiError {
   }
 }
 
-impl Into<napi::Value> for NapiError {
-  fn into(self) -> napi::Value {
+impl Into<napi::Handle> for NapiError {
+  fn into(self) -> napi::Handle {
     if let Some(error) = self.error {
       return error.into()
     } else {

@@ -9,11 +9,11 @@ pub struct NapiBigint {
 impl NapiShape for NapiBigint {}
 
 impl NapiShapeInternal for NapiBigint {
-  fn into_napi_value(self) -> napi::Value {
+  fn into_napi_value(self) -> napi::Handle {
     napi::create_bigint_words(self.value)
   }
 
-  fn from_napi_value(value: napi::Value) -> Self {
+  fn from_napi_value(value: napi::Handle) -> Self {
     Self { value: napi::get_value_bigint_words(value) }
   }
 }

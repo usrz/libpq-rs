@@ -7,11 +7,11 @@ pub struct NapiUndefined {}
 impl NapiShape for NapiUndefined {}
 
 impl NapiShapeInternal for NapiUndefined {
-  fn into_napi_value(self) -> napi::Value {
+  fn into_napi_value(self) -> napi::Handle {
     napi::get_undefined()
   }
 
-  fn from_napi_value(_value: napi::Value) -> Self {
+  fn from_napi_value(_value: napi::Handle) -> Self {
     Self {}
   }
 }

@@ -7,11 +7,11 @@ pub struct NapiNull {}
 impl NapiShape for NapiNull {}
 
 impl NapiShapeInternal for NapiNull {
-  fn into_napi_value(self) -> napi::Value {
+  fn into_napi_value(self) -> napi::Handle {
     napi::get_null()
   }
 
-  fn from_napi_value(_: napi::Value) -> Self {
+  fn from_napi_value(_: napi::Handle) -> Self {
     Self {}
   }
 }

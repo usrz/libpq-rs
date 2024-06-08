@@ -5,13 +5,13 @@ use std::cell::RefCell;
 #[derive(Clone, Debug)]
 pub struct NapiString {
   value: RefCell<Option<String>>,
-  handle: Option<napi::Value>,
+  handle: Option<napi::Handle>,
 }
 
 impl NapiShape for NapiString {}
 
 impl NapiShapeInternal for NapiString {
-  fn into_napi_value(self) -> napi::Value {
+  fn into_napi_value(self) -> napi::Handle {
     if let Some(handle) = self.handle {
       return handle
     } else {
@@ -20,7 +20,7 @@ impl NapiShapeInternal for NapiString {
     }
   }
 
-  fn from_napi_value(handle: napi::Value) -> Self {
+  fn from_napi_value(handle: napi::Handle) -> Self {
     Self { value: RefCell::new(None), handle: Some(handle) }
   }
 }

@@ -1,4 +1,4 @@
-use crate::napi::Value;
+use crate::napi::Handle;
 use crate::napi;
 use crate::types::*;
 
@@ -11,7 +11,7 @@ use nodejs_sys::napi_value;
 
 #[derive(Clone)]
 pub struct NapiExternalRef {
-  value: Value,
+  value: Handle,
 }
 
 impl Debug for NapiExternalRef {
@@ -24,11 +24,11 @@ impl Debug for NapiExternalRef {
 }
 
 impl NapiShapeInternal for NapiExternalRef {
-  fn into_napi_value(self) -> napi::Value {
+  fn into_napi_value(self) -> napi::Handle {
     self.value
   }
 
-  fn from_napi_value(value: napi::Value) -> Self {
+  fn from_napi_value(value: napi::Handle) -> Self {
     Self { value }
   }
 }
@@ -86,7 +86,7 @@ impl <T: 'static> Finalizable for NapiExternal<T> {
 impl <T: 'static> NapiShape for NapiExternal<T> {}
 
 impl <T: 'static> NapiShapeInternal for NapiExternal<T> {
-  unsafe fn downcast_external<T2: NapiShape + 'static>(&self, value: napi::Value) -> NapiResult<Self> {
+  unsafe fn downcast_external<T2: NapiShape + 'static>(&self, value: napi::Handle) -> NapiResult<Self> {
     // When the type ID of what we want is _NOT_ the type ID of what we store,
     // decline conversion... Someone asked for a downcasting to NapiShape<X>,
     // while here we're holding data for NapiShape<Y>...
@@ -109,11 +109,11 @@ impl <T: 'static> NapiShapeInternal for NapiExternal<T> {
     })
   }
 
-  fn into_napi_value(self) -> napi::Value {
+  fn into_napi_value(self) -> napi::Handle {
     self.reference.value()
   }
 
-  fn from_napi_value(value: napi::Value) -> Self {
+  fn from_napi_value(value: napi::Handle) -> Self {
     unsafe { NapiExternalRef::from_napi_value(value).downcast::<Self>().unwrap() }
   }
 }

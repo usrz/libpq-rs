@@ -26,7 +26,7 @@ type FinalizerTrampoline =
 // PUBLIC FACING                                                              //
 // ========================================================================== //
 
-pub fn add_finalizer<T: Finalizable>(value: Value, data: *mut T) {
+pub fn add_finalizer<T: Finalizable>(value: Handle, data: *mut T) {
   unsafe {
     // Get a hold on our trampoline's pointer (and erase its type!)
     let trampoline = finalizer_trampoline::<T>;
@@ -43,7 +43,7 @@ pub fn add_finalizer<T: Finalizable>(value: Value, data: *mut T) {
   }
 }
 
-pub fn create_value_external<T: Finalizable>(data: T) -> Value {
+pub fn create_value_external<T: Finalizable>(data: T) -> Handle {
   unsafe {
     // Box the data, and leak the raw pointer
     let boxed = Box::new(data);
@@ -54,7 +54,7 @@ pub fn create_value_external<T: Finalizable>(data: T) -> Value {
     let trampoline: FinalizerTrampoline = mem::transmute(trampoline as *mut ());
 
     // Handle for our external data
-    let mut result = MaybeUninit::<Value>::zeroed();
+    let mut result = MaybeUninit::<Handle>::zeroed();
 
     // Create the external
     napi_check!(
@@ -69,7 +69,7 @@ pub fn create_value_external<T: Finalizable>(data: T) -> Value {
   }
 }
 
-pub fn get_value_external(value: Value) -> *mut dyn Any {
+pub fn get_value_external(value: Handle) -> *mut dyn Any {
   unsafe {
     let mut result = MaybeUninit::<*mut raw::c_void>::zeroed();
     napi_check!(napi_get_value_external, value, result.as_mut_ptr());

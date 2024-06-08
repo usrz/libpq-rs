@@ -14,18 +14,18 @@ pub fn is_exception_pending() -> bool {
   }
 }
 
-pub fn create_error(message: String) -> Value {
+pub fn create_error(message: String) -> Handle {
   unsafe {
     let message = create_string_utf8(&message);
 
-    let mut result = MaybeUninit::<Value>::zeroed();
+    let mut result = MaybeUninit::<Handle>::zeroed();
     napi_check!(napi_create_error, ptr::null_mut(), message, result.as_mut_ptr());
 
     result.assume_init()
   }
 }
 
-pub fn throw(error: Value) {
+pub fn throw(error: Handle) {
   unsafe {
     let status = napi_throw(Napi::env(), error);
     if status == Status::napi_ok {

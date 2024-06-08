@@ -31,8 +31,8 @@ impl <T: NapiShape> From<T> for NapiValue {
   }
 }
 
-impl From<napi::Value> for NapiValue {
-  fn from(value: napi::Value) -> Self {
+impl From<napi::Handle> for NapiValue {
+  fn from(value: napi::Handle) -> Self {
     let value_type = napi::type_of(value);
     match value_type {
       nodejs_sys::napi_valuetype::napi_bigint => NapiValue::Bigint(NapiBigint::from_napi_value(value)),
@@ -51,8 +51,8 @@ impl From<napi::Value> for NapiValue {
   }
 }
 
-impl Into<napi::Value> for NapiValue {
-  fn into(self) -> napi::Value {
+impl Into<napi::Handle> for NapiValue {
+  fn into(self) -> napi::Handle {
     match self {
       NapiValue::Bigint(value) => value.into_napi_value(),
       NapiValue::Boolean(value) => value.into_napi_value(),
@@ -69,11 +69,11 @@ impl Into<napi::Value> for NapiValue {
 }
 
 impl NapiShapeInternal for NapiValue {
-  fn into_napi_value(self) -> napi::Value {
+  fn into_napi_value(self) -> napi::Handle {
     self.into()
   }
 
-  fn from_napi_value(value: napi::Value) -> Self {
+  fn from_napi_value(value: napi::Handle) -> Self {
     Self::from(value)
   }
 }

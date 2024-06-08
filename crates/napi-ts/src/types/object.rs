@@ -17,11 +17,11 @@ impl Debug for NapiObject {
 impl NapiShape for NapiObject {}
 
 impl NapiShapeInternal for NapiObject {
-  fn into_napi_value(self) -> napi::Value {
+  fn into_napi_value(self) -> napi::Handle {
     self.reference.value()
   }
 
-  fn from_napi_value(value: napi::Value) -> Self {
+  fn from_napi_value(value: napi::Handle) -> Self {
     Self { reference: value.into() }
   }
 }

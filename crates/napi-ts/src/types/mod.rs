@@ -30,10 +30,10 @@ pub(self) use reference::*;
 use crate::NapiResult;
 
 pub(self) trait NapiShapeInternal: Clone + Debug {
-  fn into_napi_value(self) -> napi::Value;
-  fn from_napi_value(value: napi::Value) -> Self;
+  fn into_napi_value(self) -> napi::Handle;
+  fn from_napi_value(value: napi::Handle) -> Self;
 
-  unsafe fn downcast_external<T: NapiShape + 'static>(&self, _: napi::Value) -> NapiResult<Self> {
+  unsafe fn downcast_external<T: NapiShape + 'static>(&self, _: napi::Handle) -> NapiResult<Self> {
     panic!("Attempted to invoke \"downcast_external\" on {}", std::any::type_name::<Self>());
   }
 }

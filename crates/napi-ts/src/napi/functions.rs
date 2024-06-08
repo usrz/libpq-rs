@@ -24,7 +24,7 @@ use std::ptr;
 /// retrieved we'll find a pointer to this structure...
 struct CallbackWrapper<F>
 where
-  F: Fn(Value, Vec<Value>) -> NapiResult<Value> + Sized + 'static
+  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
 {
   type_id: TypeId,
   function: *mut F,
@@ -32,9 +32,9 @@ where
 
 impl <F> CallbackWrapper<F>
 where
-  F: Fn(Value, Vec<Value>) -> NapiResult<Value> + Sized + 'static
+  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
 {
-  fn call(&self, this: Value, args: Vec<Value>) -> NapiResult<Value> {
+  fn call(&self, this: Handle, args: Vec<Handle>) -> NapiResult<Handle> {
     let cb = unsafe { &* { self.function }};
     cb(this, args)
   }
@@ -42,7 +42,7 @@ where
 
 impl <F> Finalizable for CallbackWrapper<F>
 where
-  F: Fn(Value, Vec<Value>) -> NapiResult<Value> + Sized + 'static
+  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
 {
   fn finalize(self) {
     drop(unsafe { Box::from_raw(self.function) });
@@ -53,9 +53,9 @@ where
 // TRAMPOLINE                                                                 //
 // ========================================================================== //
 
-extern "C" fn callback_trampoline<F>(env: napi_env, info: napi_callback_info) -> Value
+extern "C" fn callback_trampoline<F>(env: napi_env, info: napi_callback_info) -> Handle
 where
-  F: Fn(Value, Vec<Value>) -> NapiResult<Value> + Sized + 'static
+  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
 {
   let env = Napi::new(env);
 
@@ -93,21 +93,20 @@ where
 // PUBLIC FACING                                                              //
 // ========================================================================== //
 
-
 pub struct Callback<F>
 where
-  F: Fn(Value, Vec<Value>) -> NapiResult<Value> + Sized + 'static
+  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
 {
-  this: Value,
-  args: Vec<Value>,
+  this: Handle,
+  args: Vec<Handle>,
   wrapper: &'static CallbackWrapper<F>,
 }
 
 impl <F> Callback<F>
 where
-  F: Fn(Value, Vec<Value>) -> NapiResult<Value> + Sized + 'static
+  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
 {
-  pub fn call(self) -> NapiResult<Value> {
+  pub fn call(self) -> NapiResult<Handle> {
     self.wrapper.call(self.this, self.args)
   }
 }
@@ -116,11 +115,11 @@ where
 
 pub fn get_cb_info<F>(info: CallbackInfo) -> Callback<F>
 where
-  F: Fn(Value, Vec<Value>) -> NapiResult<Value> + Sized + 'static
+  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
 {
   unsafe {
     let mut argc = MaybeUninit::<usize>::zeroed();
-    let mut this = MaybeUninit::<Value>::zeroed();
+    let mut this = MaybeUninit::<Handle>::zeroed();
     let mut data = MaybeUninit::<*mut raw::c_void>::zeroed();
 
     // Figure out arguments count, "this" and our data (NapiCallbackWrapper)
@@ -165,9 +164,9 @@ where
 
 type CallbackTrampoline = unsafe extern "C" fn(env: napi_env, info: napi_callback_info) -> napi_value;
 
-pub fn create_function<F>(name: &str, function: F) -> Value
+pub fn create_function<F>(name: &str, function: F) -> Handle
 where
-  F: Fn(Value, Vec<Value>) -> NapiResult<Value> + Sized + 'static
+  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
 {
   // Box up the callback function and immediately leak it
   let boxed_function = Box::new(function);
@@ -190,7 +189,7 @@ where
 
   // Send everything off to NodeJS...
   unsafe {
-    let mut result = MaybeUninit::<Value>::zeroed();
+    let mut result = MaybeUninit::<Handle>::zeroed();
     napi_check!(
       napi_create_function,
       name.as_ptr() as *const raw::c_char,
@@ -212,9 +211,9 @@ where
   }
 }
 
-pub fn call_function(this: Value, function: Value, args: Vec<Value>) -> NapiResult<Value> {
+pub fn call_function(this: Handle, function: Handle, args: Vec<Handle>) -> NapiResult<Handle> {
   unsafe {
-    let mut result = MaybeUninit::<Value>::zeroed();
+    let mut result = MaybeUninit::<Handle>::zeroed();
 
     // Call the function
     napi_call_function(
@@ -232,7 +231,7 @@ pub fn call_function(this: Value, function: Value, args: Vec<Value>) -> NapiResu
     }
 
     // There's a pending exception, wrap into a NapiError and err the result
-    let mut error = MaybeUninit::<Value>::zeroed();
+    let mut error = MaybeUninit::<Handle>::zeroed();
     napi_get_and_clear_last_exception(Napi::env(), error.as_mut_ptr());
     Err(NapiValue::from(error.assume_init()).into())
   }

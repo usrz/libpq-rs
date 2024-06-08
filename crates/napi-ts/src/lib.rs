@@ -13,8 +13,8 @@ macro_rules! napi_init {
     #[no_mangle]
     extern "C" fn napi_register_module_v1(
       env: ::napi_ts::napi::Env,
-      exports: ::napi_ts::napi::Value,
-    ) -> ::napi_ts::napi::Value {
+      exports: ::napi_ts::napi::Handle,
+    ) -> ::napi_ts::napi::Handle {
       ::napi_ts::init::register_module(env, exports, $initializer)
     }
   };

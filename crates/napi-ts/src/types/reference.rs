@@ -3,12 +3,12 @@ use std::ptr;
 
 #[derive(Debug)]
 pub struct NapiReference {
-  value: napi::Value,
+  value: napi::Handle,
   reference: napi::Reference,
 }
 
-impl From<napi::Value> for NapiReference {
-  fn from(value: napi::Value) -> Self {
+impl From<napi::Handle> for NapiReference {
+  fn from(value: napi::Handle) -> Self {
     if value.is_null() {
       Self { value, reference: ptr::null_mut() }
     } else {
@@ -42,7 +42,7 @@ impl Drop for NapiReference {
 }
 
 impl NapiReference {
-  pub(super) fn value(&self) -> napi::Value {
+  pub(super) fn value(&self) -> napi::Handle {
     self.value
   }
 }

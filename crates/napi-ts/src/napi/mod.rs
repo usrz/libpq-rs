@@ -16,8 +16,8 @@ pub type CallbackInfo = nodejs_sys::napi_callback_info;
 pub type Env = nodejs_sys::napi_env;
 pub type Reference = nodejs_sys::napi_ref;
 pub type Status = nodejs_sys::napi_status;
-pub type Value = nodejs_sys::napi_value;
-pub type ValueType = nodejs_sys::napi_valuetype;
+pub type Handle = nodejs_sys::napi_value;
+pub type Type = nodejs_sys::napi_valuetype;
 
 pub trait Finalizable {
   fn finalize(self);
