@@ -43,6 +43,10 @@ impl Into<bool> for NapiBoolean {
 // ===== EXTRA METHODS =========================================================
 
 impl NapiBoolean {
+  pub fn new(value: bool) -> Self {
+    Self::from(value)
+  }
+
   pub fn value(&self) -> bool {
     self.value.get().unwrap_or_else(|| {
       let value = napi::get_value_bool(self.handle.unwrap());
