@@ -1,20 +1,25 @@
 use crate::napi;
 use crate::types::*;
+use std::cell::Cell;
 
 #[derive(Clone, Debug)]
 pub struct NapiNumber {
-  value: f64,
+  value: Cell<Option<f64>>,
+  handle: Option<napi::Handle>,
 }
 
 impl NapiShape for NapiNumber {}
 
 impl NapiShapeInternal for NapiNumber {
   fn into_napi_value(self) -> napi::Handle {
-    napi::create_double(self.value)
+    match self.handle {
+      None => napi::create_double(self.value.get().unwrap()),
+      Some(handle) => handle,
+    }
   }
 
-  fn from_napi_value(value: napi::Handle) -> Self {
-    Self { value: napi::get_value_double(value) }
+  fn from_napi_value(handle: napi::Handle) -> Self {
+    Self { handle: Some(handle), value: Cell::new(None) }
   }
 }
 
@@ -22,13 +27,14 @@ impl NapiShapeInternal for NapiNumber {
 
 impl From<i32> for NapiNumber {
   fn from(value: i32) -> Self {
-    Self { value: value as f64 }
+    Self::from(value as f64)
   }
 }
 
 impl Into<i32> for NapiNumber {
   fn into(self) -> i32 {
-    self.value as i32
+    let value: f64 = self.into();
+    return value as i32
   }
 }
 
@@ -36,13 +42,15 @@ impl Into<i32> for NapiNumber {
 
 impl From<u32> for NapiNumber {
   fn from(value: u32) -> Self {
-    Self { value: value as f64 }
+    Self::from(value as f64)
   }
 }
 
 impl Into<u32> for NapiNumber {
   fn into(self) -> u32 {
-    self.value as u32
+    let value: f64 = self.into();
+    return value as u32
+
   }
 }
 
@@ -50,20 +58,31 @@ impl Into<u32> for NapiNumber {
 
 impl From<f64> for NapiNumber {
   fn from(value: f64) -> Self {
-    Self { value }
+    Self { value: Cell::new(Some(value)), handle: None }
   }
 }
 
 impl Into<f64> for NapiNumber {
   fn into(self) -> f64 {
-    self.value
+    match self.value.into_inner() {
+      None => napi::get_value_double(self.handle.unwrap()),
+      Some(value) => value,
+    }
   }
 }
 
 // ===== EXTRA METHODS =========================================================
 
 impl NapiNumber {
+  pub fn new(value: f64) -> Self {
+    Self::from(value)
+  }
+
   pub fn value(&self) -> f64 {
-    self.value
+    self.value.get().unwrap_or_else(|| {
+      let value = napi::get_value_double(self.handle.unwrap());
+      self.value.set(Some(value));
+      value
+    })
   }
 }
