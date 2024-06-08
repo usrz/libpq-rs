@@ -162,7 +162,7 @@ where
   }
 }
 
-type CallbackTrampoline = unsafe extern "C" fn(env: napi_env, info: napi_callback_info) -> napi_value;
+type CallbackTrampoline = unsafe extern "C" fn(env: napi_env, info: napi_callback_info) -> Handle;
 
 pub fn create_function<F>(name: &str, function: F) -> Handle
 where
@@ -200,14 +200,14 @@ where
     );
 
     // Get the "napi_value" that NodeJS returned
-    let value = result.assume_init();
+    let handle = result.assume_init();
 
     // Add a finalizer that will drop *both* wrapper and function (it can be
     // a closure, it may have variables moved to it)
-    add_finalizer(value, pointer_wrapper);
+    add_finalizer(handle, pointer_wrapper);
 
-    // Done and return the value
-    value
+    // Done and return the handle
+    handle
   }
 }
 
