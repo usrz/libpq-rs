@@ -3,8 +3,7 @@ use std::fmt::Debug;
 use crate::napi;
 use std::error::Error;
 use std::fmt::Display;
-use crate::NapiShape;
-use crate::NapiValue;
+// use crate::NapiValue;
 
 // ========================================================================== //
 // RESULT TYPE                                                                //
@@ -12,38 +11,38 @@ use crate::NapiValue;
 
 pub type NapiResult<T> = Result<T, NapiError>;
 
-// ========================================================================== //
-// RETURN VALUE                                                               //
-// ========================================================================== //
+// // ========================================================================== //
+// // RETURN VALUE                                                               //
+// // ========================================================================== //
 
-#[derive(Clone, Debug)]
-pub struct NapiReturn {
-  value: NapiValue
-}
+// #[derive(Clone, Debug)]
+// pub struct NapiReturn {
+//   value: NapiValue
+// }
 
-impl <T: NapiShape> From<T> for NapiReturn {
-  fn from(value: T) -> Self {
-    Self { value: value.into() }
-  }
-}
+// impl <T: NapiShape> From<T> for NapiReturn {
+//   fn from(value: T) -> Self {
+//     Self { value: value.into() }
+//   }
+// }
 
-impl From<napi::Handle> for NapiReturn {
-  fn from(value: napi::Handle) -> Self {
-    Self { value: value.into() }
-  }
-}
+// impl From<napi::Handle> for NapiReturn {
+//   fn from(value: napi::Handle) -> Self {
+//     Self { value: value.into() }
+//   }
+// }
 
-impl Into<napi::Handle> for NapiReturn {
-  fn into(self) -> napi::Handle {
-    self.value.into()
-  }
-}
+// impl Into<napi::Handle> for NapiReturn {
+//   fn into(self) -> napi::Handle {
+//     self.value.into()
+//   }
+// }
 
-impl NapiReturn {
-  pub fn void() -> NapiResult<NapiReturn> {
-    Ok(Self { value: napi::get_undefined().into() })
-  }
-}
+// impl NapiReturn {
+//   pub fn void() -> NapiResult<NapiReturn> {
+//     Ok(Self { value: napi::get_undefined().into() })
+//   }
+// }
 
 // ========================================================================== //
 // ERROR VALUE                                                                //
@@ -52,7 +51,6 @@ impl NapiReturn {
 #[derive(Debug)]
 pub struct NapiError {
   message: String,
-  error: Option<NapiValue>,
 }
 
 impl Error for NapiError {}
@@ -65,35 +63,18 @@ impl Display for NapiError {
 
 impl From<String> for NapiError {
   fn from(message: String) -> Self {
-    Self { message, error: None }
+    Self { message }
   }
 }
 
 impl From<&str> for NapiError {
   fn from(message: &str) -> Self {
-    Self { message: message.to_string(), error: None }
-  }
-}
-
-impl <T: NapiShape> From<T> for NapiError {
-  fn from(value: T) -> Self {
-    let value: NapiValue = value.into();
-    value.into()
-  }
-}
-
-impl From<NapiValue> for NapiError {
-  fn from(value: NapiValue) -> Self {
-    Self { message: format!("JavaScript Error: {:?}", value), error: Some(value) }
+    Self { message: message.to_string(), }
   }
 }
 
 impl Into<napi::Handle> for NapiError {
   fn into(self) -> napi::Handle {
-    if let Some(error) = self.error {
-      return error.into()
-    } else {
-      napi::create_error(self.message)
-    }
+    napi::create_error(self.message)
   }
 }

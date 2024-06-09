@@ -1,77 +1,107 @@
 use crate::napi;
 use crate::types::*;
+use std::marker::PhantomData;
 
-#[derive(Clone, Debug)]
-pub struct NapiBigint {
+#[derive(Debug)]
+pub struct NapiBigint<'a> {
+  phantom: PhantomData<&'a ()>,
+  env: napi::Env,
+  handle: napi::Handle,
   value: i128,
 }
 
-impl NapiShape for NapiBigint {}
+// impl Debug for NapiBigint<'_> {
+//   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//     f.debug_struct("NapiBigint")
+//       .field("@", &self.handle)
+//       .finish()
+//   }
+// }
 
-impl NapiShapeInternal for NapiBigint {
-  fn into_napi_value(self) -> napi::Handle {
-    napi::create_bigint_words(self.value)
-  }
+// ===== NAPI::HANDLE CONVERSION ===============================================
 
-  fn from_napi_value(handle: napi::Handle) -> Self {
-    napi::expect_type_of(handle, napi::Type::napi_bigint);
-    Self { value: napi::get_value_bigint_words(handle) }
-  }
-}
+impl NapiType for NapiBigint<'_> {}
 
-// ===== I32 CONVERSION ========================================================
-
-impl From<i32> for NapiBigint {
-  fn from(value: i32) -> Self {
-    Self::from(value as i128)
+impl NapiFrom<napi::Handle> for NapiBigint<'_> {
+  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
+    Self { phantom: PhantomData, env, handle, value: napi::get_value_bigint_words(handle) }
   }
 }
 
-// ===== U32 CONVERSION ========================================================
-
-impl From<u32> for NapiBigint {
-  fn from(value: u32) -> Self {
-    Self::from(value as i128)
+impl NapiInto<napi::Handle> for NapiBigint<'_> {
+  fn napi_into(self, _env: napi::Env) -> napi::Handle {
+    self.handle
   }
 }
 
-// ===== I64 CONVERSION ========================================================
+// ===== I128 ==================================================================
 
-impl From<i64> for NapiBigint {
-  fn from(value: i64) -> Self {
-    Self::from(value as i128)
+impl NapiFrom<i128> for NapiBigint<'_> {
+  fn napi_from(value: i128, env: napi::Env) -> Self {
+    let handle = napi::create_bigint_words(value);
+    Self { phantom: PhantomData, env, handle, value }
   }
 }
 
-// ===== U64 CONVERSION ========================================================
-
-impl From<u64> for NapiBigint {
-  fn from(value: u64) -> Self {
-    Self::from(value as i128)
-  }
-}
-
-// ===== I128 CONVERSION =======================================================
-
-impl From<i128> for NapiBigint {
-  fn from(value: i128) -> Self {
-    Self { value }
-  }
-}
-
-impl Into<i128> for NapiBigint {
+impl Into<i128> for NapiBigint<'_> {
   fn into(self) -> i128 {
     self.value
   }
 }
 
+// ===== OTHER TYPES ===========================================================
+
+impl NapiFrom<i8> for NapiBigint<'_> {
+  fn napi_from(value: i8, env: napi::Env) -> Self {
+    Self::napi_from(value as i128, env)
+  }
+}
+
+impl NapiFrom<u8> for NapiBigint<'_> {
+  fn napi_from(value: u8, env: napi::Env) -> Self {
+    Self::napi_from(value as i128, env)
+  }
+}
+
+impl NapiFrom<i16> for NapiBigint<'_> {
+  fn napi_from(value: i16, env: napi::Env) -> Self {
+    Self::napi_from(value as i128, env)
+  }
+}
+
+impl NapiFrom<u16> for NapiBigint<'_> {
+  fn napi_from(value: u16, env: napi::Env) -> Self {
+    Self::napi_from(value as i128, env)
+  }
+}
+
+impl NapiFrom<i32> for NapiBigint<'_> {
+  fn napi_from(value: i32, env: napi::Env) -> Self {
+    Self::napi_from(value as i128, env)
+  }
+}
+
+impl NapiFrom<u32> for NapiBigint<'_> {
+  fn napi_from(value: u32, env: napi::Env) -> Self {
+    Self::napi_from(value as i128, env)
+  }
+}
+
+impl NapiFrom<i64> for NapiBigint<'_> {
+  fn napi_from(value: i64, env: napi::Env) -> Self {
+    Self::napi_from(value as i128, env)
+  }
+}
+
+impl NapiFrom<u64> for NapiBigint<'_> {
+  fn napi_from(value: u64, env: napi::Env) -> Self {
+    Self::napi_from(value as i128, env)
+  }
+}
+
 // ===== EXTRA METHODS =========================================================
 
-impl NapiBigint {
-  pub fn new(value: i128) -> Self {
-    Self::from(value)
-  }
-
+impl <'a> NapiBigint<'a> {
   pub fn value(&self) -> i128 {
     self.value
   }

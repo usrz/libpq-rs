@@ -23,7 +23,7 @@ impl NapiShapeInternal for NapiFunction {
   }
 
   fn from_napi_value(handle: napi::Handle) -> Self {
-    napi::expect_type_of(handle, napi::Type::napi_function);
+    napi::expect_type_of(handle, napi::TypeOf::napi_function);
     Self { reference: handle.into() }
   }
 }

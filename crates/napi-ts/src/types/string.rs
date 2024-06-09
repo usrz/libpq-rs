@@ -1,35 +1,49 @@
 use crate::napi;
 use crate::types::*;
+use std::marker::PhantomData;
 
-#[derive(Clone, Debug)]
-pub struct NapiString {
+#[derive(Debug)]
+pub struct NapiString<'a> {
+  phantom: PhantomData<&'a ()>,
+  env: napi::Env,
+  handle: napi::Handle,
   value: String,
 }
 
-impl NapiShape for NapiString {}
+// impl Debug for NapiString<'_> {
+//   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//     f.debug_struct("NapiString")
+//       .field("@", &self.handle)
+//       .finish()
+//   }
+// }
 
-impl NapiShapeInternal for NapiString {
-  fn into_napi_value(self) -> napi::Handle {
-    napi::create_string_utf8(self.value.as_str())
-  }
+// ===== NAPI::HANDLE CONVERSION ===============================================
 
-  fn from_napi_value(handle: napi::Handle) -> Self {
-    napi::expect_type_of(handle, napi::Type::napi_string);
-    Self { value: napi::get_value_string_utf8(handle) }
-  }
-}
+impl NapiType for NapiString<'_> {}
 
-// ===== &STR CONVERSION =======================================================
-
-impl <S: AsRef<str>> From<S> for NapiString {
-  fn from(value: S) -> Self {
-    Self { value: value.as_ref().to_string() }
+impl NapiFrom<napi::Handle> for NapiString<'_> {
+  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
+    Self { phantom: PhantomData, env, handle, value: napi::get_value_string_utf8(handle) }
   }
 }
 
-// ===== STRING CONVERSION =====================================================
+impl NapiInto<napi::Handle> for NapiString<'_> {
+  fn napi_into(self, _env: napi::Env) -> napi::Handle {
+    self.handle
+  }
+}
 
-impl Into<String> for NapiString {
+// ===== STRING ================================================================
+
+impl NapiFrom<&str> for NapiString<'_> {
+  fn napi_from(value: &str, env: napi::Env) -> Self {
+    let handle = napi::create_string_utf8(value);
+    Self { phantom: PhantomData, env, handle, value: value.to_string() }
+  }
+}
+
+impl Into<String> for NapiString<'_> {
   fn into(self) -> String {
     self.value
   }
@@ -37,11 +51,7 @@ impl Into<String> for NapiString {
 
 // ===== EXTRA METHODS =========================================================
 
-impl NapiString {
-  pub fn new<S: AsRef<str>>(value: S) -> Self {
-    Self::from(value)
-  }
-
+impl NapiString<'_> {
   pub fn value(&self) -> String {
     self.value.clone()
   }

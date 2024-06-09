@@ -1,5 +1,6 @@
 use crate::napi;
 use std::fmt::Debug;
+use crate::NapiValue;
 
 pub struct NapiReference {
   value: Option<(napi::Handle, napi::Reference)>
@@ -58,13 +59,21 @@ impl NapiReference {
   pub(super) fn handle(&self) -> napi::Handle {
     match self.value {
       None => panic!("Attempting to get handle from (pseudo) NapiReference"),
-      Some(value) => value.0,
+      Some((handle, _)) => handle,
     }
   }
 
   pub(super) fn expect_uninit(&self) {
     if self.value.is_some() {
-      panic!("NapiExternal already initialized")
+      panic!("NapiReference already initialized")
     }
   }
+
+  // pub fn value(&self) -> NapiValue {
+  //   match self.value {
+  //     None => panic!("NapiReference not initialized"),
+  //     Some((handle, _)) =>
+  //   }
+
+  // }
 }

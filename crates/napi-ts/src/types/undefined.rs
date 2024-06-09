@@ -1,24 +1,43 @@
 use crate::napi;
 use crate::types::*;
+use std::marker::PhantomData;
 
-#[derive(Clone, Debug)]
-pub struct NapiUndefined {}
+#[derive(Debug)]
+pub struct NapiUndefined<'a> {
+  phantom: PhantomData<&'a ()>,
+  env: napi::Env,
+  handle: napi::Handle,
+}
 
-impl NapiShape for NapiUndefined {}
+// impl Debug for NapiUndefined<'_> {
+//   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//     f.debug_struct("NapiUndefined")
+//       .field("@", &self.handle)
+//       .finish()
+//   }
+// }
 
-impl NapiShapeInternal for NapiUndefined {
-  fn into_napi_value(self) -> napi::Handle {
-    napi::get_undefined()
-  }
+// ===== NAPI::HANDLE CONVERSION ===============================================
 
-  fn from_napi_value(handle: napi::Handle) -> Self {
-    napi::expect_type_of(handle, napi::Type::napi_undefined);
-    Self {}
+impl NapiType for NapiUndefined<'_> {}
+
+impl NapiFrom<napi::Handle> for NapiUndefined<'_> {
+  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
+    Self { phantom: PhantomData, env, handle }
   }
 }
 
-impl NapiUndefined {
-  pub fn new() -> Self {
-    Self {}
+impl NapiInto<napi::Handle> for NapiUndefined<'_> {
+  fn napi_into(self, _env: napi::Env) -> napi::Handle {
+    self.handle
+  }
+}
+
+// ===== NULL ==================================================================
+
+impl NapiFrom<()> for NapiUndefined<'_> {
+  fn napi_from(_: (), env: napi::Env) -> Self {
+    let handle = napi::get_null();
+    Self { phantom: PhantomData, env, handle }
   }
 }

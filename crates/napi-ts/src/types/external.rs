@@ -30,7 +30,7 @@ impl NapiShapeInternal for NapiExternalRef {
   }
 
   fn from_napi_value(handle: napi::Handle) -> Self {
-    napi::expect_type_of(handle, napi::Type::napi_external);
+    napi::expect_type_of(handle, napi::TypeOf::napi_external);
     Self { reference: handle.into() }
   }
 }

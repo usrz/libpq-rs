@@ -3,8 +3,6 @@ use std::fmt::Debug;
 
 mod bigint;
 mod boolean;
-mod external;
-mod function;
 mod null;
 mod number;
 mod object;
@@ -16,8 +14,6 @@ mod value;
 
 pub use bigint::*;
 pub use boolean::*;
-pub use external::*;
-pub use function::*;
 pub use null::*;
 pub use number::*;
 pub use object::*;
@@ -26,19 +22,23 @@ pub use symbol::*;
 pub use undefined::*;
 pub use value::*;
 
-pub(self) use reference::*;
-use crate::NapiResult;
+pub(crate) trait NapiFrom<T>: Sized {
+  fn napi_from(value: T, env: napi::Env) -> Self;
+}
 
-pub(self) trait NapiShapeInternal: Clone + Debug {
-  fn into_napi_value(self) -> napi::Handle;
-  fn from_napi_value(value: napi::Handle) -> Self;
+pub(crate) trait NapiInto<T>: Sized {
+  fn napi_into(self, env: napi::Env) -> T;
+}
 
-  unsafe fn downcast_external<T: NapiShape + 'static>(&self, _: napi::Handle) -> NapiResult<Self> {
-    panic!("Attempted to invoke \"downcast_external\" on {}", std::any::type_name::<Self>());
+impl<T, U> NapiInto<U> for T
+where
+  U: NapiFrom<T>,
+{
+  fn napi_into(self, env: napi::Env) -> U {
+    U::napi_from(self, env)
   }
 }
 
-#[allow(private_bounds)]
-pub trait NapiShape: NapiShapeInternal {
+pub trait NapiType: NapiFrom<napi::Handle> + NapiInto<napi::Handle> {
   // Marker
 }

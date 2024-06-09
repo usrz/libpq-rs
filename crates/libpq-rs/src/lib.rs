@@ -4,6 +4,8 @@ use napi_ts::*;
 
 use ffi::to_string_lossy;
 use conninfo::PQConninfo;
+use context::NapiContext;
+use context::MainContext;
 pub mod connection;
 pub mod conninfo;
 pub mod debug;
@@ -63,14 +65,14 @@ napi_ts::napi_init!(|exports| {
   let external = NapiExternal::new(info);
   println!("EXTERNAL IS {:?}", external);
 
-  let _f = NapiFunction::new("my great function", move |_, args| {
+  let _f = NapiFunction::named("my great function", move |_, args| {
     args[2].downcast::<NapiFunction>()
       .and_then(|value| value.call(&[ NapiNull::new() ]))?;
 
     NapiReturn::void()
   });
 
-  let _f2 = NapiFunction::new("another function", |_, args| {
+  let _f2 = NapiFunction::named("another function", |_, args| {
     // println!("REAL THE EXTERNAL IS {:?}", external);
     println!("ARG FROM EXTERNAL IS {:?}", args[0]);
     let qqqq = args[0].downcast::<NapiExternal<Foobar>>().unwrap();
@@ -101,3 +103,9 @@ napi_ts::napi_init!(|exports| {
 
   Ok(exports.into())
 });
+
+
+pub fn test(env: &mut MainContext) {
+  env.bigint(123);
+  // NapiBigint
+}

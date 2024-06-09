@@ -211,7 +211,7 @@ where
   }
 }
 
-pub fn call_function(this: Handle, function: Handle, args: Vec<Handle>) -> NapiResult<Handle> {
+pub fn call_function(this: Handle, function: Handle, args: Vec<Handle>) -> Result<Handle, Handle> {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
 
@@ -233,6 +233,6 @@ pub fn call_function(this: Handle, function: Handle, args: Vec<Handle>) -> NapiR
     // There's a pending exception, wrap into a NapiError and err the result
     let mut error = MaybeUninit::<Handle>::zeroed();
     napi_get_and_clear_last_exception(Napi::env(), error.as_mut_ptr());
-    Err(NapiValue::from(error.assume_init()).into())
+    Err(error.assume_init())
   }
 }

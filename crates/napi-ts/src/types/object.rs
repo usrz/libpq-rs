@@ -1,39 +1,43 @@
 use crate::napi;
 use crate::types::*;
+use std::marker::PhantomData;
 
-#[derive(Clone)]
-pub struct NapiObject {
-  reference: NapiReference,
+#[derive(Debug)]
+pub struct NapiObject<'a> {
+  phantom: PhantomData<&'a ()>,
+  env: napi::Env,
+  handle: napi::Handle,
 }
 
-impl Debug for NapiObject {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("NapiExternal")
-      .field("@", &self.reference.handle())
-      .finish()
+// impl Debug for NapiObject<'_> {
+//   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//     f.debug_struct("NapiObject")
+//       .field("@", &self.handle)
+//       .finish()
+//   }
+// }
+
+// ===== NAPI::HANDLE CONVERSION ===============================================
+
+impl NapiType for NapiObject<'_> {}
+
+impl NapiFrom<napi::Handle> for NapiObject<'_> {
+  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
+    Self { phantom: PhantomData, env, handle }
   }
 }
 
-impl NapiShape for NapiObject {}
-
-impl NapiShapeInternal for NapiObject {
-  fn into_napi_value(self) -> napi::Handle {
-    self.reference.handle()
-  }
-
-  fn from_napi_value(handle: napi::Handle) -> Self {
-    Self { reference: handle.into() }
+impl NapiInto<napi::Handle> for NapiObject<'_> {
+  fn napi_into(self, _env: napi::Env) -> napi::Handle {
+    self.handle
   }
 }
 
-// ===== EXTRA TRAITS ==========================================================
+// ===== OBJECT ================================================================
 
-impl NapiValueWithProperties for NapiObject {}
-
-// ===== EXTRA METHODS =========================================================
-
-impl NapiObject {
-  pub fn new() -> Self {
-    Self::from_napi_value(napi::create_object())
+impl NapiFrom<()> for NapiObject<'_> {
+  fn napi_from(_: (), env: napi::Env) -> Self {
+    let handle = napi::create_object();
+    Self { phantom: PhantomData, env, handle }
   }
 }

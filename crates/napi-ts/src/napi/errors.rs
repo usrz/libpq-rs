@@ -28,7 +28,7 @@ pub fn create_error(message: String) -> Handle {
 pub fn throw(handle: Handle) {
   unsafe {
     let status = napi_throw(Napi::env(), handle);
-    if status == Status::napi_ok {
+    if status == napi_status::napi_ok {
       return
     }
 

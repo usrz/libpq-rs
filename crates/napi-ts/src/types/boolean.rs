@@ -1,33 +1,49 @@
 use crate::napi;
 use crate::types::*;
+use std::marker::PhantomData;
 
-#[derive(Clone, Debug)]
-pub struct NapiBoolean {
+#[derive(Debug)]
+pub struct NapiBoolean<'a> {
+  phantom: PhantomData<&'a ()>,
+  env: napi::Env,
+  handle: napi::Handle,
   value: bool,
 }
 
-impl NapiShape for NapiBoolean {}
+// impl Debug for NapiBool<'_> {
+//   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//     f.debug_struct("NapiBool")
+//       .field("@", &self.handle)
+//       .finish()
+//   }
+// }
 
-impl NapiShapeInternal for NapiBoolean {
-  fn into_napi_value(self) -> napi::Handle {
-    napi::get_boolean(self.value)
-  }
+// ===== NAPI::HANDLE CONVERSION ===============================================
 
-  fn from_napi_value(handle: napi::Handle) -> Self {
-    napi::expect_type_of(handle, napi::Type::napi_boolean);
-    Self { value: napi::get_value_bool(handle) }
-  }
-}
+impl NapiType for NapiBoolean<'_> {}
 
-// ===== BOOL CONVERSION =======================================================
-
-impl From<bool> for NapiBoolean {
-  fn from(value: bool) -> Self {
-    Self { value }
+impl NapiFrom<napi::Handle> for NapiBoolean<'_> {
+  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
+    Self { phantom: PhantomData, env, handle, value: napi::get_value_bool(handle) }
   }
 }
 
-impl Into<bool> for NapiBoolean {
+impl NapiInto<napi::Handle> for NapiBoolean<'_> {
+  fn napi_into(self, _env: napi::Env) -> napi::Handle {
+    self.handle
+  }
+}
+
+// ===== BOOL ==================================================================
+
+impl NapiFrom<bool> for NapiBoolean<'_> {
+  fn napi_from(value: bool, env: napi::Env) -> Self {
+    let handle = napi::get_boolean(value);
+    Self { phantom: PhantomData, env, handle, value }
+  }
+}
+
+impl Into<bool> for NapiBoolean<'_> {
   fn into(self) -> bool {
     self.value
   }
@@ -35,11 +51,7 @@ impl Into<bool> for NapiBoolean {
 
 // ===== EXTRA METHODS =========================================================
 
-impl NapiBoolean {
-  pub fn new(value: bool) -> Self {
-    Self::from(value)
-  }
-
+impl NapiBoolean<'_> {
   pub fn value(&self) -> bool {
     self.value
   }

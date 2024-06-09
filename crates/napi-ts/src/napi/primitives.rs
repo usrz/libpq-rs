@@ -5,17 +5,17 @@ use std::mem::MaybeUninit;
 use std::os::raw;
 use std::ptr;
 
-pub fn type_of(handle: Handle) -> Type {
+pub fn type_of(handle: Handle) -> TypeOf {
   unsafe {
-    let mut result = MaybeUninit::<Type>::zeroed();
+    let mut result = MaybeUninit::<TypeOf>::zeroed();
     napi_check!(napi_typeof, handle, result.as_mut_ptr());
     result.assume_init()
   }
 }
 
-pub fn expect_type_of(handle: Handle, expected: Type) {
+pub fn expect_type_of(handle: Handle, expected: TypeOf) {
   unsafe {
-    let mut result = MaybeUninit::<Type>::zeroed();
+    let mut result = MaybeUninit::<TypeOf>::zeroed();
     napi_check!(napi_typeof, handle, result.as_mut_ptr());
 
     let actual = result.assume_init();

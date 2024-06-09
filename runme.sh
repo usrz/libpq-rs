@@ -56,4 +56,4 @@ fi
 cp "./target/${PROFILE}/libpq_rs_node.dylib" ./libpq_rs.node
 
 # Run!
-node ./runme.js
+RUST_BACKTRACE=1 node ./runme.js

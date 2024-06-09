@@ -1,53 +1,64 @@
+
 use crate::napi;
 use crate::types::*;
+use std::marker::PhantomData;
+use std::ptr;
 
-#[derive(Clone)]
-pub struct NapiSymbol {
-  reference: NapiReference,
+#[derive(Debug)]
+pub struct NapiSymbol<'a> {
+  phantom: PhantomData<&'a ()>,
+  env: napi::Env,
+  handle: napi::Handle,
 }
 
-impl Debug for NapiSymbol {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("NapiExternal")
-      .field("@", &self.reference.handle())
-      .finish()
+// impl Debug for NapiSymbol<'_> {
+//   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//     f.debug_struct("NapiSymbol")
+//       .field("@", &self.handle)
+//       .finish()
+//   }
+// }
+
+// ===== NAPI::HANDLE CONVERSION ===============================================
+
+impl NapiType for NapiSymbol<'_> {}
+
+impl NapiFrom<napi::Handle> for NapiSymbol<'_> {
+  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
+    Self { phantom: PhantomData, env, handle }
   }
 }
 
-impl NapiShape for NapiSymbol {}
-
-impl NapiShapeInternal for NapiSymbol {
-  fn into_napi_value(self) -> napi::Handle {
-    self.reference.handle()
+impl NapiInto<napi::Handle> for NapiSymbol<'_> {
+  fn napi_into(self, _env: napi::Env) -> napi::Handle {
+    self.handle
   }
+}
 
-  fn from_napi_value(handle: napi::Handle) -> Self {
-    Self { reference: handle.into() }
+// ===== STRING ================================================================
+
+impl NapiFrom<Option<&str>> for NapiSymbol<'_> {
+  fn napi_from(value: Option<&str>, env: napi::Env) -> Self {
+    let description = match value {
+      Some(description) => napi::create_string_utf8(description),
+      None => ptr::null_mut(),
+    };
+
+    let handle = napi::create_symbol(description);
+    Self { phantom: PhantomData, env, handle }
   }
 }
 
 // ===== EXTRA METHODS =========================================================
 
-impl NapiSymbol {
-  pub fn new(description: &str) -> Self {
-    let handle = napi::create_string_utf8(description);
-    Self::from_napi_value(napi::create_symbol(handle))
-  }
-
-  pub fn symbol_for(description: &str) -> Self {
-    Self::from_napi_value(napi::symbol_for(description))
-  }
-
+impl NapiSymbol<'_> {
   pub fn description(&self) -> Option<String> {
     let key = napi::create_string_utf8("description");
-    let value = napi::get_property(self.reference.handle(), key);
+    let value = napi::get_property(self.handle, key);
 
-    let property = NapiValue::from(value);
-    match property {
-      NapiValue::String(string) => Some(string.into()),
-      NapiValue::Undefined(_) => None,
-      NapiValue::Null(_) => None,
-      _ => panic!("Unsupported symbol description {:?}", property),
+    match napi::type_of(value) {
+      napi::TypeOf::napi_string => Some(napi::get_value_string_utf8(value)),
+      _ => None,
     }
   }
 }
