@@ -2,19 +2,18 @@ use crate::napi;
 use crate::types::*;
 use std::marker::PhantomData;
 
-#[derive(Debug)]
 pub struct NapiUndefined<'a> {
   phantom: PhantomData<&'a ()>,
   handle: napi::Handle,
 }
 
-// impl Debug for NapiUndefined<'_> {
-//   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//     f.debug_struct("NapiUndefined")
-//       .field("@", &self.handle)
-//       .finish()
-//   }
-// }
+impl Debug for NapiUndefined<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("NapiUndefined")
+      .field("@", &self.handle)
+      .finish()
+  }
+}
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 

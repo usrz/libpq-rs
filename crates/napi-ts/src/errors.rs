@@ -1,6 +1,5 @@
 use core::fmt;
 use std::fmt::Debug;
-use crate::napi;
 use std::error::Error;
 use std::fmt::Display;
 // use crate::NapiValue;

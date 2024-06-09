@@ -1,9 +1,5 @@
-use crate::errors::NapiResult;
 use crate::napi;
 use crate::types::*;
-
-use std::any::type_name;
-use std::any::Any;
 
 // ========================================================================== //
 // VALUE ENUM (ALL TYPES)                                                     //
@@ -24,6 +20,7 @@ pub enum NapiValue<'a> {
 }
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
+
 impl <'a> NapiType<'a> for NapiValue<'a> {}
 
 impl <'a> NapiTypeInternal<'a> for NapiValue<'a> {

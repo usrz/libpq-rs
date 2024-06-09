@@ -5,7 +5,7 @@ use crate::types::*;
 use std::panic;
 use crate::context::MainContext;
 
-pub fn register_module<'a, R: NapiType<'a> + Sized + 'a>(
+pub fn register_module<'a, R: NapiType<'a> + Sized>(
   env: napi::Env,
   exports: napi::Handle,
   init: fn(MainContext<'a>, NapiObject<'a>) -> NapiResult<R>

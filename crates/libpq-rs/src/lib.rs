@@ -96,9 +96,9 @@ napi_ts::napi_init!(|mut env, exports| {
   //   .set_property("foo", &_f)
   //   .set_property("bar", &_f2)
   //   .set_property("external", &external)
-    .set_property("openssl_version", &env.string(openssl_version()))
-    .set_property("libpq_version", &env.string(libpq_version()))
-    .set_property("libpq_threadsafe", &env.boolean(libpq_threadsafe()))
+    .set_property_string("openssl_version", openssl_version())
+    .set_property_string("libpq_version", libpq_version())
+    .set_property_boolean("libpq_threadsafe", libpq_threadsafe())
     .set_property("baz",&env.object())
   ;
 
