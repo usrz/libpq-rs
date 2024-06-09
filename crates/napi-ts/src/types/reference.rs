@@ -1,48 +1,70 @@
 use crate::napi;
-use std::ptr;
+use std::fmt::Debug;
 
-#[derive(Debug)]
 pub struct NapiReference {
-  handle: napi::Handle,
-  reference: napi::Reference,
+  value: Option<(napi::Handle, napi::Reference)>
+}
+
+impl Debug for NapiReference {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match &self.value {
+      None => f
+        .debug_struct("NapiReference")
+        .field("@", &"null")
+        .finish_non_exhaustive(),
+      Some(value) => f
+        .debug_struct("NapiReference")
+        .field("@", &value.0)
+        .field("ref", &value.1)
+        .finish(),
+    }
+  }
 }
 
 impl From<napi::Handle> for NapiReference {
   fn from(handle: napi::Handle) -> Self {
     if handle.is_null() {
-      Self { handle, reference: ptr::null_mut() }
+      Self { value: None }
     } else {
-      Self { handle, reference: napi::create_reference(handle, 1) }
+      Self { value: Some((handle, napi::create_reference(handle, 1))) }
     }
   }
 }
 
 impl Clone for NapiReference {
   fn clone(&self) -> Self {
-    match self.handle.is_null() {
-      false => napi::reference_ref(self.reference),
-      true => 0,
-    };
-
-    Self { handle: self.handle, reference: self.reference }
+    match self.value.clone() {
+      None => panic!("Attempting to clone null (pseudo) NapiReference"),
+      Some((handle, reference)) => {
+        napi::reference_ref(reference);
+        Self { value: Some((handle, reference)) }
+      }
+    }
   }
 }
 
 impl Drop for NapiReference {
   fn drop(&mut self) {
-    let count = match self.handle.is_null() {
-      false => napi::reference_unref(self.reference),
-      true => 0,
-    };
-
-    if (count == 0) && (! self.handle.is_null()) {
-      napi::delete_reference(self.reference)
+    if let Some((_, reference)) = self.value {
+      let count = napi::reference_unref(reference);
+      if count == 0 {
+        napi::delete_reference(reference)
+      }
     }
   }
 }
 
 impl NapiReference {
   pub(super) fn handle(&self) -> napi::Handle {
-    self.handle
+    match self.value {
+      None => panic!("Attempting to get handle from (pseudo) NapiReference"),
+      Some(value) => value.0,
+    }
+  }
+
+  pub(super) fn expect_uninit(&self) {
+    if self.value.is_some() {
+      panic!("NapiExternal already initialized")
+    }
   }
 }

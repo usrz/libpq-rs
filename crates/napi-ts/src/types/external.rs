@@ -9,37 +9,43 @@ use std::ptr;
 
 #[derive(Clone)]
 pub struct NapiExternalRef {
-  handle: napi::Handle,
+  // We _need_ to keep the handle referenced here: the handle can be shoved
+  // into a "NapiValue" and passed onto some asynchronous function, and if we
+  // only keep the handle, Node might call the finalizer on us unexpectedly!
+  reference: NapiReference
 }
 
 impl Debug for NapiExternalRef {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let name = format!("NapiExternalRef");
     f.debug_struct(&name)
-      .field("@", &self.handle)
+      .field("@", &self.reference.handle())
       .finish()
   }
 }
 
 impl NapiShapeInternal for NapiExternalRef {
   fn into_napi_value(self) -> napi::Handle {
-    self.handle
+    self.reference.handle()
   }
 
   fn from_napi_value(handle: napi::Handle) -> Self {
     napi::expect_type_of(handle, napi::Type::napi_external);
-    Self { handle }
+    Self { reference: handle.into() }
   }
 }
 
 impl NapiExternalRef {
   pub(super) unsafe fn downcast<T: NapiShape + 'static>(&self) -> NapiResult<T> {
+    let handle = self.reference.handle();
+
     // Get the data from NodeJS and refrence it immediately for downcasting...
-    let pointer = napi::get_value_external(self.handle) as *mut T;
+    let pointer = napi::get_value_external(handle) as *mut T;
     let referenced = unsafe { &* {pointer} };
 
-    // Call the "downcast_external" on the (hopefully) NapiExternal<_>
-    referenced.downcast_external::<T>(self.handle)
+    // Call the "downcast_external" on the (hopefully) NapiExternal<_>. Here
+    // we don't pass the whole
+    referenced.downcast_external::<T>(handle)
   }
 }
 
@@ -95,7 +101,7 @@ impl <T: 'static> NapiShapeInternal for NapiExternal<T> {
     // If we're holding a napi_value and napi_reference, then we're doing
     // something *incredibly* wrong... This should only be called when we're
     // being created from data held by NodeJS, and that never ever has them!
-    if ! self.reference.handle().is_null() { panic!("NapiExternal already initialized") }
+    self.reference.expect_uninit();
 
     // Great, we're pretty sure we can create ourselves... This is basically a
     // clone operation, injecting a brand new NapiReference in the instance.
