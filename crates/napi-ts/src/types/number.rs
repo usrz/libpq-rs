@@ -5,7 +5,6 @@ use std::marker::PhantomData;
 #[derive(Debug)]
 pub struct NapiNumber<'a> {
   phantom: PhantomData<&'a ()>,
-  env: napi::Env,
   handle: napi::Handle,
   value: f64,
 }
@@ -20,22 +19,14 @@ pub struct NapiNumber<'a> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl NapiType for NapiNumber<'_> {}
+impl <'a> NapiType<'a> for NapiNumber<'a> {}
 
-impl NapiTypeInternal for NapiNumber<'_> {
-  fn handle(&self) -> napi::Handle {
-    self.handle
+impl <'a> NapiTypeInternal<'a> for NapiNumber<'a> {
+  fn from_napi(env: napi::Env, handle: napi::Handle) -> Self {
+    Self { phantom: PhantomData, handle, value: napi::get_value_double(env, handle) }
   }
-}
 
-impl NapiFrom<napi::Handle> for NapiNumber<'_> {
-  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
-    Self { phantom: PhantomData, env, handle, value: napi::get_value_double(env, handle) }
-  }
-}
-
-impl NapiInto<napi::Handle> for NapiNumber<'_> {
-  fn napi_into(self, _env: napi::Env) -> napi::Handle {
+  fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
 }
@@ -45,7 +36,7 @@ impl NapiInto<napi::Handle> for NapiNumber<'_> {
 impl NapiFrom<f64> for NapiNumber<'_> {
   fn napi_from(value: f64, env: napi::Env) -> Self {
     let handle = napi::create_double(env, value);
-    Self { phantom: PhantomData, env, handle, value }
+    Self { phantom: PhantomData, handle, value }
   }
 }
 

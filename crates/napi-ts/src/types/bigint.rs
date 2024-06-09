@@ -5,7 +5,6 @@ use std::marker::PhantomData;
 #[derive(Debug)]
 pub struct NapiBigint<'a> {
   phantom: PhantomData<&'a ()>,
-  env: napi::Env,
   handle: napi::Handle,
   value: i128,
 }
@@ -20,22 +19,14 @@ pub struct NapiBigint<'a> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl NapiType for NapiBigint<'_> {}
+impl <'a> NapiType<'a> for NapiBigint<'a> {}
 
-impl NapiTypeInternal for NapiBigint<'_> {
-  fn handle(&self) -> napi::Handle {
-    self.handle
+impl <'a> NapiTypeInternal<'a> for NapiBigint<'a> {
+  fn from_napi(env: napi::Env, handle: napi::Handle) -> Self {
+    Self { phantom: PhantomData, handle, value: napi::get_value_bigint_words(env, handle) }
   }
-}
 
-impl NapiFrom<napi::Handle> for NapiBigint<'_> {
-  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
-    Self { phantom: PhantomData, env, handle, value: napi::get_value_bigint_words(env, handle) }
-  }
-}
-
-impl NapiInto<napi::Handle> for NapiBigint<'_> {
-  fn napi_into(self, _env: napi::Env) -> napi::Handle {
+  fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
 }
@@ -45,7 +36,7 @@ impl NapiInto<napi::Handle> for NapiBigint<'_> {
 impl NapiFrom<i128> for NapiBigint<'_> {
   fn napi_from(value: i128, env: napi::Env) -> Self {
     let handle = napi::create_bigint_words(env, value);
-    Self { phantom: PhantomData, env, handle, value }
+    Self { phantom: PhantomData, handle, value }
   }
 }
 

@@ -5,7 +5,6 @@ use std::marker::PhantomData;
 #[derive(Debug)]
 pub struct NapiString<'a> {
   phantom: PhantomData<&'a ()>,
-  env: napi::Env,
   handle: napi::Handle,
   value: String,
 }
@@ -20,22 +19,14 @@ pub struct NapiString<'a> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl NapiType for NapiString<'_> {}
+impl <'a> NapiType<'a> for NapiString<'a> {}
 
-impl NapiTypeInternal for NapiString<'_> {
-  fn handle(&self) -> napi::Handle {
-    self.handle
+impl <'a> NapiTypeInternal<'a> for NapiString<'a> {
+  fn from_napi(env: napi::Env, handle: napi::Handle) -> Self {
+    Self { phantom: PhantomData, handle, value: napi::get_value_string_utf8(env, handle) }
   }
-}
 
-impl NapiFrom<napi::Handle> for NapiString<'_> {
-  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
-    Self { phantom: PhantomData, env, handle, value: napi::get_value_string_utf8(env, handle) }
-  }
-}
-
-impl NapiInto<napi::Handle> for NapiString<'_> {
-  fn napi_into(self, _env: napi::Env) -> napi::Handle {
+  fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
 }
@@ -45,7 +36,7 @@ impl NapiInto<napi::Handle> for NapiString<'_> {
 impl NapiFrom<&str> for NapiString<'_> {
   fn napi_from(value: &str, env: napi::Env) -> Self {
     let handle = napi::create_string_utf8(env, value);
-    Self { phantom: PhantomData, env, handle, value: value.to_string() }
+    Self { phantom: PhantomData, handle, value: value.to_string() }
   }
 }
 

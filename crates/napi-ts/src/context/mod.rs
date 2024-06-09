@@ -10,6 +10,8 @@ use crate::NapiUndefined;
 use crate::NapiString;
 use crate::NapiObject;
 use crate::NapiSymbol;
+use crate::NapiFrom;
+use crate::NapiValue;
 
 /// An internal trait providing the current [`napi::Env`]
 pub (crate) trait Env: Sized {
@@ -21,9 +23,6 @@ pub (crate) trait Env: Sized {
 #[allow(private_bounds)]
 pub trait NapiContext<'a>: Env + Sized
 where  {
-
-  // ===== VALUES ==============================================================
-
   fn bigint(&mut self, value: impl NapiInto<NapiBigint<'a>>) -> NapiBigint<'a> {
     value.napi_into(self.napi_env())
   }
@@ -84,24 +83,25 @@ impl MainContext<'_> {
 
 
 
-// fn foo(mut env: MainContext) {
-//   let bar = env.null(); //string("sugar");
+fn foo(mut env: MainContext) {
+  let bar = env.null(); //string("sugar");
+  let baz: NapiValue = bar.into();
 
-//   Blurb::call(move || {
-//     println!("{:?}", bar);
-//   });
-// }
+  Blurb::call(move || {
+    // println!("{:?}", baz);
+  });
+}
 
 
-// struct Blurb {}
+struct Blurb {}
 
-// impl Blurb {
-//   pub fn call<F>(callback: F) -> Self
-//   where
-//     F: Fn() + 'static,
-//   {
-//     // Self::named("", callback)
-//     callback();
-//     Self {}
-//   }
-// }
+impl Blurb {
+  pub fn call<F>(callback: F) -> Self
+  where
+    F: Fn() + 'static,
+  {
+    // Self::named("", callback)
+    callback();
+    Self {}
+  }
+}

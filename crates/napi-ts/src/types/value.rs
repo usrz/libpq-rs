@@ -24,41 +24,39 @@ pub enum NapiValue<'a> {
 }
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
-impl NapiType for NapiValue<'_> {}
+impl <'a> NapiType<'a> for NapiValue<'a> {}
 
-impl NapiFrom<napi::Handle> for NapiValue<'_> {
-  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
+impl <'a> NapiTypeInternal<'a> for NapiValue<'a> {
+  fn from_napi(env: napi::Env, handle: napi::Handle) -> Self {
     let value_type = napi::type_of(env, handle);
     match value_type {
-      nodejs_sys::napi_valuetype::napi_bigint => NapiValue::Bigint(NapiBigint::napi_from(handle, env)),
-      nodejs_sys::napi_valuetype::napi_boolean => NapiValue::Boolean(NapiBoolean::napi_from(handle, env)),
-      // nodejs_sys::napi_valuetype::napi_external => NapiValue::External(NapiExternalRef::napi_from(handle, env)),
-      // nodejs_sys::napi_valuetype::napi_function => NapiValue::Function(NapiFunction::napi_from(handle, env)),
-      nodejs_sys::napi_valuetype::napi_null => NapiValue::Null(NapiNull::napi_from(handle, env)),
-      nodejs_sys::napi_valuetype::napi_number => NapiValue::Number(NapiNumber::napi_from(handle, env)),
-      nodejs_sys::napi_valuetype::napi_object => NapiValue::Object(NapiObject::napi_from(handle, env)),
-      nodejs_sys::napi_valuetype::napi_string => NapiValue::String(NapiString::napi_from(handle, env)),
-      nodejs_sys::napi_valuetype::napi_symbol => NapiValue::Symbol(NapiSymbol::napi_from(handle, env)),
-      nodejs_sys::napi_valuetype::napi_undefined => NapiValue::Undefined(NapiUndefined::napi_from(handle, env)),
+      nodejs_sys::napi_valuetype::napi_bigint => NapiValue::Bigint(NapiBigint::from_napi(env, handle)),
+      nodejs_sys::napi_valuetype::napi_boolean => NapiValue::Boolean(NapiBoolean::from_napi(env, handle)),
+      // nodejs_sys::napi_valuetype::napi_external => NapiValue::External(NapiExternalRef::from_napi(env, handle)),
+      // nodejs_sys::napi_valuetype::napi_function => NapiValue::Function(NapiFunction::from_napi(env, handle)),
+      nodejs_sys::napi_valuetype::napi_null => NapiValue::Null(NapiNull::from_napi(env, handle)),
+      nodejs_sys::napi_valuetype::napi_number => NapiValue::Number(NapiNumber::from_napi(env, handle)),
+      nodejs_sys::napi_valuetype::napi_object => NapiValue::Object(NapiObject::from_napi(env, handle)),
+      nodejs_sys::napi_valuetype::napi_string => NapiValue::String(NapiString::from_napi(env, handle)),
+      nodejs_sys::napi_valuetype::napi_symbol => NapiValue::Symbol(NapiSymbol::from_napi(env, handle)),
+      nodejs_sys::napi_valuetype::napi_undefined => NapiValue::Undefined(NapiUndefined::from_napi(env, handle)),
       #[allow(unreachable_patterns)] // this should *really* never happen...
       _ => panic!("Unsupported JavaScript type \"{:?}\"", value_type)
     }
   }
-}
 
-impl NapiInto<napi::Handle> for NapiValue<'_> {
-  fn napi_into(self, env: napi::Env) -> napi::Handle {
+  fn napi_handle(&self) -> napi::Handle {
     match self {
-      NapiValue::Bigint(value) => value.napi_into(env),
-      NapiValue::Boolean(value) => value.napi_into(env),
-      // NapiValue::External(value) => value.napi_into(env),
-      // NapiValue::Function(value) => value.napi_into(env),
-      NapiValue::Null(value) => value.napi_into(env),
-      NapiValue::Number(value) => value.napi_into(env),
-      NapiValue::Object(value) => value.napi_into(env),
-      NapiValue::String(value) => value.napi_into(env),
-      NapiValue::Symbol(value) => value.napi_into(env),
-      NapiValue::Undefined(value) => value.napi_into(env),
+      NapiValue::Bigint(value) => value.napi_handle(),
+      NapiValue::Boolean(value) => value.napi_handle(),
+      // NapiValue::External(value) => value.handle(),
+      // NapiValue::Function(value) => value.handle(),
+      NapiValue::Null(value) => value.napi_handle(),
+      NapiValue::Number(value) => value.napi_handle(),
+      NapiValue::Object(value) => value.napi_handle(),
+      NapiValue::String(value) => value.napi_handle(),
+      NapiValue::Symbol(value) => value.napi_handle(),
+      NapiValue::Undefined(value) => value.napi_handle(),
     }
   }
 }

@@ -21,22 +21,14 @@ pub struct NapiSymbol<'a> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl NapiType for NapiSymbol<'_> {}
+impl <'a> NapiType<'a> for NapiSymbol<'a> {}
 
-impl NapiTypeInternal for NapiSymbol<'_> {
-  fn handle(&self) -> napi::Handle {
-    self.handle
-  }
-}
-
-impl NapiFrom<napi::Handle> for NapiSymbol<'_> {
-  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
+impl <'a> NapiTypeInternal<'a> for NapiSymbol<'a> {
+  fn from_napi(env: napi::Env, handle: napi::Handle) -> Self {
     Self { phantom: PhantomData, env, handle }
   }
-}
 
-impl NapiInto<napi::Handle> for NapiSymbol<'_> {
-  fn napi_into(self, _env: napi::Env) -> napi::Handle {
+  fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
 }

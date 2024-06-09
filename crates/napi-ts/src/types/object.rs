@@ -19,23 +19,22 @@ pub struct NapiObject<'a> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl NapiType for NapiObject<'_> {}
+impl <'a> NapiType<'a> for NapiObject<'a> {}
+impl <'a> NapiProperties<'a> for NapiObject<'a> {}
 
-impl NapiTypeInternal for NapiObject<'_> {
-  fn handle(&self) -> napi::Handle {
-    self.handle
-  }
-}
-
-impl NapiFrom<napi::Handle> for NapiObject<'_> {
-  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
+impl <'a> NapiTypeInternal<'a> for NapiObject<'a> {
+  fn from_napi(env: napi::Env, handle: napi::Handle) -> Self {
     Self { phantom: PhantomData, env, handle }
   }
+
+  fn napi_handle(&self) -> napi::Handle {
+    self.handle
+  }
 }
 
-impl NapiInto<napi::Handle> for NapiObject<'_> {
-  fn napi_into(self, _env: napi::Env) -> napi::Handle {
-    self.handle
+impl <'a> NapiPropertiesInternal<'a> for NapiObject<'a> {
+  fn napi_env(&self) -> napi::Env {
+    self.env
   }
 }
 
@@ -46,29 +45,4 @@ impl NapiFrom<()> for NapiObject<'_> {
     let handle = napi::create_object(env);
     Self { phantom: PhantomData, env, handle }
   }
-}
-
-// ===== PROPERTIES ============================================================
-
-impl NapiObject<'_> {
-  // fn get_property(&self, key: &str) -> Option<NapiValue> {
-  //   let key = napi::create_string_utf8(key);
-  //   let this = self.clone().into_napi_value();
-  //   let result = napi::get_property(this, key);
-  //   let value = NapiValue::from(result);
-
-  //   match value {
-  //     NapiValue::Undefined(_) => None,
-  //     value => Some(value),
-  //   }
-  // }
-
-  #[allow(private_bounds)]
-  pub fn set_property<T: NapiTypeInternal>(&self, key: &str, value: &T) -> &Self {
-    let key = napi::create_string_utf8(self.env, key);
-    let value: napi::Handle = value.handle();
-    napi::set_property(self.env, self.handle, key, value);
-    self
-  }
-
 }

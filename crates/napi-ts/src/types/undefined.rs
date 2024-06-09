@@ -5,7 +5,6 @@ use std::marker::PhantomData;
 #[derive(Debug)]
 pub struct NapiUndefined<'a> {
   phantom: PhantomData<&'a ()>,
-  env: napi::Env,
   handle: napi::Handle,
 }
 
@@ -19,22 +18,14 @@ pub struct NapiUndefined<'a> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl NapiType for NapiUndefined<'_> {}
+impl <'a> NapiType<'a> for NapiUndefined<'a> {}
 
-impl NapiTypeInternal for NapiUndefined<'_> {
-  fn handle(&self) -> napi::Handle {
-    self.handle
+impl <'a> NapiTypeInternal<'a> for NapiUndefined<'a> {
+  fn from_napi(_: napi::Env, handle: napi::Handle) -> Self {
+    Self { phantom: PhantomData, handle }
   }
-}
 
-impl NapiFrom<napi::Handle> for NapiUndefined<'_> {
-  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
-    Self { phantom: PhantomData, env, handle }
-  }
-}
-
-impl NapiInto<napi::Handle> for NapiUndefined<'_> {
-  fn napi_into(self, _env: napi::Env) -> napi::Handle {
+  fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
 }
@@ -44,6 +35,6 @@ impl NapiInto<napi::Handle> for NapiUndefined<'_> {
 impl NapiFrom<()> for NapiUndefined<'_> {
   fn napi_from(_: (), env: napi::Env) -> Self {
     let handle = napi::get_null(env);
-    Self { phantom: PhantomData, env, handle }
+    Self { phantom: PhantomData, handle }
   }
 }

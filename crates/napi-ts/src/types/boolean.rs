@@ -5,7 +5,6 @@ use std::marker::PhantomData;
 #[derive(Debug)]
 pub struct NapiBoolean<'a> {
   phantom: PhantomData<&'a ()>,
-  env: napi::Env,
   handle: napi::Handle,
   value: bool,
 }
@@ -20,22 +19,14 @@ pub struct NapiBoolean<'a> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl NapiType for NapiBoolean<'_> {}
+impl <'a> NapiType<'a> for NapiBoolean<'a> {}
 
-impl NapiTypeInternal for NapiBoolean<'_> {
-  fn handle(&self) -> napi::Handle {
-    self.handle
+impl <'a> NapiTypeInternal<'a> for NapiBoolean<'a> {
+  fn from_napi(env: napi::Env, handle: napi::Handle) -> Self {
+    Self { phantom: PhantomData, handle, value: napi::get_value_bool(env, handle) }
   }
-}
 
-impl NapiFrom<napi::Handle> for NapiBoolean<'_> {
-  fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
-    Self { phantom: PhantomData, env, handle, value: napi::get_value_bool(env, handle) }
-  }
-}
-
-impl NapiInto<napi::Handle> for NapiBoolean<'_> {
-  fn napi_into(self, _env: napi::Env) -> napi::Handle {
+  fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
 }
@@ -45,7 +36,7 @@ impl NapiInto<napi::Handle> for NapiBoolean<'_> {
 impl NapiFrom<bool> for NapiBoolean<'_> {
   fn napi_from(value: bool, env: napi::Env) -> Self {
     let handle = napi::get_boolean(env, value);
-    Self { phantom: PhantomData, env, handle, value }
+    Self { phantom: PhantomData, handle, value }
   }
 }
 

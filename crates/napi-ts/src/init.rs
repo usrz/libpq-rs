@@ -5,7 +5,7 @@ use crate::types::*;
 use std::panic;
 use crate::context::MainContext;
 
-pub fn register_module<'a, R: NapiType + Sized + 'a>(
+pub fn register_module<'a, R: NapiType<'a> + Sized + 'a>(
   env: napi::Env,
   exports: napi::Handle,
   init: fn(MainContext<'a>, NapiObject<'a>) -> NapiResult<R>
@@ -17,9 +17,9 @@ pub fn register_module<'a, R: NapiType + Sized + 'a>(
   // and unwrap the result into a simple "napi_value" (the pointer)
   let panic = panic::catch_unwind(|| {
     let context = MainContext::new(env);
-    let exports = NapiObject::napi_from(exports, env);
+    let exports = NapiObject::from_napi(env, exports);
     init(context, exports)
-      .map(|ret| -> napi::Handle { ret.napi_into(env) })
+      .map(|ret| -> napi::Handle { ret.napi_handle() })
   });
 
   // See if the initialization panicked
