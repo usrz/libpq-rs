@@ -22,9 +22,15 @@ pub struct NapiString<'a> {
 
 impl NapiType for NapiString<'_> {}
 
+impl NapiTypeInternal for NapiString<'_> {
+  fn handle(&self) -> napi::Handle {
+    self.handle
+  }
+}
+
 impl NapiFrom<napi::Handle> for NapiString<'_> {
   fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
-    Self { phantom: PhantomData, env, handle, value: napi::get_value_string_utf8(handle) }
+    Self { phantom: PhantomData, env, handle, value: napi::get_value_string_utf8(env, handle) }
   }
 }
 
@@ -38,7 +44,7 @@ impl NapiInto<napi::Handle> for NapiString<'_> {
 
 impl NapiFrom<&str> for NapiString<'_> {
   fn napi_from(value: &str, env: napi::Env) -> Self {
-    let handle = napi::create_string_utf8(value);
+    let handle = napi::create_string_utf8(env, value);
     Self { phantom: PhantomData, env, handle, value: value.to_string() }
   }
 }

@@ -1,26 +1,25 @@
-use crate::env::Napi;
 use crate::errors::*;
 use crate::napi;
 use crate::types::*;
 
 use std::panic;
+use crate::context::MainContext;
 
-pub fn register_module(
+pub fn register_module<'a, R: NapiType + Sized + 'a>(
   env: napi::Env,
   exports: napi::Handle,
-  init: fn(NapiObject) -> NapiResult<NapiReturn>
+  init: fn(MainContext<'a>, NapiObject<'a>) -> NapiResult<R>
 ) -> napi::Handle {
 
   // Create a new "Napi" environment
-  let napi = Napi::new(env);
 
   // Call up our initialization function with exports wrapped in a NapiObject
   // and unwrap the result into a simple "napi_value" (the pointer)
   let panic = panic::catch_unwind(|| {
-    let value: NapiValue = exports.into();
-    let object = value.downcast().unwrap();
-    init(object)
-      .map(|ret| -> napi::Handle { ret.into() })
+    let context = MainContext::new(env);
+    let exports = NapiObject::napi_from(exports, env);
+    init(context, exports)
+      .map(|ret| -> napi::Handle { ret.napi_into(env) })
   });
 
   // See if the initialization panicked
@@ -38,10 +37,11 @@ pub fn register_module(
   // a result, which (if OK) will hold the napi_value to return to node or
   // (if ERR) will contain a NapiError to throw before returning
   if let Err(error) = result {
-    napi::throw(error.into());
+    let throwable = napi::create_error(env, error.to_string());
+    napi::throw(env, throwable); //TODO
   }
 
   // All done...
-  drop(napi);
+  // drop(napi);
   exports
 }

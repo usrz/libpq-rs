@@ -56,56 +56,57 @@ struct Foobar {
 
 unsafe impl Send for Foobar { }
 
-napi_ts::napi_init!(|exports| {
+napi_ts::napi_init!(|mut env, exports| {
   println!("Initializing...");
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
-  let info = Foobar { s: "foobar BAAZ".to_string() };
-  let external = NapiExternal::new(info);
-  println!("EXTERNAL IS {:?}", external);
+  // let info = Foobar { s: "foobar BAAZ".to_string() };
+  // let external = NapiExternal::new(info);
+  // println!("EXTERNAL IS {:?}", external);
 
-  let _f = NapiFunction::named("my great function", move |_, args| {
-    args[2].downcast::<NapiFunction>()
-      .and_then(|value| value.call(&[ NapiNull::new() ]))?;
+  // let _f = NapiFunction::named("my great function", move |_, args| {
+  //   args[2].downcast::<NapiFunction>()
+  //     .and_then(|value| value.call(&[ NapiNull::new() ]))?;
 
-    NapiReturn::void()
-  });
+  //   NapiReturn::void()
+  // });
 
-  let _f2 = NapiFunction::named("another function", |_, args| {
-    // println!("REAL THE EXTERNAL IS {:?}", external);
-    println!("ARG FROM EXTERNAL IS {:?}", args[0]);
-    let qqqq = args[0].downcast::<NapiExternal<Foobar>>().unwrap();
-    println!("FROM ARGUMENT {:?}", qqqq);
-    println!("FROM ARGUMENT {:?}", qqqq.s);
-    // qqqq.iter().for_each(|(key, val)| {
-    //   println!("DEREFERENCED {} => {}", key, val);
-    // });
+  // let _f2 = NapiFunction::named("another function", |_, args| {
+  //   // println!("REAL THE EXTERNAL IS {:?}", external);
+  //   println!("ARG FROM EXTERNAL IS {:?}", args[0]);
+  //   let qqqq = args[0].downcast::<NapiExternal<Foobar>>().unwrap();
+  //   println!("FROM ARGUMENT {:?}", qqqq);
+  //   println!("FROM ARGUMENT {:?}", qqqq.s);
+  //   // qqqq.iter().for_each(|(key, val)| {
+  //   //   println!("DEREFERENCED {} => {}", key, val);
+  //   // });
 
-    println!("SECOND CALLBACK!!!");
-    NapiReturn::void()
-  });
+  //   println!("SECOND CALLBACK!!!");
+  //   NapiReturn::void()
+  // });
 
 
-  let _s1 = NapiSymbol::new("foobar");
-  let _s2 = NapiSymbol::symbol_for("foobar");
-  println!("S1 {:?}", _s1.description());
-  println!("S2 {:?}", _s2.description());
+  // let _s1 = NapiSymbol::new("foobar");
+  // let _s2 = NapiSymbol::symbol_for("foobar");
+  // println!("S1 {:?}", _s1.description());
+  // println!("S2 {:?}", _s2.description());
 
   exports
-    .set_property("foo", &_f)
-    .set_property("bar", &_f2)
-    .set_property("external", &external)
-    .set_property_string("openssl_version", openssl_version())
-    .set_property_string("libpq_version", libpq_version())
-    .set_property_bool("libpq_threadsafe", libpq_threadsafe())
-    .set_property("baz", &NapiObject::new());
+  //   .set_property("foo", &_f)
+  //   .set_property("bar", &_f2)
+  //   .set_property("external", &external)
+    .set_property("openssl_version", &env.string(openssl_version()))
+    .set_property("libpq_version", &env.string(libpq_version()))
+    .set_property("libpq_threadsafe", &env.boolean(libpq_threadsafe()))
+    .set_property("baz",&env.object())
+  ;
 
-  Ok(exports.into())
+  Ok(exports)
 });
 
 
-pub fn test(env: &mut MainContext) {
-  env.bigint(123);
-  // NapiBigint
-}
+// pub fn test(env: &mut MainContext) {
+//   env.bigint(123);
+//   // NapiBigint
+// }

@@ -24,12 +24,11 @@ pub enum NapiValue<'a> {
 }
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
-
 impl NapiType for NapiValue<'_> {}
 
 impl NapiFrom<napi::Handle> for NapiValue<'_> {
   fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
-    let value_type = napi::type_of(handle);
+    let value_type = napi::type_of(env, handle);
     match value_type {
       nodejs_sys::napi_valuetype::napi_bigint => NapiValue::Bigint(NapiBigint::napi_from(handle, env)),
       nodejs_sys::napi_valuetype::napi_boolean => NapiValue::Boolean(NapiBoolean::napi_from(handle, env)),
@@ -63,6 +62,17 @@ impl NapiInto<napi::Handle> for NapiValue<'_> {
     }
   }
 }
+
+impl <'a> From<NapiBigint<'a>> for NapiValue<'a> { fn from (value: NapiBigint<'a>) -> Self { NapiValue::Bigint(value) } }
+impl <'a> From<NapiBoolean<'a>> for NapiValue<'a> { fn from (value: NapiBoolean<'a>) -> Self { NapiValue::Boolean(value) } }
+// impl <'a> From<NapiExternal<'a>> for NapiValue<'a> { fn from (value: NapiExternal<'a>) -> Self { NapiValue::External(value) } }
+// impl <'a> From<NapiFunction<'a>> for NapiValue<'a> { fn from (value: NapiFunction<'a>) -> Self { NapiValue::Function(value) } }
+impl <'a> From<NapiNull<'a>> for NapiValue<'a> { fn from (value: NapiNull<'a>) -> Self { NapiValue::Null(value) } }
+impl <'a> From<NapiNumber<'a>> for NapiValue<'a> { fn from (value: NapiNumber<'a>) -> Self { NapiValue::Number(value) } }
+impl <'a> From<NapiObject<'a>> for NapiValue<'a> { fn from (value: NapiObject<'a>) -> Self { NapiValue::Object(value) } }
+impl <'a> From<NapiString<'a>> for NapiValue<'a> { fn from (value: NapiString<'a>) -> Self { NapiValue::String(value) } }
+impl <'a> From<NapiSymbol<'a>> for NapiValue<'a> { fn from (value: NapiSymbol<'a>) -> Self { NapiValue::Symbol(value) } }
+impl <'a> From<NapiUndefined<'a>> for NapiValue<'a> { fn from (value: NapiUndefined<'a>) -> Self { NapiValue::Undefined(value) } }
 
 
 // unsafe impl Send for NapiValue {}

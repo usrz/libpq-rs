@@ -22,9 +22,15 @@ pub struct NapiBoolean<'a> {
 
 impl NapiType for NapiBoolean<'_> {}
 
+impl NapiTypeInternal for NapiBoolean<'_> {
+  fn handle(&self) -> napi::Handle {
+    self.handle
+  }
+}
+
 impl NapiFrom<napi::Handle> for NapiBoolean<'_> {
   fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
-    Self { phantom: PhantomData, env, handle, value: napi::get_value_bool(handle) }
+    Self { phantom: PhantomData, env, handle, value: napi::get_value_bool(env, handle) }
   }
 }
 
@@ -38,7 +44,7 @@ impl NapiInto<napi::Handle> for NapiBoolean<'_> {
 
 impl NapiFrom<bool> for NapiBoolean<'_> {
   fn napi_from(value: bool, env: napi::Env) -> Self {
-    let handle = napi::get_boolean(value);
+    let handle = napi::get_boolean(env, value);
     Self { phantom: PhantomData, env, handle, value }
   }
 }

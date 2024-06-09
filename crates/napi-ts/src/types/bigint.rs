@@ -22,9 +22,15 @@ pub struct NapiBigint<'a> {
 
 impl NapiType for NapiBigint<'_> {}
 
+impl NapiTypeInternal for NapiBigint<'_> {
+  fn handle(&self) -> napi::Handle {
+    self.handle
+  }
+}
+
 impl NapiFrom<napi::Handle> for NapiBigint<'_> {
   fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
-    Self { phantom: PhantomData, env, handle, value: napi::get_value_bigint_words(handle) }
+    Self { phantom: PhantomData, env, handle, value: napi::get_value_bigint_words(env, handle) }
   }
 }
 
@@ -38,7 +44,7 @@ impl NapiInto<napi::Handle> for NapiBigint<'_> {
 
 impl NapiFrom<i128> for NapiBigint<'_> {
   fn napi_from(value: i128, env: napi::Env) -> Self {
-    let handle = napi::create_bigint_words(value);
+    let handle = napi::create_bigint_words(env, value);
     Self { phantom: PhantomData, env, handle, value }
   }
 }

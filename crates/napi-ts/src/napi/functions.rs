@@ -1,6 +1,4 @@
-use crate::env::Napi;
 use crate::errors::*;
-use crate::types::NapiValue;
 use super::*;
 
 use nodejs_sys::*;
@@ -211,7 +209,7 @@ where
   }
 }
 
-pub fn call_function(this: Handle, function: Handle, args: Vec<Handle>) -> Result<Handle, Handle> {
+pub fn call_function(env: Env, this: Handle, function: Handle, args: Vec<Handle>) -> Result<Handle, Handle> {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
 

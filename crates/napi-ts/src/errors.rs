@@ -73,8 +73,8 @@ impl From<&str> for NapiError {
   }
 }
 
-impl Into<napi::Handle> for NapiError {
-  fn into(self) -> napi::Handle {
-    napi::create_error(self.message)
-  }
-}
+// impl Into<napi::Handle> for NapiError {
+//   fn into(self) -> napi::Handle {
+//     napi::create_error(self.message)
+//   }
+// }

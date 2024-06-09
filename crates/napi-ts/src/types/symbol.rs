@@ -23,6 +23,12 @@ pub struct NapiSymbol<'a> {
 
 impl NapiType for NapiSymbol<'_> {}
 
+impl NapiTypeInternal for NapiSymbol<'_> {
+  fn handle(&self) -> napi::Handle {
+    self.handle
+  }
+}
+
 impl NapiFrom<napi::Handle> for NapiSymbol<'_> {
   fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
     Self { phantom: PhantomData, env, handle }
@@ -40,11 +46,11 @@ impl NapiInto<napi::Handle> for NapiSymbol<'_> {
 impl NapiFrom<Option<&str>> for NapiSymbol<'_> {
   fn napi_from(value: Option<&str>, env: napi::Env) -> Self {
     let description = match value {
-      Some(description) => napi::create_string_utf8(description),
+      Some(description) => napi::create_string_utf8(env, description),
       None => ptr::null_mut(),
     };
 
-    let handle = napi::create_symbol(description);
+    let handle = napi::create_symbol(env, description);
     Self { phantom: PhantomData, env, handle }
   }
 }
@@ -53,11 +59,11 @@ impl NapiFrom<Option<&str>> for NapiSymbol<'_> {
 
 impl NapiSymbol<'_> {
   pub fn description(&self) -> Option<String> {
-    let key = napi::create_string_utf8("description");
-    let value = napi::get_property(self.handle, key);
+    let key = napi::create_string_utf8(self.env, "description");
+    let value = napi::get_property(self.env, self.handle, key);
 
-    match napi::type_of(value) {
-      napi::TypeOf::napi_string => Some(napi::get_value_string_utf8(value)),
+    match napi::type_of(self.env, value) {
+      napi::TypeOf::napi_string => Some(napi::get_value_string_utf8(self.env, value)),
       _ => None,
     }
   }

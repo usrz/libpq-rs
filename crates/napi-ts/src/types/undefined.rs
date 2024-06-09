@@ -21,6 +21,12 @@ pub struct NapiUndefined<'a> {
 
 impl NapiType for NapiUndefined<'_> {}
 
+impl NapiTypeInternal for NapiUndefined<'_> {
+  fn handle(&self) -> napi::Handle {
+    self.handle
+  }
+}
+
 impl NapiFrom<napi::Handle> for NapiUndefined<'_> {
   fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
     Self { phantom: PhantomData, env, handle }
@@ -37,7 +43,7 @@ impl NapiInto<napi::Handle> for NapiUndefined<'_> {
 
 impl NapiFrom<()> for NapiUndefined<'_> {
   fn napi_from(_: (), env: napi::Env) -> Self {
-    let handle = napi::get_null();
+    let handle = napi::get_null(env);
     Self { phantom: PhantomData, env, handle }
   }
 }

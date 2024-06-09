@@ -1,13 +1,13 @@
 mod errors;
-mod externals;
-mod functions;
+// mod externals;
+// mod functions;
 mod objects;
 mod primitives;
 mod references;
 
 pub use errors::*;
-pub use externals::*;
-pub use functions::*;
+// pub use externals::*;
+// pub use functions::*;
 pub use objects::*;
 pub use primitives::*;
 pub use references::*;
@@ -25,7 +25,7 @@ pub trait Finalizable {
 /// Call a NodeJS API returning a status and check it's OK or panic.
 macro_rules! napi_check {
   ($syscall:ident, $($args:expr), +) => {
-    match { $syscall(crate::env::Napi::env(), $($args),+) } {
+    match { $syscall($($args),+) } {
       nodejs_sys::napi_status::napi_ok => (),
       status => panic!("Error calling \"{}\": {:?}", stringify!($syscall), status),
     }

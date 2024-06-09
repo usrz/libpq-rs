@@ -5,18 +5,18 @@ use std::mem::MaybeUninit;
 use std::os::raw;
 use std::ptr;
 
-pub fn type_of(handle: Handle) -> TypeOf {
+pub fn type_of(env: Env, handle: Handle) -> TypeOf {
   unsafe {
     let mut result = MaybeUninit::<TypeOf>::zeroed();
-    napi_check!(napi_typeof, handle, result.as_mut_ptr());
+    napi_check!(napi_typeof, env, handle, result.as_mut_ptr());
     result.assume_init()
   }
 }
 
-pub fn expect_type_of(handle: Handle, expected: TypeOf) {
+pub fn expect_type_of(env: Env, handle: Handle, expected: TypeOf) {
   unsafe {
     let mut result = MaybeUninit::<TypeOf>::zeroed();
-    napi_check!(napi_typeof, handle, result.as_mut_ptr());
+    napi_check!(napi_typeof, env, handle, result.as_mut_ptr());
 
     let actual = result.assume_init();
     if actual != expected {
@@ -25,17 +25,17 @@ pub fn expect_type_of(handle: Handle, expected: TypeOf) {
   }
 }
 
-pub fn coerce_to_string(handle: Handle) -> String {
+pub fn coerce_to_string(env: Env, handle: Handle) -> String {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
-    napi_check!(napi_coerce_to_string, handle, result.as_mut_ptr());
-    get_value_string_utf8(result.assume_init())
+    napi_check!(napi_coerce_to_string, env, handle, result.as_mut_ptr());
+    get_value_string_utf8(env, result.assume_init())
   }
 }
 
 // ===== BIGINT ================================================================
 
-pub fn create_bigint_words(value: i128) -> Handle {
+pub fn create_bigint_words(env: Env, value: i128) -> Handle {
   let (sign, unsigned) = match value.is_negative() {
     true => (1, value.overflowing_neg().0),
     false => (0, value),
@@ -45,6 +45,7 @@ pub fn create_bigint_words(value: i128) -> Handle {
     let mut result = MaybeUninit::<Handle>::zeroed();
     napi_check!(
       napi_create_bigint_words,
+      env,
       sign,
       2,
       unsigned.to_le_bytes().as_ptr() as *mut u64,
@@ -54,12 +55,13 @@ pub fn create_bigint_words(value: i128) -> Handle {
   }
 }
 
-pub fn get_value_bigint_words(handle: Handle) -> i128 {
+pub fn get_value_bigint_words(env: Env, handle: Handle) -> i128 {
   unsafe {
     let mut sign = MaybeUninit::<i32>::zeroed();
     let mut words = MaybeUninit::<usize>::new(2);
     let mut result = MaybeUninit::<i128>::zeroed();
     napi_check!(napi_get_value_bigint_words,
+      env,
       handle,
       sign.as_mut_ptr(),
       words.as_mut_ptr(),
@@ -88,56 +90,58 @@ pub fn get_value_bigint_words(handle: Handle) -> i128 {
 
 // ===== BOOLEAN ===============================================================
 
-pub fn get_boolean(value: bool) -> Handle {
+pub fn get_boolean(env: Env, value: bool) -> Handle {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
-    napi_check!(napi_get_boolean, value, result.as_mut_ptr());
+    napi_check!(napi_get_boolean, env, value, result.as_mut_ptr());
     result.assume_init()
   }
 }
 
-pub fn get_value_bool(handle: Handle) -> bool {
+pub fn get_value_bool(env: Env, handle: Handle) -> bool {
   unsafe {
     let mut result = MaybeUninit::<bool>::zeroed();
-    napi_check!(napi_get_value_bool, handle, result.as_mut_ptr());
+    napi_check!(napi_get_value_bool, env, handle, result.as_mut_ptr());
     result.assume_init()
   }
 }
 
 // ===== NULL ==================================================================
 
-pub fn get_null() -> Handle {
+pub fn get_null(env: Env, ) -> Handle {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
-    napi_check!(napi_get_null, result.as_mut_ptr());
+    napi_check!(napi_get_null, env, result.as_mut_ptr());
     result.assume_init()
   }
 }
 
 // ===== NUMBER ================================================================
 
-pub fn create_double(value: f64) -> Handle {
+pub fn create_double(env: Env, value: f64) -> Handle {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
-    napi_check!(napi_create_double, value, result.as_mut_ptr());
+    napi_check!(napi_create_double, env, value, result.as_mut_ptr());
     result.assume_init()
   }
 }
 
-pub fn get_value_double(handle: Handle) -> f64 {
+pub fn get_value_double(env: Env, handle: Handle) -> f64 {
   unsafe {
     let mut result = MaybeUninit::<f64>::zeroed();
-    napi_check!(napi_get_value_double, handle, result.as_mut_ptr());
+    napi_check!(napi_get_value_double, env, handle, result.as_mut_ptr());
     result.assume_init()
   }
 }
 
 // ===== STRING ================================================================
 
-pub fn create_string_utf8(value: &str) -> Handle {
+pub fn create_string_utf8(env: Env, value: &str) -> Handle {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
-    napi_check!(napi_create_string_utf8,
+    napi_check!(
+      napi_create_string_utf8,
+      env,
       value.as_ptr() as *const raw::c_char,
       value.len(),
       result.as_mut_ptr()
@@ -146,12 +150,19 @@ pub fn create_string_utf8(value: &str) -> Handle {
   }
 }
 
-pub fn get_value_string_utf8(handle: Handle) -> String {
+pub fn get_value_string_utf8(env: Env, handle: Handle) -> String {
   unsafe {
     let mut size = MaybeUninit::<usize>::zeroed();
 
     // First, get the string *length* in bytes (it's safe, UTF8)
-    napi_check!(napi_get_value_string_utf8, handle, ptr::null_mut(), 0, size.as_mut_ptr());
+    napi_check!(
+      napi_get_value_string_utf8,
+      env,
+      handle,
+      ptr::null_mut(),
+      0,
+      size.as_mut_ptr()
+    );
 
     // Allocate a buffer of the correct size (plus 1 for null)
     let mut buffer = vec![0; size.assume_init() + 1];
@@ -159,6 +170,7 @@ pub fn get_value_string_utf8(handle: Handle) -> String {
     // Now properly get the string data
     napi_check!(
       napi_get_value_string_utf8,
+      env,
       handle,
       buffer.as_mut_ptr() as *mut raw::c_char,
       buffer.len(),
@@ -172,10 +184,15 @@ pub fn get_value_string_utf8(handle: Handle) -> String {
 
 // ===== SYMBOL ================================================================
 
-pub fn create_symbol(handle: Handle) -> Handle {
+pub fn create_symbol(env: Env, handle: Handle) -> Handle {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
-    napi_check!(napi_create_symbol, handle, result.as_mut_ptr());
+    napi_check!(
+      napi_create_symbol,
+      env,
+      handle,
+      result.as_mut_ptr()
+    );
     result.assume_init()
   }
 }
@@ -190,12 +207,13 @@ extern "C" {
   ) -> napi_status;
 }
 
-pub fn symbol_for(description: &str) -> Handle {
+pub fn symbol_for(env: Env, description: &str) -> Handle {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
 
     napi_check!(
       node_api_symbol_for,
+      env,
       description.as_ptr() as *const raw::c_char,
       description.len(),
       result.as_mut_ptr()
@@ -207,10 +225,10 @@ pub fn symbol_for(description: &str) -> Handle {
 
 // ===== UNDEFINED =============================================================
 
-pub fn get_undefined() -> Handle {
+pub fn get_undefined(env: Env, ) -> Handle {
   unsafe {
     let mut result = MaybeUninit::<Handle>::zeroed();
-    napi_check!(napi_get_undefined, result.as_mut_ptr());
+    napi_check!(napi_get_undefined, env, result.as_mut_ptr());
     result.assume_init()
   }
 }

@@ -1,7 +1,6 @@
 pub mod context;
 pub mod errors;
 pub mod init;
-pub mod env;
 pub mod napi;
 pub mod types;
 

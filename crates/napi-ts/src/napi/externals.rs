@@ -26,7 +26,7 @@ type FinalizerTrampoline =
 // PUBLIC FACING                                                              //
 // ========================================================================== //
 
-pub fn add_finalizer<T: Finalizable>(handle: Handle, data: *mut T) {
+pub fn add_finalizer<T: Finalizable>(env: Env, handle: Handle, data: *mut T) {
   unsafe {
     // Get a hold on our trampoline's pointer (and erase its type!)
     let trampoline = finalizer_trampoline::<T>;
@@ -34,6 +34,7 @@ pub fn add_finalizer<T: Finalizable>(handle: Handle, data: *mut T) {
 
     napi_check!(
       napi_add_finalizer,
+      env,
       handle,
       data as *mut raw::c_void,
       Some(trampoline),
@@ -43,7 +44,7 @@ pub fn add_finalizer<T: Finalizable>(handle: Handle, data: *mut T) {
   }
 }
 
-pub fn create_value_external<T: Finalizable>(data: T) -> Handle {
+pub fn create_value_external<T: Finalizable>(env: Env, data: T) -> Handle {
   unsafe {
     // Box the data, and leak the raw pointer
     let boxed = Box::new(data);
@@ -59,6 +60,7 @@ pub fn create_value_external<T: Finalizable>(data: T) -> Handle {
     // Create the external
     napi_check!(
       napi_create_external,
+      env,
       pointer as *mut raw::c_void,
       Some(trampoline),
       ptr::null_mut(), // no hint
@@ -69,10 +71,10 @@ pub fn create_value_external<T: Finalizable>(data: T) -> Handle {
   }
 }
 
-pub fn get_value_external(handle: Handle) -> *mut dyn Any {
+pub fn get_value_external(env: Env, handle: Handle) -> *mut dyn Any {
   unsafe {
     let mut result = MaybeUninit::<*mut raw::c_void>::zeroed();
-    napi_check!(napi_get_value_external, handle, result.as_mut_ptr());
+    napi_check!(napi_get_value_external, env, handle, result.as_mut_ptr());
     result.assume_init()
   }
 }

@@ -22,9 +22,15 @@ pub struct NapiNumber<'a> {
 
 impl NapiType for NapiNumber<'_> {}
 
+impl NapiTypeInternal for NapiNumber<'_> {
+  fn handle(&self) -> napi::Handle {
+    self.handle
+  }
+}
+
 impl NapiFrom<napi::Handle> for NapiNumber<'_> {
   fn napi_from(handle: napi::Handle, env: napi::Env) -> Self {
-    Self { phantom: PhantomData, env, handle, value: napi::get_value_double(handle) }
+    Self { phantom: PhantomData, env, handle, value: napi::get_value_double(env, handle) }
   }
 }
 
@@ -38,7 +44,7 @@ impl NapiInto<napi::Handle> for NapiNumber<'_> {
 
 impl NapiFrom<f64> for NapiNumber<'_> {
   fn napi_from(value: f64, env: napi::Env) -> Self {
-    let handle = napi::create_double(value);
+    let handle = napi::create_double(env, value);
     Self { phantom: PhantomData, env, handle, value }
   }
 }

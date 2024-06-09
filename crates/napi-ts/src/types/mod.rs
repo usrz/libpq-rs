@@ -6,7 +6,6 @@ mod boolean;
 mod null;
 mod number;
 mod object;
-mod reference;
 mod string;
 mod symbol;
 mod undefined;
@@ -39,6 +38,8 @@ where
   }
 }
 
-pub trait NapiType: NapiFrom<napi::Handle> + NapiInto<napi::Handle> {
-  // Marker
+pub trait NapiType: Sized + NapiFrom<napi::Handle> + NapiInto<napi::Handle> {}
+
+pub (crate) trait NapiTypeInternal: NapiType {
+  fn handle(&self) -> napi::Handle;
 }
