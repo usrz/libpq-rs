@@ -1,79 +1,98 @@
 use core::fmt;
-use std::fmt::Debug;
 use std::error::Error;
-use std::fmt::Display;
-// use crate::NapiValue;
+use crate::napi;
+use crate::NapiType;
+
+// ========================================================================== //
+// "OK" TYPE => only holds the napi value pointer                             //
+// ========================================================================== //
+
+pub struct NapiOk {
+  pub (crate) value: napi::Handle,
+}
+
+pub struct NapiErr {
+  pub (crate) message: String,
+  pub (crate) value: Option<napi::Handle>,
+}
+
+impl fmt::Debug for NapiErr {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let mut f = f.debug_struct("NapiErr");
+    match self.value {
+      Some(value) => f.field("@", &value),
+      None => f.field("message", &self.message),
+    }.finish()
+  }
+}
+
+impl fmt::Display for NapiErr {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.write_str(&self.message)
+  }
+}
+
+impl Error for NapiErr {}
+
+impl From<&str> for NapiErr {
+  fn from(value: &str) -> Self {
+    Self { message: value.to_string(), value: None }
+  }
+}
+
+impl From<String> for NapiErr {
+  fn from(value: String) -> Self {
+    Self { message: value.clone(), value: None }
+  }
+}
 
 // ========================================================================== //
 // RESULT TYPE                                                                //
 // ========================================================================== //
 
-pub type NapiResult<T> = Result<T, NapiError>;
+pub type NapiResult = Result<NapiOk, NapiErr>;
 
-// // ========================================================================== //
-// // RETURN VALUE                                                               //
-// // ========================================================================== //
+// ===== OK ================================================================= //
 
-// #[derive(Clone, Debug)]
-// pub struct NapiReturn {
-//   value: NapiValue
-// }
-
-// impl <T: NapiShape> From<T> for NapiReturn {
-//   fn from(value: T) -> Self {
-//     Self { value: value.into() }
-//   }
-// }
-
-// impl From<napi::Handle> for NapiReturn {
-//   fn from(value: napi::Handle) -> Self {
-//     Self { value: value.into() }
-//   }
-// }
-
-// impl Into<napi::Handle> for NapiReturn {
-//   fn into(self) -> napi::Handle {
-//     self.value.into()
-//   }
-// }
-
-// impl NapiReturn {
-//   pub fn void() -> NapiResult<NapiReturn> {
-//     Ok(Self { value: napi::get_undefined().into() })
-//   }
-// }
-
-// ========================================================================== //
-// ERROR VALUE                                                                //
-// ========================================================================== //
-
-#[derive(Debug)]
-pub struct NapiError {
-  message: String,
+pub trait NapiIntoOk {
+  fn ok(self) -> NapiResult;
 }
 
-impl Error for NapiError {}
-
-impl Display for NapiError {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{}", self.message)
+impl <'a, T: NapiType<'a>> NapiIntoOk for T {
+  fn ok(self) -> NapiResult {
+    Ok(NapiOk { value: self.get_napi_handle().handle })
   }
 }
 
-impl From<String> for NapiError {
-  fn from(message: String) -> Self {
-    Self { message }
+// ===== ERR ================================================================ //
+
+pub trait NapiIntoErr {
+  fn into_err(self) -> NapiResult;
+}
+
+impl <'a, T: NapiType<'a>> NapiIntoErr for T {
+  fn into_err(self) -> NapiResult {
+    Err(NapiErr {
+      message: "JavaScript Error".to_string(),
+      value: Some(self.get_napi_handle().handle),
+    })
   }
 }
 
-impl From<&str> for NapiError {
-  fn from(message: &str) -> Self {
-    Self { message: message.to_string(), }
+impl NapiIntoErr for &str {
+  fn into_err(self) -> NapiResult {
+    Err(NapiErr {
+      message: self.to_string(),
+      value: None,
+    })
   }
 }
 
-// impl Into<napi::Handle> for NapiError {
-//   fn into(self) -> napi::Handle {
-//     napi::create_error(self.message)
-//   }
-// }
+impl NapiIntoErr for String {
+  fn into_err(self) -> NapiResult {
+    Err(NapiErr {
+      message: self.clone(),
+      value: None,
+    })
+  }
+}
