@@ -1,17 +1,15 @@
 use crate::napi;
 use crate::types::*;
-use std::marker::PhantomData;
 
 pub struct NapiBigint<'a> {
-  phantom: PhantomData<&'a ()>,
-  handle: napi::Handle,
+  handle: NapiHandle<'a>,
   value: i128,
 }
 
 impl Debug for NapiBigint<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("NapiBigint")
-      .field("@", &self.handle)
+      .field("@", &self.handle.handle)
       .finish()
   }
 }
@@ -21,12 +19,18 @@ impl Debug for NapiBigint<'_> {
 impl <'a> NapiType<'a> for NapiBigint<'a> {}
 
 impl <'a> NapiTypeInternal<'a> for NapiBigint<'a> {
-  fn from_napi(env: napi::Env, handle: napi::Handle) -> Self {
-    Self { phantom: PhantomData, handle, value: napi::get_value_bigint_words(env, handle) }
+  fn from_napi_handle(handle: NapiHandle<'a>) -> Result<Self, NapiErr> {
+    napi::expect_type_of(handle.env, handle.handle, napi::TypeOf::napi_bigint)
+      .map(|_| Self::from_napi_handle_unchecked(handle))
   }
 
-  fn napi_handle(&self) -> napi::Handle {
-    self.handle
+  fn from_napi_handle_unchecked(handle: NapiHandle<'a>) -> Self {
+    let value = napi::get_value_bigint_words(handle.env, handle.handle);
+    Self { handle, value }
+  }
+
+  fn get_napi_handle(&self) -> &NapiHandle<'a> {
+    &self.handle
   }
 }
 
@@ -35,7 +39,7 @@ impl <'a> NapiTypeInternal<'a> for NapiBigint<'a> {
 impl NapiFrom<i128> for NapiBigint<'_> {
   fn napi_from(value: i128, env: napi::Env) -> Self {
     let handle = napi::create_bigint_words(env, value);
-    Self { phantom: PhantomData, handle, value }
+    Self { handle: NapiHandle::from_napi(env, handle), value }
   }
 }
 

@@ -1,19 +1,16 @@
 
 use crate::napi;
 use crate::types::*;
-use std::marker::PhantomData;
 use std::ptr;
 
 pub struct NapiSymbol<'a> {
-  phantom: PhantomData<&'a ()>,
-  env: napi::Env,
-  handle: napi::Handle,
+  handle: NapiHandle<'a>,
 }
 
 impl Debug for NapiSymbol<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("NapiSymbol")
-      .field("@", &self.handle)
+      .field("@", &self.handle.handle)
       .finish()
   }
 }
@@ -23,12 +20,17 @@ impl Debug for NapiSymbol<'_> {
 impl <'a> NapiType<'a> for NapiSymbol<'a> {}
 
 impl <'a> NapiTypeInternal<'a> for NapiSymbol<'a> {
-  fn from_napi(env: napi::Env, handle: napi::Handle) -> Self {
-    Self { phantom: PhantomData, env, handle }
+  fn from_napi_handle(handle: NapiHandle<'a>) -> Result<Self, NapiErr> {
+    napi::expect_type_of(handle.env, handle.handle, napi::TypeOf::napi_symbol)
+      .map(|_| Self::from_napi_handle_unchecked(handle))
   }
 
-  fn napi_handle(&self) -> napi::Handle {
-    self.handle
+  fn from_napi_handle_unchecked(handle: NapiHandle<'a>) -> Self {
+    Self { handle }
+  }
+
+  fn get_napi_handle(&self) -> &NapiHandle<'a> {
+    &self.handle
   }
 }
 
@@ -42,7 +44,7 @@ impl NapiFrom<Option<&str>> for NapiSymbol<'_> {
     };
 
     let handle = napi::create_symbol(env, description);
-    Self { phantom: PhantomData, env, handle }
+    Self { handle: NapiHandle::from_napi(env, handle) }
   }
 }
 
@@ -50,11 +52,12 @@ impl NapiFrom<Option<&str>> for NapiSymbol<'_> {
 
 impl NapiSymbol<'_> {
   pub fn description(&self) -> Option<String> {
-    let key = napi::create_string_utf8(self.env, "description");
-    let value = napi::get_property(self.env, self.handle, key);
+    let env = self.handle.env;
+    let key = napi::create_string_utf8(env, "description");
+    let value = napi::get_property(env, self.handle.handle, key);
 
-    match napi::type_of(self.env, value) {
-      napi::TypeOf::napi_string => Some(napi::get_value_string_utf8(self.env, value)),
+    match napi::type_of(self.handle.env, value) {
+      napi::TypeOf::napi_string => Some(napi::get_value_string_utf8(env, value)),
       _ => None,
     }
   }

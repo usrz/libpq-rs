@@ -1,17 +1,15 @@
 use crate::napi;
 use crate::types::*;
-use std::marker::PhantomData;
 
 pub struct NapiNumber<'a> {
-  phantom: PhantomData<&'a ()>,
-  handle: napi::Handle,
+  handle: NapiHandle<'a>,
   value: f64,
 }
 
 impl Debug for NapiNumber<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("NapiNumber")
-      .field("@", &self.handle)
+      .field("@", &self.handle.handle)
       .finish()
   }
 }
@@ -21,12 +19,18 @@ impl Debug for NapiNumber<'_> {
 impl <'a> NapiType<'a> for NapiNumber<'a> {}
 
 impl <'a> NapiTypeInternal<'a> for NapiNumber<'a> {
-  fn from_napi(env: napi::Env, handle: napi::Handle) -> Self {
-    Self { phantom: PhantomData, handle, value: napi::get_value_double(env, handle) }
+  fn from_napi_handle(handle: NapiHandle<'a>) -> Result<Self, NapiErr> {
+    napi::expect_type_of(handle.env, handle.handle, napi::TypeOf::napi_number)
+      .map(|_| Self::from_napi_handle_unchecked(handle))
   }
 
-  fn napi_handle(&self) -> napi::Handle {
-    self.handle
+  fn from_napi_handle_unchecked(handle: NapiHandle<'a>) -> Self {
+    let value = napi::get_value_double(handle.env, handle.handle);
+    Self { handle, value }
+  }
+
+  fn get_napi_handle(&self) -> &NapiHandle<'a> {
+    &self.handle
   }
 }
 
@@ -35,7 +39,7 @@ impl <'a> NapiTypeInternal<'a> for NapiNumber<'a> {
 impl NapiFrom<f64> for NapiNumber<'_> {
   fn napi_from(value: f64, env: napi::Env) -> Self {
     let handle = napi::create_double(env, value);
-    Self { phantom: PhantomData, handle, value }
+    Self { handle: NapiHandle::from_napi(env, handle), value }
   }
 }
 
