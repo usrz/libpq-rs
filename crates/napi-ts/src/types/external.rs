@@ -1,64 +1,32 @@
 use crate::napi;
 use crate::types::*;
 
-use nodejs_sys::napi_value;
-use std::any::TypeId;
 use std::any::type_name;
 use std::ops::Deref;
-use std::ptr;
+use std::any::TypeId;
+use crate::napi::Finalizable;
 
-#[derive(Clone)]
-pub struct NapiExternalRef {
-  // We _need_ to keep the handle referenced here: the handle can be shoved
-  // into a "NapiValue" and passed onto some asynchronous function, and if we
-  // only keep the handle, Node might call the finalizer on us unexpectedly!
-  reference: NapiReference
+struct NapiExtrnalData<T: 'static> {
+  type_id: TypeId,
+  pointer: *mut T,
 }
 
-impl Debug for NapiExternalRef {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let name = format!("NapiExternalRef");
-    f.debug_struct(&name)
-      .field("@", &self.reference.handle())
-      .finish()
+impl <T: 'static> Finalizable for NapiExtrnalData<T> {
+  fn finalize(self) {
+    drop(unsafe { Box::from_raw(self.pointer) });
   }
 }
 
-impl NapiShapeInternal for NapiExternalRef {
-  fn into_napi_value(self) -> napi::Handle {
-    self.reference.handle()
-  }
+pub struct NapiExternal<'a, T: 'static> {
+  handle: NapiHandle<'a>,
 
-  fn from_napi_value(handle: napi::Handle) -> Self {
-    napi::expect_type_of(handle, napi::TypeOf::napi_external);
-    Self { reference: handle.into() }
-  }
-}
-
-impl NapiExternalRef {
-  pub(super) unsafe fn downcast<T: NapiShape + 'static>(&self) -> NapiResult<T> {
-    let handle = self.reference.handle();
-
-    // Get the data from NodeJS and refrence it immediately for downcasting...
-    let pointer = napi::get_value_external(handle) as *mut T;
-    let referenced = unsafe { &* {pointer} };
-
-    // Call the "downcast_external" on the (hopefully) NapiExternal<_>. Here
-    // we don't pass the whole
-    referenced.downcast_external::<T>(handle)
-  }
-}
-
-// ========================================================================== //
-
-pub struct NapiExternal<T: 'static> {
-  type_id: TypeId, // this _is_ NapiExternal<T>
-  type_name: String, // the full name of NapiExternal<T>
-  reference: NapiReference, // this is potentially null for proto-objects
+  // type_id: TypeId, // this _is_ NapiExternal<T>
+  // type_name: String, // the full name of NapiExternal<T>
+  // reference: NapiReference, // this is potentially null for proto-objects
   pointer: *mut T, // this is the pointer to the data we boxed
 }
 
-impl <T: 'static> Debug for NapiExternal<T> {
+impl <T: 'static> Debug for NapiExternal<'_, T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     let name = format!("NapiExternal<{}>", type_name::<T>());
     f.debug_struct(&name)
@@ -67,93 +35,53 @@ impl <T: 'static> Debug for NapiExternal<T> {
   }
 }
 
-impl <T: 'static> Clone for NapiExternal<T> {
-  fn clone(&self) -> Self {
-    Self {
-      type_id: self.type_id.clone(),
-      type_name: self.type_name.clone(),
-      reference: self.reference.clone(),
-      pointer: self.pointer.clone(),
+// ===== NAPI::HANDLE CONVERSION ===============================================
+
+impl <'a, T: 'static> NapiType<'a> for NapiExternal<'a, T> {}
+
+impl <'a, T: 'static> NapiTypeInternal<'a> for NapiExternal<'a, T> {
+  fn from_napi_handle(handle: NapiHandle<'a>) -> Result<Self, NapiErr> {
+    napi::expect_type_of(handle.env, handle.handle, napi::TypeOf::napi_external)?;
+
+    let pointer = napi::get_value_external(handle.env, handle.handle);
+    let data = unsafe { &*(pointer as *mut NapiExtrnalData<T>) };
+
+    if TypeId::of::<T>() == data.type_id {
+      Ok(Self { handle, pointer: data.pointer })
+    } else {
+      Err(format!("Unable to downcast external value to \"{}\"", type_name::<T>()).into())
     }
   }
-}
 
-impl <T: 'static> napi::Finalizable for NapiExternal<T> {
-  fn finalize(self) {
-    // NOTE: we can not get rid of this, and just rely on when our "napi_value"
-    // inside of the reference is null... We clone the "prototype" NapiExternal
-    // several times, and all those clones will be dropped individually!
-    drop(unsafe { Box::from_raw(self.pointer) });
+  fn get_napi_handle(&self) -> &NapiHandle<'a> {
+    &self.handle
   }
 }
 
-impl <T: 'static> NapiShape for NapiExternal<T> {}
+// ===== EXTERNAL ==============================================================
 
-impl <T: 'static> NapiShapeInternal for NapiExternal<T> {
-  unsafe fn downcast_external<T2: NapiShape + 'static>(&self, value: napi::Handle) -> NapiResult<Self> {
-    // When the type ID of what we want is _NOT_ the type ID of what we store,
-    // decline conversion... Someone asked for a downcasting to NapiShape<X>,
-    // while here we're holding data for NapiShape<Y>...
-    if TypeId::of::<T2>() != self.type_id {
-      return Err(format!("Unable to downcast {:?} into {:?}", self.type_name, type_name::<T2>()).into())
-    }
-
-    // If we're holding a napi_value and napi_reference, then we're doing
-    // something *incredibly* wrong... This should only be called when we're
-    // being created from data held by NodeJS, and that never ever has them!
-    self.reference.expect_uninit();
-
-    // Great, we're pretty sure we can create ourselves... This is basically a
-    // clone operation, injecting a brand new NapiReference in the instance.
-    Ok(Self {
-      type_id: self.type_id.clone(),
-      type_name: self.type_name.clone(),
-      reference: value.into(), // Look, ma! New reference!
-      pointer: self.pointer.clone(),
-    })
-  }
-
-  fn into_napi_value(self) -> napi::Handle {
-    self.reference.handle()
-  }
-
-  fn from_napi_value(value: napi::Handle) -> Self {
-    unsafe { NapiExternalRef::from_napi_value(value).downcast::<Self>().unwrap() }
-  }
-}
-
-impl <T: 'static> Deref for NapiExternal<T> {
-  type Target = T;
-
-  fn deref(&self) -> &Self::Target {
-    unsafe { &* {self.pointer} }
-  }
-}
-
-impl <T: 'static> NapiExternal<T> {
-  pub fn new(data: T) -> NapiExternal<T> {
+impl <T: 'static> NapiFrom<T> for NapiExternal<'_, T> {
+  fn napi_from(value: T, env: napi::Env) -> Self {
     // Create the boxed data and leak it immediately
-    let boxed = Box::new(data);
+    let boxed = Box::new(value);
     let pointer = Box::into_raw(boxed);
 
-    // Here "external" is the data held by NodeJS itself. It has no "reference"
-    // itself (null pointer as NodeJS keeps its own internal reference counts)
-    // but it holds on to the pointer derived from the data we're externalizing.
-    let external = Self {
-      type_id: TypeId::of::<NapiExternal<T>>(),
-      type_name: type_name::<NapiExternal<T>>().to_string(),
-      reference: (ptr::null_mut() as napi_value).into(),
+    let data = NapiExtrnalData {
+      type_id: TypeId::of::<T>(),
       pointer,
     };
 
-    // Now create Node's "external", which is a full "NapiExternal<T>" object.
-    // We need this to properly address downcasting from "NapiValue"...
-    let value = napi::create_value_external(external);
+    let handle = napi::create_value_external(env, data);
+    Self { handle: NapiHandle::from_napi(env, handle), pointer }
+  }
+}
 
-    // Here comes the fun part: we have given to Node ownership of the first
-    // "NapiExternal<T>" (and related data pointer), we now do a _clone_ of
-    // that (remember, null napi_value in there) and inject a new NapiReference
-    // object in it to let Node track it via its internal reference counts.
-    NapiExternal::<T>::from_napi_value(value)
+// ===== DEREF =================================================================
+
+impl <'a, T: 'static> Deref for NapiExternal<'a, T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    unsafe { &*self.pointer }
   }
 }
