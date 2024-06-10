@@ -4,6 +4,7 @@ use nodejs_sys::*;
 use std::mem::MaybeUninit;
 use std::os::raw;
 use std::ptr;
+use crate::NapiErr;
 
 pub fn type_of(env: Env, handle: Handle) -> TypeOf {
   unsafe {
@@ -13,14 +14,15 @@ pub fn type_of(env: Env, handle: Handle) -> TypeOf {
   }
 }
 
-pub fn expect_type_of(env: Env, handle: Handle, expected: TypeOf) {
+pub fn expect_type_of(env: Env, handle: Handle, expected: TypeOf) -> Result<(), NapiErr> {
   unsafe {
     let mut result = MaybeUninit::<TypeOf>::zeroed();
     napi_check!(napi_typeof, env, handle, result.as_mut_ptr());
 
     let actual = result.assume_init();
-    if actual != expected {
-      panic!("Expected type {:?}, actual {:?}", expected, actual)
+    match actual == expected {
+      false => Err(format!("Expected type {:?}, actual {:?}", expected, actual).into()),
+      true => Ok(())
     }
   }
 }
