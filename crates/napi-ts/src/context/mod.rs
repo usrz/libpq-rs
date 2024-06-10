@@ -1,7 +1,9 @@
 use crate::napi;
 use crate::types::*;
 
-/// An internal trait providing the current [`napi::Env`]
+use std::fmt::Debug;
+use std::marker::PhantomData;
+
 pub (crate) trait Env: Sized {
   fn napi_env(&self) -> napi::Env;
 }
@@ -48,5 +50,27 @@ where  {
 
   fn undefined(&self) -> NapiUndefined<'a> {
     ().napi_into(self.napi_env())
+  }
+}
+
+// ===========================================
+
+#[derive(Debug)]
+pub struct MainContext<'a> {
+  phantom: PhantomData<&'a mut ()>,
+  env: napi::Env,
+}
+
+impl <'a> NapiContext<'a> for MainContext<'a> {}
+
+impl <'a> Env for MainContext<'_> {
+  fn napi_env(&self) -> napi::Env {
+    self.env
+  }
+}
+
+impl MainContext<'_> {
+  pub (crate) fn new(env: napi::Env) -> Self {
+    Self { phantom: PhantomData, env }
   }
 }
