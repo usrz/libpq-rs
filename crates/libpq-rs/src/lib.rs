@@ -3,10 +3,7 @@
 use napi_ts::*;
 
 use ffi::to_string_lossy;
-use conninfo::PQConninfo;
 use context::NapiContext;
-use context::MainContext;
-use context::NapiReturn;
 pub mod connection;
 pub mod conninfo;
 pub mod debug;
