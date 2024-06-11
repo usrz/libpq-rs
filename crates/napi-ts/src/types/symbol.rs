@@ -1,16 +1,20 @@
 
 use crate::napi;
 use crate::types::*;
-use std::ptr;
+
+pub (crate) enum Symbol {
+  Symbol(Option<String>),
+  SymbolFor(String),
+}
 
 pub struct NapiSymbol<'a> {
-  handle: NapiHandle<'a>,
+  handle: napi::Handle<'a>,
 }
 
 impl Debug for NapiSymbol<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("NapiSymbol")
-      .field("@", &self.handle.handle)
+      .field("@", &self.handle)
       .finish()
   }
 }
@@ -20,31 +24,35 @@ impl Debug for NapiSymbol<'_> {
 impl <'a> NapiType<'a> for NapiSymbol<'a> {}
 
 impl <'a> NapiTypeInternal<'a> for NapiSymbol<'a> {
-  fn from_napi_handle(handle: NapiHandle<'a>) -> Result<Self, NapiErr> {
-    napi::expect_type_of(handle.env, handle.handle, napi::TypeOf::napi_symbol)
+  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr> {
+    handle.expect_type_of(napi::TypeOf::napi_symbol)
       .map(|_| Self::from_napi_handle_unchecked(handle))
   }
 
-  fn from_napi_handle_unchecked(handle: NapiHandle<'a>) -> Self {
+  fn from_napi_handle_unchecked(handle: napi::Handle<'a>) -> Self {
     Self { handle }
   }
 
-  fn get_napi_handle(&self) -> &NapiHandle<'a> {
-    &self.handle
+  fn napi_handle(&self) -> napi::Handle<'a> {
+    self.handle
   }
 }
 
 // ===== STRING ================================================================
 
-impl NapiFrom<Option<&str>> for NapiSymbol<'_> {
-  fn napi_from(value: Option<&str>, env: napi::Env) -> Self {
-    let description = match value {
-      Some(description) => napi::create_string_utf8(env, description),
-      None => ptr::null_mut(),
-    };
-
-    let handle = napi::create_symbol(env, description);
-    Self { handle: NapiHandle::from_napi(env, handle) }
+impl <'a> NapiFrom<'a, Symbol> for NapiSymbol<'a> {
+  fn napi_from(value: Symbol, env: napi::Env<'a>) -> Self {
+    Self {
+      handle: match value {
+        Symbol::SymbolFor(description) => env.symbol_for(&description),
+        Symbol::Symbol(description) => {
+          match description {
+            Some(description) => env.create_symbol(Some(&description)),
+            None => env.create_symbol(None),
+          }
+        }
+      }
+    }
   }
 }
 
@@ -52,12 +60,12 @@ impl NapiFrom<Option<&str>> for NapiSymbol<'_> {
 
 impl NapiSymbol<'_> {
   pub fn description(&self) -> Option<String> {
-    let env = self.handle.env;
-    let key = napi::create_string_utf8(env, "description");
-    let value = napi::get_property(env, self.handle.handle, key);
+    let env = self.handle.env();
+    let key = env.create_string_utf8("description");
+    let value = env.get_property(&self.handle, &key);
 
-    match napi::type_of(self.handle.env, value) {
-      napi::TypeOf::napi_string => Some(napi::get_value_string_utf8(env, value)),
+    match self.handle.env().type_of(&value) {
+      napi::TypeOf::napi_string => Some(env.get_value_string_utf8(&value)),
       _ => None,
     }
   }

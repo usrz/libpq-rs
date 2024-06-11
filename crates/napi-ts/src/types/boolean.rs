@@ -2,14 +2,14 @@ use crate::napi;
 use crate::types::*;
 
 pub struct NapiBoolean<'a> {
-  handle: NapiHandle<'a>,
+  handle: napi::Handle<'a>,
   value: bool,
 }
 
 impl Debug for NapiBoolean<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("NapiBoolean")
-      .field("@", &self.handle.handle)
+      .field("@", &self.handle)
       .finish()
   }
 }
@@ -19,27 +19,26 @@ impl Debug for NapiBoolean<'_> {
 impl <'a> NapiType<'a> for NapiBoolean<'a> {}
 
 impl <'a> NapiTypeInternal<'a> for NapiBoolean<'a> {
-  fn from_napi_handle(handle: NapiHandle<'a>) -> Result<Self, NapiErr> {
-    napi::expect_type_of(handle.env, handle.handle, napi::TypeOf::napi_boolean)
+  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr> {
+    handle.expect_type_of(napi::TypeOf::napi_boolean)
       .map(|_| Self::from_napi_handle_unchecked(handle))
   }
 
-  fn from_napi_handle_unchecked(handle: NapiHandle<'a>) -> Self {
-    let value = napi::get_value_bool(handle.env, handle.handle);
+  fn from_napi_handle_unchecked(handle: napi::Handle<'a>) -> Self {
+    let value = handle.get_value_bool();
     Self { handle, value }
   }
 
-  fn get_napi_handle(&self) -> &NapiHandle<'a> {
-    &self.handle
+  fn napi_handle(&self) -> napi::Handle<'a> {
+    self.handle
   }
 }
 
 // ===== BOOL ==================================================================
 
-impl NapiFrom<bool> for NapiBoolean<'_> {
-  fn napi_from(value: bool, env: napi::Env) -> Self {
-    let handle = napi::get_boolean(env, value);
-    Self { handle: NapiHandle::from_napi(env, handle), value }
+impl <'a> NapiFrom<'a, bool> for NapiBoolean<'a> {
+  fn napi_from(value: bool, env: napi::Env<'a>) -> Self {
+    Self { handle: env.get_boolean(value), value }
   }
 }
 

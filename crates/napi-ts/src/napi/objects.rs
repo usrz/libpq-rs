@@ -3,28 +3,57 @@ use super::*;
 use nodejs_sys::*;
 use std::mem::MaybeUninit;
 
-pub fn create_object(env: Env) -> Handle {
-  unsafe {
-    let mut result = MaybeUninit::<Handle>::zeroed();
-    napi_check!(napi_create_object, env, result.as_mut_ptr());
-    result.assume_init()
+impl <'a> Env<'a> {
+
+  pub fn create_object(&self) -> Handle<'a> {
+    unsafe {
+      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      env_check!(
+        napi_create_object,
+        self,
+        result.as_mut_ptr()
+      );
+      Handle { env: *self, value: result.assume_init() }
+    }
+  }
+
+  /* ========================================================================== *
+  * PROPERTIES                                                                 *
+  * ========================================================================== */
+
+  pub fn set_property(&self, object: &Handle, key: &Handle, value: &Handle) {
+    unsafe {
+      env_check!(
+        napi_set_property,
+        self,
+        object.value,
+        key.value,
+        value.value
+      );
+    }
+  }
+
+  pub fn get_property(&self, object: &Handle, key: &Handle) -> Handle<'a> {
+    unsafe {
+      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      env_check!(
+        napi_get_property,
+        self,
+        object.value,
+        key.value,
+        result.as_mut_ptr()
+      );
+      Handle { env: *self, value: result.assume_init() }
+    }
   }
 }
 
-/* ========================================================================== *
- * PROPERTIES                                                                 *
- * ========================================================================== */
-
-pub fn set_property(env: Env, object: Handle, key: Handle, value: Handle) {
-  unsafe {
-    napi_check!(napi_set_property, env, object, key, value);
+impl <'a> Handle<'a> {
+  pub fn set_property(&self, key: &Handle, value: &Handle) {
+    self.env.set_property(self, key, value)
   }
-}
 
-pub fn get_property(env: Env, object: Handle, key: Handle) -> Handle {
-  unsafe {
-    let mut result = MaybeUninit::<Handle>::zeroed();
-    napi_check!(napi_get_property, env, object, key, result.as_mut_ptr());
-    result.assume_init()
+  pub fn get_property(&'a self, key: &Handle) -> Handle<'a> {
+    self.env.get_property(self, key)
   }
 }

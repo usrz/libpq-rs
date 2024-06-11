@@ -24,59 +24,37 @@ pub use string::*;
 pub use symbol::*;
 pub use undefined::*;
 pub use value::*;
-use std::marker::PhantomData;
 use crate::NapiErr;
 
 // ===== CONVERSION ============================================================
 
-pub(crate) trait NapiFrom<T>: Sized {
-  fn napi_from(value: T, env: napi::Env) -> Self;
+pub(crate) trait NapiFrom<'a, T>: Sized {
+  fn napi_from(value: T, env: napi::Env<'a>) -> Self;
 }
 
-pub(crate) trait NapiInto<T>: Sized {
-  fn napi_into(self, env: napi::Env) -> T;
+pub(crate) trait NapiInto<'a, T>: Sized {
+  fn napi_into(self, env: napi::Env<'a>) -> T;
 }
 
-impl<T, U> NapiInto<U> for T
+impl<'a, T, U> NapiInto<'a, U> for T
 where
-  U: NapiFrom<T>,
+  U: NapiFrom<'a, T>,
 {
-  fn napi_into(self, env: napi::Env) -> U {
+  fn napi_into(self, env: napi::Env<'a>) -> U {
     U::napi_from(self, env)
-  }
-}
-
-// ===== HANDLES ===============================================================
-
-pub struct NapiHandle<'a> {
-  pub (crate) phantom: PhantomData<&'a mut ()>,
-  pub (crate) handle: napi::Handle,
-  pub (crate) env: napi::Env,
-}
-
-impl <'a> NapiHandle<'a> {
-  pub (crate) fn from_napi(env: napi::Env, handle: napi::Handle) -> Self {
-    Self { phantom: PhantomData, handle, env }
   }
 }
 
 // ===== TYPES =================================================================
 
 pub (crate) trait NapiTypeInternal<'a>: Sized {
-  fn get_napi_handle(&self) -> &NapiHandle<'a>;
+  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr>;
 
-  fn from_napi_handle(handle: NapiHandle<'a>) -> Result<Self, NapiErr>;
-
-  fn from_napi_handle_unchecked(handle: NapiHandle<'a>) -> Self {
+  fn from_napi_handle_unchecked(handle: napi::Handle<'a>) -> Self {
     Self::from_napi_handle(handle).unwrap()
   }
 
-  fn into_napi_handle(self) -> NapiHandle<'a> {
-    let handle = self.get_napi_handle();
-    let env = handle.env;
-    let handle = handle.handle;
-    NapiHandle { phantom: PhantomData, env, handle }
-  }
+  fn napi_handle(&self) -> napi::Handle<'a>;
 }
 
 #[allow(private_bounds)]

@@ -3,7 +3,7 @@
 use napi_ts::*;
 
 use ffi::to_string_lossy;
-use context::NapiContext;
+use context::NapiEnv;
 pub mod connection;
 pub mod conninfo;
 pub mod debug;
@@ -62,13 +62,22 @@ napi_ts::napi_init!(|env, exports| {
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
   let ext: NapiValue = env.external(Foobar { s: "Hello, string".to_owned() }).into();
-  let ext2: NapiExternal<Foobar> = ext.try_into()?;
+  // let ext2: NapiExternal<Foobar> = ext.try_into()?;
+
+  exports
+    .set_property_string("openssl_version", openssl_version())
+    .set_property_string("libpq_version", libpq_version())
+    .set_property_boolean("libpq_threadsafe", libpq_threadsafe())
+    .set_property_external("foobar", Foobar { s: "Hello, string".to_owned() })
+    .set_property("another", &ext)
+  ;
+
 
 
   let blurb = Blurb {};
 
   blurb.call(move || {
-    println!("{:?} {:?}", ext2, "foo");
+    // println!("{:?} {:?}", ext2, "foo");
   });
 
   exports.ok()

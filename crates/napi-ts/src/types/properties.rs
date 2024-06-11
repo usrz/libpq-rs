@@ -1,58 +1,103 @@
-use crate::napi;
 use crate::types::*;
 
 #[allow(private_bounds)]
 pub trait NapiProperties<'a>: NapiTypeInternal<'a> {
 
-  fn set_property<T: NapiType<'a>>(&self, key: &str, value: &T) -> &Self {
-    let env = self.get_napi_handle().env;
-    let this = self.get_napi_handle().handle;
-    let key = napi::create_string_utf8(env, key);
-    let value = value.get_napi_handle().handle;
-    napi::set_property(env, this, key, value);
+  fn get_property<K: AsRef<str>>(&self, key: K) -> NapiValue<'a> {
+    let this = self.napi_handle();
+    let env = this.env();
+
+    let key = env.create_string_utf8(key.as_ref());
+    let handle = this.get_property(&key);
+
+    NapiValue::from_napi_handle(handle).unwrap()
+  }
+
+  fn set_property<K: AsRef<str>, V: NapiType<'a>>(
+    &self, key: K, value: &V
+  ) -> &Self {
+    let this = self.napi_handle();
+    let env = this.env();
+
+    let key = env.create_string_utf8(key.as_ref());
+    let value = value.napi_handle();
+
+    this.set_property(&key, &value);
     self
   }
 
-  fn set_property_bigint(&self, key: &str, value: impl NapiInto<NapiBigint<'a>>) -> &Self {
-    let value: NapiBigint = value.napi_into(self.get_napi_handle().env);
+  fn set_property_bigint<K: AsRef<str>, V: NapiInto<'a, NapiBigint<'a>>>(
+    &self, key: K, value: V
+  ) -> &Self {
+    let value: NapiBigint = value.napi_into(self.napi_handle().env());
     self.set_property(key, &value)
   }
 
-  fn set_property_boolean(&self, key: &str, value: impl NapiInto<NapiBoolean<'a>>) -> &Self {
-    let value: NapiBoolean = value.napi_into(self.get_napi_handle().env);
+  fn set_property_boolean<K: AsRef<str>, V: NapiInto<'a, NapiBoolean<'a>>>(
+    &self, key: K, value: V
+  ) -> &Self {
+    let value: NapiBoolean = value.napi_into(self.napi_handle().env());
     self.set_property(key, &value)
   }
 
-  fn set_property_null(&self, key: &str) -> &Self {
-    let value: NapiNull = ().napi_into(self.get_napi_handle().env);
+  fn set_property_external<K: AsRef<str>, V: 'static>(
+    &self, key: K, value: V
+  ) -> &Self {
+    let value: NapiExternal<V> = value.napi_into(self.napi_handle().env());
     self.set_property(key, &value)
   }
 
-  fn set_property_number(&self, key: &str, value: impl NapiInto<NapiNumber<'a>>) -> &Self {
-    let value: NapiNumber = value.napi_into(self.get_napi_handle().env);
+  fn set_property_null<K: AsRef<str>>(&self, key: K) -> &Self {
+    let value: NapiNull = ().napi_into(self.napi_handle().env());
     self.set_property(key, &value)
   }
 
-  fn set_property_object(&self, key: &str) -> &Self {
-    let value: NapiObject = ().napi_into(self.get_napi_handle().env);
+  fn set_property_number<K: AsRef<str>, V: NapiInto<'a, NapiNumber<'a>>>(
+    &self, key: K, value: V
+  ) -> &Self {
+    let value: NapiNumber = value.napi_into(self.napi_handle().env());
     self.set_property(key, &value)
   }
 
-  fn set_property_string<S: AsRef<str>>(&self, key: &str, value: S) -> &Self {
-    let value: NapiString = value.as_ref().napi_into(self.get_napi_handle().env);
+  fn set_property_object<K: AsRef<str>>(
+    &self, key: K
+  ) -> &Self {
+    let value: NapiObject = ().napi_into(self.napi_handle().env());
     self.set_property(key, &value)
   }
 
-  fn set_property_symbol<S: AsRef<str>>(&self, key: &str, value: Option<S>) -> &Self {
-    let value: NapiSymbol = match value {
-      Some(desc) => Some(desc.as_ref()).napi_into(self.get_napi_handle().env),
-      None => None.napi_into(self.get_napi_handle().env),
-    };
+  fn set_property_string<K: AsRef<str>, V: AsRef<str>>(
+    &self, key: K, value: V
+  ) -> &Self {
+    let value: NapiString = value.as_ref().napi_into(self.napi_handle().env());
     self.set_property(key, &value)
   }
 
-  fn set_property_undefined(&self, key: &str) -> &Self {
-    let value: NapiUndefined = ().napi_into(self.get_napi_handle().env);
+  fn set_property_symbol<K: AsRef<str>, V: AsRef<str>>(
+    &self, key: K, value: Option<V>
+  ) -> &Self {
+    let symbol = Symbol::Symbol(match value {
+      Some(str) => Some(str.as_ref().to_string()),
+      None => None,
+    });
+
+    let value: NapiSymbol = symbol.napi_into(self.napi_handle().env());
+    self.set_property(key, &value)
+  }
+
+  fn set_property_symbol_for<K: AsRef<str>, V: AsRef<str>>(
+    &self, key: K, value: V
+  ) -> &Self {
+    let symbol = Symbol::SymbolFor(value.as_ref().to_string());
+
+    let value: NapiSymbol = symbol.napi_into(self.napi_handle().env());
+    self.set_property(key, &value)
+  }
+
+  fn set_property_undefined<K: AsRef<str>>(
+    &self, key: K
+  ) -> &Self {
+    let value: NapiUndefined = ().napi_into(self.napi_handle().env());
     self.set_property(key, &value)
   }
 }

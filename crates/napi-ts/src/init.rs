@@ -4,23 +4,25 @@ use crate::types::*;
 
 use std::panic;
 use std::panic::AssertUnwindSafe;
-use crate::context::MainContext;
+use crate::context::InitEnv;
+use crate::context::Env;
 
 pub fn register_module(
-  env: napi::Env,
-  exports: napi::Handle,
-  init: fn(MainContext, NapiObject) -> NapiResult
-) -> napi::Handle {
-  println!("REGISTERING");
+  env: nodejs_sys::napi_env,
+  exports: nodejs_sys::napi_value,
+  init: fn(InitEnv, NapiObject) -> NapiResult
+) -> nodejs_sys::napi_value {
 
+  let env = napi::Env::new(env);
   let safe = AssertUnwindSafe(init);
 
   // Call up our initialization function with exports wrapped in a NapiObject
   // and unwrap the result into a simple "napi_value" (the pointer)
   let panic = panic::catch_unwind(|| {
-    let handle = NapiHandle::from_napi(env, exports);
-
-    safe(MainContext::new(env), NapiObject::from_napi_handle(handle)?)
+    let env = InitEnv::new(env);
+    let handle = env.napi_env().handle(exports);
+    let exports = NapiObject::from_napi_handle_unchecked(handle);
+    safe(env, exports)
   });
 
   // See if the initialization panicked
@@ -40,17 +42,9 @@ pub fn register_module(
   match result {
     Ok(exports) => exports.value,
     Err(error) => {
-      napi::throw(env, error.value.unwrap_or_else(|| {
-        napi::create_error(env, error.to_string())
-      }));
-      // Just return the original exports unchanged... we'll throw anyhow!
+      let error = env.create_error(error.to_string());
+      env.throw(&error);
       exports
     }
   }
-
-  // println!("REGISTERING");
-
-  // // All done...
-  // // drop(napi);
-  // exports
 }

@@ -18,7 +18,7 @@ impl <T: 'static> Finalizable for NapiExtrnalData<T> {
 }
 
 pub struct NapiExternal<'a, T: 'static> {
-  handle: NapiHandle<'a>,
+  handle: napi::Handle<'a>,
 
   // type_id: TypeId, // this _is_ NapiExternal<T>
   // type_name: String, // the full name of NapiExternal<T>
@@ -40,10 +40,10 @@ impl <T: 'static> Debug for NapiExternal<'_, T> {
 impl <'a, T: 'static> NapiType<'a> for NapiExternal<'a, T> {}
 
 impl <'a, T: 'static> NapiTypeInternal<'a> for NapiExternal<'a, T> {
-  fn from_napi_handle(handle: NapiHandle<'a>) -> Result<Self, NapiErr> {
-    napi::expect_type_of(handle.env, handle.handle, napi::TypeOf::napi_external)?;
+  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr> {
+    handle.expect_type_of(napi::TypeOf::napi_external)?;
 
-    let pointer = napi::get_value_external(handle.env, handle.handle);
+    let pointer = handle.get_value_external();
     let data = unsafe { &*(pointer as *mut NapiExtrnalData<T>) };
 
     if TypeId::of::<T>() == data.type_id {
@@ -53,15 +53,15 @@ impl <'a, T: 'static> NapiTypeInternal<'a> for NapiExternal<'a, T> {
     }
   }
 
-  fn get_napi_handle(&self) -> &NapiHandle<'a> {
-    &self.handle
+  fn napi_handle(&self) -> napi::Handle<'a> {
+    self.handle
   }
 }
 
 // ===== EXTERNAL ==============================================================
 
-impl <T: 'static> NapiFrom<T> for NapiExternal<'_, T> {
-  fn napi_from(value: T, env: napi::Env) -> Self {
+impl <'a, T: 'static> NapiFrom<'a, T> for NapiExternal<'a, T> {
+  fn napi_from(value: T, env: napi::Env<'a>) -> Self {
     // Create the boxed data and leak it immediately
     let boxed = Box::new(value);
     let pointer = Box::into_raw(boxed);
@@ -71,8 +71,7 @@ impl <T: 'static> NapiFrom<T> for NapiExternal<'_, T> {
       pointer,
     };
 
-    let handle = napi::create_value_external(env, data);
-    Self { handle: NapiHandle::from_napi(env, handle), pointer }
+    Self { handle: env.create_value_external(data), pointer }
   }
 }
 

@@ -3,7 +3,7 @@ use super::*;
 use nodejs_sys::*;
 use std::mem::MaybeUninit;
 
-pub fn create_reference(env: Env, handle: Handle, initial: u32) -> Reference {
+pub fn create_reference(env: Env, handle: Value, initial: u32) -> Reference {
   unsafe {
     let mut result = MaybeUninit::<Reference>::zeroed();
     napi_check!(napi_create_reference, env, handle, initial, result.as_mut_ptr());

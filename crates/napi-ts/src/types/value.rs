@@ -9,22 +9,22 @@ use std::any::type_name;
 // ========================================================================== //
 
 pub enum NapiValue<'a> {
-  Bigint(NapiHandle<'a>),
-  Boolean(NapiHandle<'a>),
-  External(NapiHandle<'a>),
-  Function(NapiHandle<'a>),
-  Null(NapiHandle<'a>),
-  Number(NapiHandle<'a>),
-  Object(NapiHandle<'a>),
-  String(NapiHandle<'a>),
-  Symbol(NapiHandle<'a>),
-  Undefined(NapiHandle<'a>),
+  Bigint(napi::Handle<'a>),
+  Boolean(napi::Handle<'a>),
+  External(napi::Handle<'a>),
+  Function(napi::Handle<'a>),
+  Null(napi::Handle<'a>),
+  Number(napi::Handle<'a>),
+  Object(napi::Handle<'a>),
+  String(napi::Handle<'a>),
+  Symbol(napi::Handle<'a>),
+  Undefined(napi::Handle<'a>),
 }
 
 impl fmt::Debug for NapiValue<'_> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct(&format!("{}", self))
-      .field("@", &self.get_napi_handle().handle)
+      .field("@", &self.napi_handle())
       .finish()
   }
 }
@@ -51,8 +51,8 @@ impl fmt::Display for NapiValue<'_> {
 impl <'a> NapiType<'a> for NapiValue<'a> {}
 
 impl <'a> NapiTypeInternal<'a> for NapiValue<'a> {
-  fn from_napi_handle(handle: NapiHandle<'a>) -> Result<Self, NapiErr> {
-    let value_type = napi::type_of(handle.env, handle.handle);
+  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr> {
+    let value_type = handle.type_of();
     match value_type {
       nodejs_sys::napi_valuetype::napi_bigint => Ok(Self::Bigint(handle)),
       nodejs_sys::napi_valuetype::napi_boolean => Ok(Self::Boolean(handle)),
@@ -69,18 +69,18 @@ impl <'a> NapiTypeInternal<'a> for NapiValue<'a> {
     }
   }
 
-  fn get_napi_handle(&self) -> &NapiHandle<'a> {
+  fn napi_handle(&self) -> napi::Handle<'a> {
     match self {
-      Self::Bigint(handle) => handle,
-      Self::Boolean(handle) => handle,
-      Self::External(handle) => handle,
-      Self::Function(handle) => handle,
-      Self::Null(handle) => handle,
-      Self::Number(handle) => handle,
-      Self::Object(handle) => handle,
-      Self::String(handle) => handle,
-      Self::Symbol(handle) => handle,
-      Self::Undefined(handle) => handle,
+      Self::Bigint(handle) => *handle,
+      Self::Boolean(handle) => *handle,
+      Self::External(handle) => *handle,
+      Self::Function(handle) => *handle,
+      Self::Null(handle) => *handle,
+      Self::Number(handle) => *handle,
+      Self::Object(handle) => *handle,
+      Self::String(handle) => *handle,
+      Self::Symbol(handle) => *handle,
+      Self::Undefined(handle) => *handle,
     }
   }
 }
@@ -91,7 +91,7 @@ macro_rules! napi_type_from_value {
   ($struct:ident, $type:ident) => {
     impl <'a> From<$struct<'a>> for NapiValue<'a> {
       fn from (value: $struct<'a>) -> Self {
-        Self::$type(value.into_napi_handle())
+        Self::$type(value.napi_handle())
       }
     }
   };
@@ -111,7 +111,7 @@ napi_type_from_value!(NapiUndefined, Undefined);
 // External has its own rule for generics...
 impl <'a, T: 'static> From<NapiExternal<'a, T>> for NapiValue<'a> {
   fn from (value: NapiExternal<'a, T>) -> Self {
-    Self::External(value.into_napi_handle())
+    Self::External(value.napi_handle())
   }
 }
 
@@ -125,7 +125,7 @@ macro_rules! napi_value_try_from_type {
 
       fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
         match value {
-          NapiValue::$type(handle) => Ok($struct::from_napi_handle(handle)?),
+          NapiValue::$type(handle) => Ok($struct::from_napi_handle_unchecked(handle)),
           _ => Err(format!("Can't downcast {} into {:?}", value, type_name::<$struct>()).into()),
         }
       }

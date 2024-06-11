@@ -12,9 +12,9 @@ macro_rules! napi_init {
   ($initializer:expr) => {
     #[no_mangle]
     extern "C" fn napi_register_module_v1(
-      env: ::napi_ts::napi::Env,
-      exports: ::napi_ts::napi::Handle,
-    ) -> ::napi_ts::napi::Handle {
+      env: ::napi_ts::napi::nodejs_sys::napi_env,
+      exports: ::napi_ts::napi::nodejs_sys::napi_value,
+    ) -> ::napi_ts::napi::nodejs_sys::napi_value {
       ::napi_ts::init::register_module(env, exports, $initializer)
     }
   };

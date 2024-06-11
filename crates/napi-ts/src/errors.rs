@@ -1,6 +1,5 @@
 use core::fmt;
 use std::error::Error;
-use crate::napi;
 use crate::NapiType;
 
 // ========================================================================== //
@@ -8,12 +7,12 @@ use crate::NapiType;
 // ========================================================================== //
 
 pub struct NapiOk {
-  pub (crate) value: napi::Handle,
+  pub (crate) value: nodejs_sys::napi_value,
 }
 
 pub struct NapiErr {
   pub (crate) message: String,
-  pub (crate) value: Option<napi::Handle>,
+  pub (crate) value: Option<nodejs_sys::napi_value>,
 }
 
 impl fmt::Debug for NapiErr {
@@ -60,7 +59,7 @@ pub trait NapiIntoOk {
 
 impl <'a, T: NapiType<'a>> NapiIntoOk for T {
   fn ok(self) -> NapiResult {
-    Ok(NapiOk { value: self.get_napi_handle().handle })
+    Ok(NapiOk { value: self.napi_handle().value() })
   }
 }
 
@@ -74,7 +73,7 @@ impl <'a, T: NapiType<'a>> NapiIntoErr for T {
   fn into_err(self) -> NapiResult {
     Err(NapiErr {
       message: "JavaScript Error".to_string(),
-      value: Some(self.get_napi_handle().handle),
+      value: Some(self.napi_handle().value()),
     })
   }
 }

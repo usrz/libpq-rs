@@ -4,20 +4,19 @@ use crate::types::*;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-pub (crate) trait Env: Sized {
-  fn napi_env(&self) -> napi::Env;
+pub (crate) trait Env<'a>: Sized {
+  fn napi_env(&self) -> napi::Env<'a>;
 }
 
 // ===========================================
 
 #[allow(private_bounds)]
-pub trait NapiContext<'a>: Env + Sized
-where  {
-  fn bigint(&self, value: impl NapiInto<NapiBigint<'a>>) -> NapiBigint<'a> {
+pub trait NapiEnv<'a>: Env<'a> + Sized {
+  fn bigint<T: NapiInto<'a, NapiBigint<'a>>>(&self, value: T) -> NapiBigint<'a> {
     value.napi_into(self.napi_env())
   }
 
-  fn boolean(&self, value: impl NapiInto<NapiBoolean<'a>>) -> NapiBoolean<'a> {
+  fn boolean<T: NapiInto<'a, NapiBoolean<'a>>>(&self, value: T) -> NapiBoolean<'a> {
     value.napi_into(self.napi_env())
   }
 
@@ -25,11 +24,11 @@ where  {
     value.napi_into(self.napi_env())
   }
 
-  fn null(&self) -> NapiNull<'a> {
+  fn null(& self) -> NapiNull<'a> {
     ().napi_into(self.napi_env())
   }
 
-  fn number(&self, value: impl NapiInto<NapiNumber<'a>>) -> NapiNumber<'a> {
+  fn number<T: NapiInto<'a, NapiNumber<'a>>>(&self, value: T) -> NapiNumber<'a> {
     value.napi_into(self.napi_env())
   }
 
@@ -37,15 +36,22 @@ where  {
     ().napi_into(self.napi_env())
   }
 
-  fn string<S: AsRef<str>>(&self, value: S) -> NapiString<'a> {
+  fn string<T: AsRef<str>>(&self, value: T) -> NapiString<'a> {
     value.as_ref().napi_into(self.napi_env())
   }
 
-  fn symbol<S: AsRef<str>>(&self, value: Option<S>) -> NapiSymbol<'a> {
-    match value {
-      Some(desc) => Some(desc.as_ref()).napi_into(self.napi_env()),
-      None => None.napi_into(self.napi_env()),
-    }
+  fn symbol<T: AsRef<str>>(&self, value: Option<T>) -> NapiSymbol<'a> {
+    let symbol = Symbol::Symbol(match value {
+      Some(str) => Some(str.as_ref().to_string()),
+      None => None,
+    });
+
+    symbol.napi_into(self.napi_env())
+  }
+
+  fn symbol_for<T: AsRef<str>>(&self, value: T) -> NapiSymbol<'a> {
+    let symbol = Symbol::SymbolFor(value.as_ref().to_string());
+    symbol.napi_into(self.napi_env())
   }
 
   fn undefined(&self) -> NapiUndefined<'a> {
@@ -56,21 +62,21 @@ where  {
 // ===========================================
 
 #[derive(Debug)]
-pub struct MainContext<'a> {
+pub struct InitEnv<'a> {
   phantom: PhantomData<&'a mut ()>,
-  env: napi::Env,
+  env: napi::Env<'a>,
 }
 
-impl <'a> NapiContext<'a> for MainContext<'a> {}
-
-impl <'a> Env for MainContext<'_> {
-  fn napi_env(&self) -> napi::Env {
+impl <'a> Env<'a> for InitEnv<'a> {
+  fn napi_env(&self) -> napi::Env<'a> {
     self.env
   }
 }
 
-impl MainContext<'_> {
-  pub (crate) fn new(env: napi::Env) -> Self {
+impl <'a> NapiEnv<'a> for InitEnv<'a> {}
+
+impl <'a> InitEnv<'a> {
+  pub (crate) fn new(env: napi::Env<'a>) -> Self {
     Self { phantom: PhantomData, env }
   }
 }
