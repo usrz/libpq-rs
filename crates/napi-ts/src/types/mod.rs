@@ -28,11 +28,11 @@ use crate::NapiErr;
 
 // ===== CONVERSION ============================================================
 
-pub(crate) trait NapiFrom<'a, T>: Sized {
+pub (crate) trait NapiFrom<'a, T>: Sized {
   fn napi_from(value: T, env: napi::Env<'a>) -> Self;
 }
 
-pub(crate) trait NapiInto<'a, T>: Sized {
+pub (crate) trait NapiInto<'a, T>: Sized {
   fn napi_into(self, env: napi::Env<'a>) -> T;
 }
 
@@ -47,15 +47,6 @@ where
 
 // ===== TYPES =================================================================
 
-pub (crate) trait NapiTypeInternal<'a>: Sized {
-  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr>;
-
-  fn from_napi_handle_unchecked(handle: napi::Handle<'a>) -> Self {
-    Self::from_napi_handle(handle).unwrap()
-  }
-
+pub trait NapiType<'a>: Sized {
   fn napi_handle(&self) -> napi::Handle<'a>;
 }
-
-#[allow(private_bounds)]
-pub trait NapiType<'a>: Sized + NapiTypeInternal<'a> {}

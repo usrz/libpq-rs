@@ -56,14 +56,14 @@ impl Drop for NapiReference {
 }
 
 impl NapiReference {
-  pub(super) fn handle(&self) -> napi::Handle {
+  pub (super) fn handle(&self) -> napi::Handle {
     match self.value {
       None => panic!("Attempting to get handle from (pseudo) NapiReference"),
       Some((handle, _)) => handle,
     }
   }
 
-  pub(super) fn expect_uninit(&self) {
+  pub (super) fn expect_uninit(&self) {
     if self.value.is_some() {
       panic!("NapiReference already initialized")
     }

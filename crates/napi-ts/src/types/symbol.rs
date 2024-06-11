@@ -21,24 +21,24 @@ impl Debug for NapiSymbol<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiType<'a> for NapiSymbol<'a> {}
-
-impl <'a> NapiTypeInternal<'a> for NapiSymbol<'a> {
-  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr> {
-    handle.expect_type_of(napi::TypeOf::napi_symbol)
-      .map(|_| Self::from_napi_handle_unchecked(handle))
-  }
-
-  fn from_napi_handle_unchecked(handle: napi::Handle<'a>) -> Self {
-    Self { handle }
-  }
-
+impl <'a> NapiType<'a> for NapiSymbol<'a> {
   fn napi_handle(&self) -> napi::Handle<'a> {
     self.handle
   }
 }
 
-// ===== STRING ================================================================
+impl <'a> TryFrom<NapiValue<'a>> for NapiSymbol<'a> {
+  type Error = NapiErr;
+
+  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
+    match value {
+      NapiValue::Symbol(handle) => Ok(Self { handle }),
+      _ => Err(format!("Can't downcast {} into NapiSymbol", value).into()),
+    }
+  }
+}
+
+// ===== SYMBOL ================================================================
 
 impl <'a> NapiFrom<'a, Symbol> for NapiSymbol<'a> {
   fn napi_from(value: Symbol, env: napi::Env<'a>) -> Self {

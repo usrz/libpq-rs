@@ -16,21 +16,26 @@ impl Debug for NapiBigint<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiType<'a> for NapiBigint<'a> {}
-
-impl <'a> NapiTypeInternal<'a> for NapiBigint<'a> {
-  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr> {
-    handle.expect_type_of(napi::TypeOf::napi_bigint)
-      .map(|_| Self::from_napi_handle_unchecked(handle))
-  }
-
-  fn from_napi_handle_unchecked(handle: napi::Handle<'a>) -> Self {
-    let value = handle.get_value_bigint_words();
-    Self { handle, value }
-  }
-
+impl <'a> NapiType<'a> for NapiBigint<'a> {
   fn napi_handle(&self) -> napi::Handle<'a> {
     self.handle
+  }
+}
+
+impl <'a> TryFrom<NapiValue<'a>> for NapiBigint<'a> {
+  type Error = NapiErr;
+
+  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
+    match value {
+      NapiValue::Bigint(handle) => Ok(Self { handle, value: handle.get_value_bigint_words() }),
+      _ => Err(format!("Can't downcast {} into NapiBigint", value).into()),
+    }
+  }
+}
+
+impl <'a> NapiBigint<'a> {
+  pub fn value(&self) -> i128 {
+    self.value
   }
 }
 
@@ -95,13 +100,5 @@ impl <'a> NapiFrom<'a, i64> for NapiBigint<'a> {
 impl <'a> NapiFrom<'a, u64> for NapiBigint<'a> {
   fn napi_from(value: u64, env: napi::Env<'a>) -> Self {
     Self::napi_from(value as i128, env)
-  }
-}
-
-// ===== EXTRA METHODS =========================================================
-
-impl NapiBigint<'_> {
-  pub fn value(&self) -> i128 {
-    self.value
   }
 }

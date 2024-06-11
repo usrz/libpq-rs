@@ -16,21 +16,26 @@ impl Debug for NapiNumber<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiType<'a> for NapiNumber<'a> {}
-
-impl <'a> NapiTypeInternal<'a> for NapiNumber<'a> {
-  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr> {
-    handle.expect_type_of(napi::TypeOf::napi_number)
-      .map(|_| Self::from_napi_handle_unchecked(handle))
-  }
-
-  fn from_napi_handle_unchecked(handle: napi::Handle<'a>) -> Self {
-    let value = handle.get_value_double();
-    Self { handle, value }
-  }
-
+impl <'a> NapiType<'a> for NapiNumber<'a> {
   fn napi_handle(&self) -> napi::Handle<'a> {
     self.handle
+  }
+}
+
+impl <'a> TryFrom<NapiValue<'a>> for NapiNumber<'a> {
+  type Error = NapiErr;
+
+  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
+    match value {
+      NapiValue::Number(handle) => Ok(Self { handle, value: handle.get_value_double() }),
+      _ => Err(format!("Can't downcast {} into NapiBoolean", value).into()),
+    }
+  }
+}
+
+impl <'a> NapiNumber<'a> {
+  pub fn value(&self) -> f64 {
+    self.value
   }
 }
 
@@ -89,13 +94,5 @@ impl <'a> NapiFrom<'a, u32> for NapiNumber<'a> {
 impl <'a> NapiFrom<'a, f32> for NapiNumber<'a> {
   fn napi_from(value: f32, env: napi::Env<'a>) -> Self {
     Self::napi_from(value as f64, env)
-  }
-}
-
-// ===== EXTRA METHODS =========================================================
-
-impl NapiNumber<'_> {
-  pub fn value(&self) -> f64 {
-    self.value
   }
 }

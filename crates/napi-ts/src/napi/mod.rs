@@ -1,5 +1,6 @@
 use core::fmt;
 use std::marker::PhantomData;
+use std::os::raw;
 
 mod errors;
 mod externals;
@@ -11,9 +12,13 @@ pub type CallbackInfo = nodejs_sys::napi_callback_info;
 pub type Reference = nodejs_sys::napi_ref;
 pub type TypeOf = nodejs_sys::napi_valuetype;
 
+// =============================================================================
+
 pub trait Finalizable {
   fn finalize(self);
 }
+
+// =============================================================================
 
 #[derive(Clone, Copy)]
 pub struct Handle<'a> {
@@ -51,6 +56,8 @@ impl <'a> Handle<'a> {
   }
 }
 
+// =============================================================================
+
 #[derive(Clone, Copy)]
 pub struct Env<'a> {
   phantom: PhantomData<&'a ()>,
@@ -75,8 +82,21 @@ impl <'a> Env<'a> {
   }
 
   pub (crate) fn adopt(&self, handle: &Handle) -> Handle<'a> {
+    assert!(self.env == handle.env.env, "Attempting to adopt foreign handle");
     Handle { env: *self, value: handle.value }
   }
+}
+
+// =============================================================================
+
+// this doesn't seem to esist in "nodejs_sys"
+extern "C" {
+  fn node_api_symbol_for(
+    env: nodejs_sys::napi_env,
+    descr: *const raw::c_char,
+    length: usize,
+    result: *mut nodejs_sys::napi_value,
+  ) -> nodejs_sys::napi_status;
 }
 
 /// Call a NodeJS API returning a status and check it's OK or panic.
@@ -89,5 +109,5 @@ macro_rules! env_check {
   };
 }
 
-pub(self) use env_check;
+pub (self) use env_check;
 use crate::NapiErr;

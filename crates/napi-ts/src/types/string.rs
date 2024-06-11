@@ -16,21 +16,20 @@ impl Debug for NapiString<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiType<'a> for NapiString<'a> {}
-
-impl <'a> NapiTypeInternal<'a> for NapiString<'a> {
-  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr> {
-    handle.expect_type_of(napi::TypeOf::napi_string)
-      .map(|_| Self::from_napi_handle_unchecked(handle))
-  }
-
-  fn from_napi_handle_unchecked(handle: napi::Handle<'a>) -> Self {
-    let value = handle.get_value_string_utf8();
-    Self { handle, value }
-  }
-
+impl <'a> NapiType<'a> for NapiString<'a> {
   fn napi_handle(&self) -> napi::Handle<'a> {
     self.handle
+  }
+}
+
+impl <'a> TryFrom<NapiValue<'a>> for NapiString<'a> {
+  type Error = NapiErr;
+
+  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
+    match value {
+      NapiValue::String(handle) => Ok(Self { handle, value: handle.get_value_string_utf8() }),
+      _ => Err(format!("Can't downcast {} into NapiString", value).into()),
+    }
   }
 }
 
@@ -46,13 +45,5 @@ impl <'a> NapiFrom<'a, &str> for NapiString<'a> {
 impl Into<String> for NapiString<'_> {
   fn into(self) -> String {
     self.value
-  }
-}
-
-// ===== EXTRA METHODS =========================================================
-
-impl NapiString<'_> {
-  pub fn value(&self) -> String {
-    self.value.clone()
   }
 }

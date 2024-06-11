@@ -15,20 +15,20 @@ impl Debug for NapiNull<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiType<'a> for NapiNull<'a> {}
-
-impl <'a> NapiTypeInternal<'a> for NapiNull<'a> {
-  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr> {
-    handle.expect_type_of(napi::TypeOf::napi_null)
-      .map(|_| Self::from_napi_handle_unchecked(handle))
-  }
-
-  fn from_napi_handle_unchecked(handle: napi::Handle<'a>) -> Self {
-    Self { handle }
-  }
-
+impl <'a> NapiType<'a> for NapiNull<'a> {
   fn napi_handle(&self) -> napi::Handle<'a> {
     self.handle
+  }
+}
+
+impl <'a> TryFrom<NapiValue<'a>> for NapiNull<'a> {
+  type Error = NapiErr;
+
+  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
+    match value {
+      NapiValue::Null(handle) => Ok(Self { handle }),
+      _ => Err(format!("Can't downcast {} into NapiNull", value).into()),
+    }
   }
 }
 

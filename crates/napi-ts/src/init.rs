@@ -21,7 +21,7 @@ pub fn register_module(
   let panic = panic::catch_unwind(|| {
     let env = InitEnv::new(env);
     let handle = env.napi_env().handle(exports);
-    let exports = NapiObject::from_napi_handle_unchecked(handle);
+    let exports: NapiObject = NapiValue::from(handle).try_into()?;
     safe(env, exports)
   });
 

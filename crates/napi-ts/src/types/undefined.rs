@@ -15,22 +15,24 @@ impl Debug for NapiUndefined<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiType<'a> for NapiUndefined<'a> {}
-
-impl <'a> NapiTypeInternal<'a> for NapiUndefined<'a> {
-  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr> {
-    handle.expect_type_of(napi::TypeOf::napi_undefined)
-      .map(|_| Self::from_napi_handle_unchecked(handle))
-  }
-
-  fn from_napi_handle_unchecked(handle: napi::Handle<'a>) -> Self {
-    Self { handle }
-  }
-
+impl <'a> NapiType<'a> for NapiUndefined<'a> {
   fn napi_handle(&self) -> napi::Handle<'a> {
     self.handle
   }
 }
+
+impl <'a> TryFrom<NapiValue<'a>> for NapiUndefined<'a> {
+  type Error = NapiErr;
+
+  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
+    match value {
+      NapiValue::Undefined(handle) => Ok(Self { handle }),
+      _ => Err(format!("Can't downcast {} into NapiUndefined", value).into()),
+    }
+  }
+}
+
+
 // ===== UNDEFINED =============================================================
 
 impl <'a> NapiFrom<'a, ()> for NapiUndefined<'a> {

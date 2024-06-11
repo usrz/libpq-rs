@@ -1,7 +1,7 @@
 use crate::types::*;
 
 #[allow(private_bounds)]
-pub trait NapiProperties<'a>: NapiTypeInternal<'a> {
+pub trait NapiProperties<'a>: NapiType<'a> {
 
   fn get_property<K: AsRef<str>>(&self, key: K) -> NapiValue<'a> {
     let this = self.napi_handle();
@@ -10,7 +10,7 @@ pub trait NapiProperties<'a>: NapiTypeInternal<'a> {
     let key = env.create_string_utf8(key.as_ref());
     let handle = this.get_property(&key);
 
-    NapiValue::from_napi_handle(handle).unwrap()
+    NapiValue::from(env.adopt(&handle))
   }
 
   fn set_property<K: AsRef<str>, V: NapiType<'a>>(

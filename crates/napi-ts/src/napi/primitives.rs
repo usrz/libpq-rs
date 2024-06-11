@@ -5,17 +5,6 @@ use std::mem::MaybeUninit;
 use std::os::raw;
 use std::ptr;
 
-// this doesn't seem to esist in "nodejs_sys"
-extern "C" {
-  pub (super) fn node_api_symbol_for(
-    env: napi_env,
-    descr: *const raw::c_char,
-    length: usize,
-    result: *mut nodejs_sys::napi_value,
-  ) -> napi_status;
-}
-
-
 impl <'a> Env<'a> {
 
   pub fn type_of(&self, handle: &Handle) -> TypeOf {

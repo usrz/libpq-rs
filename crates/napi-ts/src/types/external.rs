@@ -37,11 +37,20 @@ impl <T: 'static> Debug for NapiExternal<'_, T> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a, T: 'static> NapiType<'a> for NapiExternal<'a, T> {}
+impl <'a, T: 'static> NapiType<'a> for NapiExternal<'a, T> {
+  fn napi_handle(&self) -> napi::Handle<'a> {
+    self.handle
+  }
+}
 
-impl <'a, T: 'static> NapiTypeInternal<'a> for NapiExternal<'a, T> {
-  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr> {
-    handle.expect_type_of(napi::TypeOf::napi_external)?;
+impl <'a, T: 'static> TryFrom<NapiValue<'a>> for NapiExternal<'a, T> {
+  type Error = NapiErr;
+
+  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
+    let handle = match value {
+      NapiValue::External(handle) => Ok::<napi::Handle, NapiErr>(handle),
+      _ => Err(format!("Can't downcast {} into NapiExternal", value).into()),
+    }?;
 
     let pointer = handle.get_value_external();
     let data = unsafe { &*(pointer as *mut NapiExtrnalData<T>) };
@@ -51,10 +60,6 @@ impl <'a, T: 'static> NapiTypeInternal<'a> for NapiExternal<'a, T> {
     } else {
       Err(format!("Unable to downcast external value to \"{}\"", type_name::<T>()).into())
     }
-  }
-
-  fn napi_handle(&self) -> napi::Handle<'a> {
-    self.handle
   }
 }
 

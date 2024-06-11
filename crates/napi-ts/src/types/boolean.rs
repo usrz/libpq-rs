@@ -16,21 +16,26 @@ impl Debug for NapiBoolean<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiType<'a> for NapiBoolean<'a> {}
-
-impl <'a> NapiTypeInternal<'a> for NapiBoolean<'a> {
-  fn from_napi_handle(handle: napi::Handle<'a>) -> Result<Self, NapiErr> {
-    handle.expect_type_of(napi::TypeOf::napi_boolean)
-      .map(|_| Self::from_napi_handle_unchecked(handle))
-  }
-
-  fn from_napi_handle_unchecked(handle: napi::Handle<'a>) -> Self {
-    let value = handle.get_value_bool();
-    Self { handle, value }
-  }
-
+impl <'a> NapiType<'a> for NapiBoolean<'a> {
   fn napi_handle(&self) -> napi::Handle<'a> {
     self.handle
+  }
+}
+
+impl <'a> TryFrom<NapiValue<'a>> for NapiBoolean<'a> {
+  type Error = NapiErr;
+
+  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
+    match value {
+      NapiValue::Boolean(handle) => Ok(Self { handle, value: handle.get_value_bool() }),
+      _ => Err(format!("Can't downcast {} into NapiBoolean", value).into()),
+    }
+  }
+}
+
+impl <'a> NapiBoolean<'a> {
+  pub fn value(&self) -> bool {
+    self.value
   }
 }
 
@@ -44,14 +49,6 @@ impl <'a> NapiFrom<'a, bool> for NapiBoolean<'a> {
 
 impl Into<bool> for NapiBoolean<'_> {
   fn into(self) -> bool {
-    self.value
-  }
-}
-
-// ===== EXTRA METHODS =========================================================
-
-impl NapiBoolean<'_> {
-  pub fn value(&self) -> bool {
     self.value
   }
 }
