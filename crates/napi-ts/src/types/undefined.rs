@@ -15,11 +15,7 @@ impl Debug for NapiUndefined<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiType<'a> for NapiUndefined<'a> {
-  fn napi_handle(&self) -> napi::Handle<'a> {
-    self.handle
-  }
-}
+napi_type!(NapiUndefined, Undefined);
 
 impl <'a> TryFrom<NapiValue<'a>> for NapiUndefined<'a> {
   type Error = NapiErr;

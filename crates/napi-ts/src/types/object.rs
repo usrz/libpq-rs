@@ -15,13 +15,9 @@ impl Debug for NapiObject<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiProperties<'a> for NapiObject<'a> {}
+napi_type!(NapiObject, Object);
 
-impl <'a> NapiType<'a> for NapiObject<'a> {
-  fn napi_handle(&self) -> napi::Handle<'a> {
-    self.handle
-  }
-}
+impl <'a> NapiProperties<'a> for NapiObject<'a> {}
 
 impl <'a> TryFrom<NapiValue<'a>> for NapiObject<'a> {
   type Error = NapiErr;

@@ -16,11 +16,7 @@ impl Debug for NapiBoolean<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiType<'a> for NapiBoolean<'a> {
-  fn napi_handle(&self) -> napi::Handle<'a> {
-    self.handle
-  }
-}
+napi_type!(NapiBoolean, Boolean);
 
 impl <'a> TryFrom<NapiValue<'a>> for NapiBoolean<'a> {
   type Error = NapiErr;

@@ -15,11 +15,7 @@ impl Debug for NapiNull<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiType<'a> for NapiNull<'a> {
-  fn napi_handle(&self) -> napi::Handle<'a> {
-    self.handle
-  }
-}
+napi_type!(NapiNull, Null);
 
 impl <'a> TryFrom<NapiValue<'a>> for NapiNull<'a> {
   type Error = NapiErr;

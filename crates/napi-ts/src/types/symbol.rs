@@ -21,11 +21,7 @@ impl Debug for NapiSymbol<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiType<'a> for NapiSymbol<'a> {
-  fn napi_handle(&self) -> napi::Handle<'a> {
-    self.handle
-  }
-}
+napi_type!(NapiSymbol, Symbol);
 
 impl <'a> TryFrom<NapiValue<'a>> for NapiSymbol<'a> {
   type Error = NapiErr;

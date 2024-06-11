@@ -37,11 +37,7 @@ impl <T: 'static> Debug for NapiExternal<'_, T> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a, T: 'static> NapiType<'a> for NapiExternal<'a, T> {
-  fn napi_handle(&self) -> napi::Handle<'a> {
-    self.handle
-  }
-}
+napi_type!(NapiExternal<T>, External);
 
 impl <'a, T: 'static> TryFrom<NapiValue<'a>> for NapiExternal<'a, T> {
   type Error = NapiErr;
@@ -54,6 +50,8 @@ impl <'a, T: 'static> TryFrom<NapiValue<'a>> for NapiExternal<'a, T> {
 
     let pointer = handle.get_value_external();
     let data = unsafe { &*(pointer as *mut NapiExtrnalData<T>) };
+
+    println!("EXTERNAL RESTORED FROM {:?}", pointer);
 
     if TypeId::of::<T>() == data.type_id {
       Ok(Self { handle, pointer: data.pointer })
@@ -70,6 +68,8 @@ impl <'a, T: 'static> NapiFrom<'a, T> for NapiExternal<'a, T> {
     // Create the boxed data and leak it immediately
     let boxed = Box::new(value);
     let pointer = Box::into_raw(boxed);
+
+    println!("EXTERNAL CREATED FROM {:?}", pointer);
 
     let data = NapiExtrnalData {
       type_id: TypeId::of::<T>(),

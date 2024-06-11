@@ -46,6 +46,18 @@ impl fmt::Display for NapiValue<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
+impl <'a> Into<NapiOk> for NapiValue<'a> {
+  fn into(self) -> NapiOk {
+    self.napi_handle().into()
+  }
+}
+
+impl <'a> Into<NapiErr> for NapiValue<'a> {
+  fn into(self) -> NapiErr {
+    self.napi_handle().into()
+  }
+}
+
 impl <'a> NapiType<'a> for NapiValue<'a> {
   fn napi_handle(&self) -> napi::Handle<'a> {
     match self {
@@ -80,34 +92,5 @@ impl <'a> From<napi::Handle<'a>> for NapiValue<'a> {
       #[allow(unreachable_patterns)] // this should *really* never happen...
       _ => panic!("Unsupported JavaScript type \"{:?}\"", value_type)
     }
-  }
-}
-
-// ===== FROM NAPITYPE -> NAPIVALUE ============================================
-
-macro_rules! napi_type_from_value {
-  ($struct:ident, $type:ident) => {
-    impl <'a> From<$struct<'a>> for NapiValue<'a> {
-      fn from (value: $struct<'a>) -> Self {
-        Self::$type(value.napi_handle())
-      }
-    }
-  };
-}
-
-napi_type_from_value!(NapiBigint, Bigint);
-napi_type_from_value!(NapiBoolean, Boolean);
-// napi_type_from_value!(NapiFunction, Function);
-napi_type_from_value!(NapiNull, Null);
-napi_type_from_value!(NapiNumber, Number);
-napi_type_from_value!(NapiObject, Object);
-napi_type_from_value!(NapiString, String);
-napi_type_from_value!(NapiSymbol, Symbol);
-napi_type_from_value!(NapiUndefined, Undefined);
-
-// External is generic, so I can't be fussed
-impl <'a, T: 'static> From<NapiExternal<'a, T>> for NapiValue<'a> {
-  fn from (value: NapiExternal<'a, T>) -> Self {
-    Self::External(value.napi_handle())
   }
 }

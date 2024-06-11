@@ -18,9 +18,9 @@ impl <'a> Env<'a> {
     }
   }
 
-  pub fn create_error(&self, message: String) -> Handle<'a> {
+  pub fn create_error(&self, message: &str) -> Handle<'a> {
     unsafe {
-      let message = self.create_string_utf8(&message);
+      let message = self.create_string_utf8(message);
 
       let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
       env_check!(

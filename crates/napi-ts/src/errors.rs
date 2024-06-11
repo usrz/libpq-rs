@@ -1,6 +1,12 @@
 use core::fmt;
-use std::error::Error;
-use crate::NapiType;
+use crate::napi;
+
+
+// ========================================================================== //
+// RESULT TYPE                                                                //
+// ========================================================================== //
+
+pub type NapiResult = Result<NapiOk, NapiErr>;
 
 // ========================================================================== //
 // "OK" TYPE => only holds the napi value pointer                             //
@@ -10,9 +16,27 @@ pub struct NapiOk {
   pub (crate) value: nodejs_sys::napi_value,
 }
 
+impl fmt::Debug for NapiOk {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_struct("NapiOk")
+      .field("@", &self.value)
+      .finish()
+  }
+}
+
+impl From<napi::Handle<'_>> for NapiOk {
+  fn from(handle: napi::Handle) -> Self {
+    Self { value: handle.value() }
+  }
+}
+
+// ========================================================================== //
+// "ERR" TYPE => holds an error message and an optional the napi value ptr    //
+// ========================================================================== //
+
 pub struct NapiErr {
-  pub (crate) message: String,
-  pub (crate) value: Option<nodejs_sys::napi_value>,
+  pub message: String,
+  pub value: Option<nodejs_sys::napi_value>,
 }
 
 impl fmt::Debug for NapiErr {
@@ -25,73 +49,28 @@ impl fmt::Debug for NapiErr {
   }
 }
 
-impl fmt::Display for NapiErr {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.write_str(&self.message)
+impl <T: AsRef<str>> From<T> for NapiErr {
+  fn from(value: T) -> Self {
+    Self {
+      message: value.as_ref().to_string(),
+      value: None,
+    }
   }
 }
 
-impl Error for NapiErr {}
-
-impl From<&str> for NapiErr {
-  fn from(value: &str) -> Self {
-    Self { message: value.to_string(), value: None }
-  }
-}
-
-impl From<String> for NapiErr {
-  fn from(value: String) -> Self {
-    Self { message: value.clone(), value: None }
-  }
-}
-
-// ========================================================================== //
-// RESULT TYPE                                                                //
-// ========================================================================== //
-
-pub type NapiResult = Result<NapiOk, NapiErr>;
-
-// ===== OK ================================================================= //
-
-pub trait NapiIntoOk {
-  fn ok(self) -> NapiResult;
-}
-
-impl <'a, T: NapiType<'a>> NapiIntoOk for T {
-  fn ok(self) -> NapiResult {
-    Ok(NapiOk { value: self.napi_handle().value() })
-  }
-}
-
-// ===== ERR ================================================================ //
-
-pub trait NapiIntoErr {
-  fn into_err(self) -> NapiResult;
-}
-
-impl <'a, T: NapiType<'a>> NapiIntoErr for T {
-  fn into_err(self) -> NapiResult {
-    Err(NapiErr {
+impl From<napi::Handle<'_>> for NapiErr {
+  fn from(handle: napi::Handle) -> Self {
+    Self {
       message: "JavaScript Error".to_string(),
-      value: Some(self.napi_handle().value()),
-    })
+      value: Some(handle.value()),
+    }
   }
 }
 
-impl NapiIntoErr for &str {
-  fn into_err(self) -> NapiResult {
-    Err(NapiErr {
-      message: self.to_string(),
-      value: None,
-    })
-  }
-}
-
-impl NapiIntoErr for String {
-  fn into_err(self) -> NapiResult {
-    Err(NapiErr {
-      message: self.clone(),
-      value: None,
-    })
+impl NapiErr {
+  pub (crate) fn throw(&self, env: napi::Env) {
+    env.handle(self.value.unwrap_or_else(|| {
+      env.create_error(&self.message).value()
+    })).throw();
   }
 }

@@ -1,4 +1,5 @@
 use crate::napi;
+use crate::errors::*;
 use std::fmt::Debug;
 
 mod bigint;
@@ -24,7 +25,6 @@ pub use string::*;
 pub use symbol::*;
 pub use undefined::*;
 pub use value::*;
-use crate::NapiErr;
 
 // ===== CONVERSION ============================================================
 
@@ -47,6 +47,40 @@ where
 
 // ===== TYPES =================================================================
 
-pub trait NapiType<'a>: Sized {
+pub trait NapiType<'a>: Into<NapiOk> + Into<NapiErr> + Sized {
   fn napi_handle(&self) -> napi::Handle<'a>;
 }
+
+macro_rules! napi_type {
+  (
+    $type:ident // The final type, e.g. NapiObject
+    $(< $($params:ident),+ >)?, // Any generic parameters without lifetime
+    $value:ident // The NapiValue type to associate with this
+  ) => {
+    impl <'a $(, $($params: 'static)?)?> NapiType<'a> for $type<'a $(, $($params)?)?> {
+      fn napi_handle(&self) -> napi::Handle<'a> {
+        self.handle
+      }
+    }
+
+    impl <'a $(, $($params: 'static)?)?> Into<NapiErr> for $type<'a $(, $($params)?)?> {
+      fn into(self) -> NapiErr {
+        self.napi_handle().into()
+      }
+    }
+
+    impl <'a $(, $($params: 'static)?)?> Into<NapiOk> for $type<'a $(, $($params)?)?> {
+      fn into(self) -> NapiOk {
+        self.napi_handle().into()
+      }
+    }
+
+    impl <'a $(, $($params: 'static)?)?> Into<NapiValue<'a>> for $type<'a $(, $($params)?)?> {
+      fn into (self) -> NapiValue<'a> {
+        NapiValue::$value(self.napi_handle())
+      }
+    }
+  };
+}
+
+pub (self) use napi_type;

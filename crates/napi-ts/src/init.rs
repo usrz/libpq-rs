@@ -42,9 +42,8 @@ pub fn register_module(
   match result {
     Ok(exports) => exports.value,
     Err(error) => {
-      let error = env.create_error(error.to_string());
-      env.throw(&error);
-      exports
-    }
+      error.throw(env);
+      env.get_undefined().value()
+    },
   }
 }

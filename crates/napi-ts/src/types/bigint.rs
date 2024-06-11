@@ -16,11 +16,7 @@ impl Debug for NapiBigint<'_> {
 
 // ===== NAPI::HANDLE CONVERSION ===============================================
 
-impl <'a> NapiType<'a> for NapiBigint<'a> {
-  fn napi_handle(&self) -> napi::Handle<'a> {
-    self.handle
-  }
-}
+napi_type!(NapiBigint, Bigint);
 
 impl <'a> TryFrom<NapiValue<'a>> for NapiBigint<'a> {
   type Error = NapiErr;
