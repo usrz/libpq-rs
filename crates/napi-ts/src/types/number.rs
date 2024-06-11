@@ -6,15 +6,7 @@ pub struct NapiNumber<'a> {
   value: f64,
 }
 
-impl Debug for NapiNumber<'_> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("NapiNumber")
-      .field("@", &self.handle)
-      .finish()
-  }
-}
-
-// ===== NAPI::HANDLE CONVERSION ===============================================
+// ===== NAPI TYPE BASICS ======================================================
 
 napi_type!(NapiNumber, Number);
 

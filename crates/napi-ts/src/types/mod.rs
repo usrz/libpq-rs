@@ -57,6 +57,14 @@ macro_rules! napi_type {
     $(< $($params:ident),+ >)?, // Any generic parameters without lifetime
     $value:ident // The NapiValue type to associate with this
   ) => {
+    impl $(<$($params: 'static)?>)? Debug for $type<'_ $(, $($params)?)?> {
+      fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct(stringify!($type))
+          .field("@", &self.handle.value())
+          .finish()
+      }
+    }
+
     impl <'a $(, $($params: 'static)?)?> NapiType<'a> for $type<'a $(, $($params)?)?> {
       fn napi_handle(&self) -> napi::Handle<'a> {
         self.handle

@@ -6,15 +6,7 @@ pub struct NapiBigint<'a> {
   value: i128,
 }
 
-impl Debug for NapiBigint<'_> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("NapiBigint")
-      .field("@", &self.handle)
-      .finish()
-  }
-}
-
-// ===== NAPI::HANDLE CONVERSION ===============================================
+// ===== NAPI TYPE BASICS ======================================================
 
 napi_type!(NapiBigint, Bigint);
 

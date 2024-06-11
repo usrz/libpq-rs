@@ -11,15 +11,7 @@ pub struct NapiSymbol<'a> {
   handle: napi::Handle<'a>,
 }
 
-impl Debug for NapiSymbol<'_> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("NapiSymbol")
-      .field("@", &self.handle)
-      .finish()
-  }
-}
-
-// ===== NAPI::HANDLE CONVERSION ===============================================
+// ===== NAPI TYPE BASICS ======================================================
 
 napi_type!(NapiSymbol, Symbol);
 

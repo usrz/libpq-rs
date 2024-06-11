@@ -6,15 +6,7 @@ pub struct NapiBoolean<'a> {
   value: bool,
 }
 
-impl Debug for NapiBoolean<'_> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("NapiBoolean")
-      .field("@", &self.handle)
-      .finish()
-  }
-}
-
-// ===== NAPI::HANDLE CONVERSION ===============================================
+// ===== NAPI TYPE BASICS ======================================================
 
 napi_type!(NapiBoolean, Boolean);
 

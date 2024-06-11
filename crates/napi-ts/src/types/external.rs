@@ -26,16 +26,7 @@ pub struct NapiExternal<'a, T: 'static> {
   pointer: *mut T, // this is the pointer to the data we boxed
 }
 
-impl <T: 'static> Debug for NapiExternal<'_, T> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    let name = format!("NapiExternal<{}>", type_name::<T>());
-    f.debug_struct(&name)
-      .field("@", &self.pointer)
-      .finish()
-  }
-}
-
-// ===== NAPI::HANDLE CONVERSION ===============================================
+// ===== NAPI TYPE BASICS ======================================================
 
 napi_type!(NapiExternal<T>, External);
 

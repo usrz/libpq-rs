@@ -6,15 +6,7 @@ pub struct NapiString<'a> {
   value: String,
 }
 
-impl Debug for NapiString<'_> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("NapiString")
-      .field("@", &self.handle)
-      .finish()
-  }
-}
-
-// ===== NAPI::HANDLE CONVERSION ===============================================
+// ===== NAPI TYPE BASICS ======================================================
 
 napi_type!(NapiString, String);
 
