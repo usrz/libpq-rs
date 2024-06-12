@@ -2,7 +2,7 @@
 use crate::napi;
 use crate::types::*;
 
-pub (crate) enum Symbol {
+pub (crate) enum NapiSymbolInternal {
   Symbol(Option<String>),
   SymbolFor(String),
 }
@@ -28,12 +28,12 @@ impl <'a> TryFrom<NapiValue<'a>> for NapiSymbol<'a> {
 
 // ===== SYMBOL ================================================================
 
-impl <'a> NapiFrom<'a, Symbol> for NapiSymbol<'a> {
-  fn napi_from(value: Symbol, env: napi::Env<'a>) -> Self {
+impl <'a> NapiFrom<'a, NapiSymbolInternal> for NapiSymbol<'a> {
+  fn napi_from(value: NapiSymbolInternal, env: napi::Env<'a>) -> Self {
     Self {
       handle: match value {
-        Symbol::SymbolFor(description) => env.symbol_for(&description),
-        Symbol::Symbol(description) => {
+        NapiSymbolInternal::SymbolFor(description) => env.symbol_for(&description),
+        NapiSymbolInternal::Symbol(description) => {
           match description {
             Some(description) => env.create_symbol(Some(&description)),
             None => env.create_symbol(None),
@@ -53,7 +53,7 @@ impl NapiSymbol<'_> {
     let value = env.get_property(&self.handle, &key);
 
     match self.handle.env().type_of(&value) {
-      napi::TypeOf::napi_string => Some(env.get_value_string_utf8(&value)),
+      napi::TypeOf::String => Some(env.get_value_string_utf8(&value)),
       _ => None,
     }
   }

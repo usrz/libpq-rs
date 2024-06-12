@@ -76,7 +76,7 @@ pub trait NapiProperties<'a>: NapiType<'a> {
   fn set_property_symbol<K: AsRef<str>, V: AsRef<str>>(
     &self, key: K, value: Option<V>
   ) -> &Self {
-    let symbol = Symbol::Symbol(match value {
+    let symbol = NapiSymbolInternal::Symbol(match value {
       Some(str) => Some(str.as_ref().to_string()),
       None => None,
     });
@@ -88,7 +88,7 @@ pub trait NapiProperties<'a>: NapiType<'a> {
   fn set_property_symbol_for<K: AsRef<str>, V: AsRef<str>>(
     &self, key: K, value: V
   ) -> &Self {
-    let symbol = Symbol::SymbolFor(value.as_ref().to_string());
+    let symbol = NapiSymbolInternal::SymbolFor(value.as_ref().to_string());
 
     let value: NapiSymbol = symbol.napi_into(self.napi_handle().env());
     self.set_property(key, &value)

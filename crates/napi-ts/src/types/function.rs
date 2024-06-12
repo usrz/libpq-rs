@@ -1,69 +1,56 @@
-use crate::errors::*;
 use crate::napi;
 use crate::types::*;
+use crate::context::Context;
+use std::marker::PhantomData;
 
-#[derive(Clone)]
-pub struct NapiFunction {
-  reference: NapiReference,
+pub (crate) struct NapiFunctionInternal<'a, F>
+where
+  F: Fn(Context, NapiValue, Vec<NapiValue>) -> NapiResult + 'static
+{
+  pub (crate) phantom: PhantomData<&'a mut ()>,
+  pub (crate) name: Option<String>,
+  pub (crate) function: F
 }
 
-impl Debug for NapiFunction {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    f.debug_struct("NapiFunction")
-      .field("@", &self.reference.handle())
-      .finish()
+pub struct NapiFunction<'a> {
+  handle: napi::Handle<'a>,
+}
+
+// ===== NAPI TYPE BASICS ======================================================
+
+napi_type!(NapiFunction, Function);
+
+impl <'a> TryFrom<NapiValue<'a>> for NapiFunction<'a> {
+  type Error = NapiErr;
+
+  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
+    match value {
+      NapiValue::Function(handle) => Ok(Self { handle }),
+      _ => Err(format!("Can't downcast {} into NapiFunction", value).into()),
+    }
   }
 }
 
-impl NapiShape for NapiFunction {}
+// ===== FUNCTION ==============================================================
 
-impl NapiShapeInternal for NapiFunction {
-  fn into_napi_value(self) -> napi::Handle {
-    self.reference.handle()
-  }
-
-  fn from_napi_value(handle: napi::Handle) -> Self {
-    napi::expect_type_of(handle, napi::TypeOf::napi_function);
-    Self { reference: handle.into() }
-  }
-}
-
-impl NapiFunction {
-  pub fn new<F>(callback: F) -> Self
-  where
-    F: Fn(NapiValue, Vec<NapiValue>) -> NapiResult<NapiReturn> + Send + 'static,
-  {
-    Self::named("", callback)
-  }
-
-  pub fn named<F>(name: &str, callback: F) -> Self
-  where
-    F: Fn(NapiValue, Vec<NapiValue>) -> NapiResult<NapiReturn> + Send + 'static,
-  {
-    let handle = napi::create_function(name, move |this, args| {
-      let this = NapiValue::from(this);
+impl <'a, F> NapiFrom<'a, NapiFunctionInternal<'a, F>> for NapiFunction<'a>
+where
+  F: Fn(Context, NapiValue, Vec<NapiValue>) -> NapiResult + 'static
+{
+  fn napi_from(function: NapiFunctionInternal<'a, F>, env: napi::Env<'a>) -> Self {
+    let handle = env.create_function(function.name, move |env, this, args| {
+      let env = Context::new(env);
+      let this: NapiValue = this.into();
       let args: Vec<NapiValue> = args
-        .into_iter()
-        .map(|value| NapiValue::from(value))
+        .iter()
+        .map(|handle| (*handle).into())
         .collect();
 
-      callback(this, args).map(|ret| ret.into())
+      let foo = (function.function)(env, this, args);
+      println!("{:?}", foo);
+      foo
     });
 
-    Self::from_napi_value(handle)
-  }
-
-  pub fn call(&self, args: &[impl NapiShape]) -> NapiResult<NapiReturn> {
-    self.call_with(&NapiNull::new(), args)
-  }
-
-  pub fn call_with(&self, this: &impl NapiShape, args: &[impl NapiShape]) -> NapiResult<NapiReturn> {
-    let args = args
-      .into_iter()
-      .map(|value| value.clone().into_napi_value())
-      .collect();
-
-    napi::call_function(this.clone().into_napi_value(), self.reference.handle(), args)
-      .map(|value| value.into())
+    Self { handle }
   }
 }

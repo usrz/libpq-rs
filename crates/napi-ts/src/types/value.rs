@@ -79,18 +79,16 @@ impl <'a> From<napi::Handle<'a>> for NapiValue<'a> {
   fn from(handle: napi::Handle<'a>) -> Self {
     let value_type = handle.type_of();
     match value_type {
-      nodejs_sys::napi_valuetype::napi_bigint => Self::Bigint(handle),
-      nodejs_sys::napi_valuetype::napi_boolean => Self::Boolean(handle),
-      nodejs_sys::napi_valuetype::napi_external => Self::External(handle),
-      nodejs_sys::napi_valuetype::napi_function => Self::Function(handle),
-      nodejs_sys::napi_valuetype::napi_null => Self::Null(handle),
-      nodejs_sys::napi_valuetype::napi_number => Self::Number(handle),
-      nodejs_sys::napi_valuetype::napi_object => Self::Object(handle),
-      nodejs_sys::napi_valuetype::napi_string => Self::String(handle),
-      nodejs_sys::napi_valuetype::napi_symbol => Self::Symbol(handle),
-      nodejs_sys::napi_valuetype::napi_undefined => Self::Undefined(handle),
-      #[allow(unreachable_patterns)] // this should *really* never happen...
-      _ => panic!("Unsupported JavaScript type \"{:?}\"", value_type)
+      napi::TypeOf::Bigint => Self::Bigint(handle),
+      napi::TypeOf::Boolean => Self::Boolean(handle),
+      napi::TypeOf::External => Self::External(handle),
+      napi::TypeOf::Function => Self::Function(handle),
+      napi::TypeOf::Null => Self::Null(handle),
+      napi::TypeOf::Number => Self::Number(handle),
+      napi::TypeOf::Object => Self::Object(handle),
+      napi::TypeOf::String => Self::String(handle),
+      napi::TypeOf::Symbol => Self::Symbol(handle),
+      napi::TypeOf::Undefined => Self::Undefined(handle),
     }
   }
 }

@@ -9,14 +9,14 @@ impl <'a> Env<'a> {
 
   pub fn type_of(&self, handle: &Handle) -> TypeOf {
     unsafe {
-      let mut result = MaybeUninit::<TypeOf>::zeroed();
+      let mut result = MaybeUninit::<napi_valuetype>::zeroed();
       env_check!(
         napi_typeof,
         self,
         handle.value,
         result.as_mut_ptr()
       );
-      result.assume_init()
+      result.assume_init().into()
     }
   }
 
@@ -266,6 +266,10 @@ impl <'a> Env<'a> {
 }
 
 impl <'a> Handle<'a> {
+  pub fn type_of(&self) -> TypeOf {
+    self.env.type_of(self)
+  }
+
   pub fn coerce_to_string(&self) -> String {
     self.env.coerce_to_string(self)
   }

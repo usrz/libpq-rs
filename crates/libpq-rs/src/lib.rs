@@ -3,7 +3,7 @@
 use napi_ts::*;
 
 use ffi::to_string_lossy;
-use context::NapiEnv;
+use context::Context;
 pub mod connection;
 pub mod conninfo;
 pub mod debug;
@@ -54,33 +54,35 @@ struct Foobar {
 
 unsafe impl Send for Foobar { }
 
-
-
 napi_ts::napi_init!(|env, exports| {
   println!("Initializing...");
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
   let ext: NapiValue = env.external(Foobar { s: "Hello, string".to_owned() }).into();
-  // let ext2: NapiExternal<Foobar> = ext.try_into()?;
+
+  let foo = env.function(move |env, this, args| {
+    // println!("{:?} {:?}", ext, "foo");
+    Ok(this.into())
+  });
 
   exports
     .set_property_string("openssl_version", openssl_version())
     .set_property_string("libpq_version", libpq_version())
     .set_property_boolean("libpq_threadsafe", libpq_threadsafe())
     .set_property_external("foobar", Foobar { s: "Hello, string".to_owned() })
-    .set_property("another", &ext)
+    .set_property("foo", &foo)
+    // .set_property("another", &ext)
   ;
-
-
 
   let blurb = Blurb {};
 
   blurb.call(move || {
-    // println!("{:?} {:?}", ext2, "foo");
+    // println!("{:?} {:?}", ext, "foo");
   });
 
-  exports.ok()
+  // exports.ok()
+  Ok(exports.into())
 });
 
 struct Blurb {}

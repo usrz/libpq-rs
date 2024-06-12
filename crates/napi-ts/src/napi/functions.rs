@@ -22,7 +22,7 @@ use std::ptr;
 /// retrieved we'll find a pointer to this structure...
 struct CallbackWrapper<F>
 where
-  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
+  F: Fn(Env, Handle, Vec<Handle>) -> NapiResult + 'static
 {
   type_id: TypeId,
   function: *mut F,
@@ -30,17 +30,17 @@ where
 
 impl <F> CallbackWrapper<F>
 where
-  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
+  F: Fn(Env, Handle, Vec<Handle>) -> NapiResult + 'static
 {
-  fn call(&self, this: Handle, args: Vec<Handle>) -> NapiResult<Handle> {
+  fn call(&self, env: Env, this: Handle, args: Vec<Handle>) -> NapiResult {
     let cb = unsafe { &* { self.function }};
-    cb(this, args)
+    cb(env, this, args)
   }
 }
 
 impl <F> Finalizable for CallbackWrapper<F>
 where
-  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
+  F: Fn(Env, Handle, Vec<Handle>) -> NapiResult + 'static
 {
   fn finalize(self) {
     drop(unsafe { Box::from_raw(self.function) });
@@ -51,78 +51,19 @@ where
 // TRAMPOLINE                                                                 //
 // ========================================================================== //
 
-extern "C" fn callback_trampoline<F>(env: napi_env, info: napi_callback_info) -> Handle
+extern "C" fn callback_trampoline<F>(env: napi_env, info: napi_callback_info) -> napi_value
 where
-  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
+  F: Fn(Env, Handle, Vec<Handle>) -> NapiResult + 'static
 {
-  let env = Napi::new(env);
-
-  // Call up our initialization function with exports wrapped in a NapiObject
-  // and unwrap the result into a simple "napi_value" (the pointer)
-  let panic = panic::catch_unwind(|| {
-    let callback = get_cb_info::<F>(info);
-    callback.call()
-  });
-
-  // See if the initialization panicked
-  let result = panic.unwrap_or_else(|error| {
-    if let Some(message) = error.downcast_ref::<&str>() {
-      Err(NapiError::from(format!("PANIC: {}", message)))
-    } else if let Some(message) = error.downcast_ref::<String>() {
-      Err(NapiError::from(format!("PANIC: {}", message)))
-    } else {
-      Err(NapiError::from("PANIC: Unknown error".to_owned()))
-    }
-  });
-
-  // When we get here, we dealt with possible panic situations, now we have
-  // a result, which (if OK) will hold the napi_value to return to node or
-  // (if ERR) will contain a NapiError to throw before returning
-  if let Err(error) = result {
-    throw(error.into());
-  }
-
-  // All done...
-  drop(env);
-  return ptr::null_mut()
-}
-
-// ========================================================================== //
-// PUBLIC FACING                                                              //
-// ========================================================================== //
-
-pub struct Callback<F>
-where
-  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
-{
-  this: Handle,
-  args: Vec<Handle>,
-  wrapper: &'static CallbackWrapper<F>,
-}
-
-impl <F> Callback<F>
-where
-  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
-{
-  pub fn call(self) -> NapiResult<Handle> {
-    self.wrapper.call(self.this, self.args)
-  }
-}
-
-// ========================================================================== //
-
-pub fn get_cb_info<F>(info: CallbackInfo) -> Callback<F>
-where
-  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
-{
-  unsafe {
+  Env::exec(env, |env| unsafe {
     let mut argc = MaybeUninit::<usize>::zeroed();
-    let mut this = MaybeUninit::<Handle>::zeroed();
+    let mut this = MaybeUninit::<napi_value>::zeroed();
     let mut data = MaybeUninit::<*mut raw::c_void>::zeroed();
 
     // Figure out arguments count, "this" and our data (NapiCallbackWrapper)
-    napi_check!(
+    env_check!(
       napi_get_cb_info,
+      env,
       info,
       argc.as_mut_ptr(), // number of arguments in the call
       ptr::null_mut(), // we'll read arguments later
@@ -135,8 +76,9 @@ where
       true => vec![], // no args
       false => {
         let mut argv = vec![ptr::null_mut(); argc.assume_init()];
-        napi_check!(
+        env_check!(
           napi_get_cb_info,
+          env,
           info,
           argc.as_mut_ptr(), // nuber of arguments to read
           argv.as_mut_ptr(), // pointer to the *actual* arguments
@@ -153,84 +95,114 @@ where
 
     // Triple check that the type IDs of what's in memory, and of what we're
     // being called on match, if so, good, otherwise panic
-    match TypeId::of::<F>() == wrapper.type_id {
-      false => panic!("Mismatched type id in callback from function {}", type_name::<F>()),
-      true => Callback { this: this.assume_init(), args, wrapper },
-    }
-  }
-}
-
-type CallbackTrampoline = unsafe extern "C" fn(env: napi_env, info: napi_callback_info) -> Handle;
-
-pub fn create_function<F>(name: &str, function: F) -> Handle
-where
-  F: Fn(Handle, Vec<Handle>) -> NapiResult<Handle> + Sized + 'static
-{
-  // Box up the callback function and immediately leak it
-  let boxed_function = Box::new(function);
-  let pointer_function = Box::into_raw(boxed_function);
-
-  // Get a hold on our trampoline's pointer (and erase its type!)
-  let trampoline = callback_trampoline::<F>;
-  let trampoline: CallbackTrampoline = unsafe { mem::transmute(trampoline as *mut ()) };
-
-  // Create a callback wrapper with some safety for types
-  let wrapper = CallbackWrapper {
-    function: pointer_function,
-    type_id: TypeId::of::<F>(),
-  };
-
-  // Once again box-and-leak the wrapper... This will be the *data* passed
-  // in the CallbackInfo structure when we get called...
-  let boxed_wrapper = Box::new(wrapper);
-  let pointer_wrapper = Box::into_raw(boxed_wrapper);
-
-  // Send everything off to NodeJS...
-  unsafe {
-    let mut result = MaybeUninit::<Handle>::zeroed();
-    napi_check!(
-      napi_create_function,
-      name.as_ptr() as *const raw::c_char,
-      name.len(),
-      Some(trampoline),
-      pointer_wrapper as *mut raw::c_void,
-      result.as_mut_ptr()
-    );
-
-    // Get the "napi_value" that NodeJS returned
-    let handle = result.assume_init();
-
-    // Add a finalizer that will drop *both* wrapper and function (it can be
-    // a closure, it may have variables moved to it)
-    add_finalizer(handle, pointer_wrapper);
-
-    // Done and return the handle
-    handle
-  }
-}
-
-pub fn call_function(env: Env, this: Handle, function: Handle, args: Vec<Handle>) -> Result<Handle, Handle> {
-  unsafe {
-    let mut result = MaybeUninit::<Handle>::zeroed();
-
-    // Call the function
-    napi_call_function(
-      Napi::env(),
-      this,
-      function,
-      args.len(),
-      args.as_ptr(),
-      result.as_mut_ptr(),
-    );
-
-    // If there's no pending exception fron NodeJS, then all is good
-    if ! is_exception_pending() {
-      return Ok(result.assume_init())
+    if TypeId::of::<F>() != wrapper.type_id {
+      return Err(format!("Mismatched type id in callback {}", type_name::<F>()).into())
     }
 
-    // There's a pending exception, wrap into a NapiError and err the result
-    let mut error = MaybeUninit::<Handle>::zeroed();
-    napi_get_and_clear_last_exception(Napi::env(), error.as_mut_ptr());
-    Err(error.assume_init())
+    let this = env.handle(this.assume_init());
+    let args: Vec<Handle> = args
+        .into_iter()
+        .map(|value| env.handle(value))
+        .collect();
+
+    wrapper.call(env, this, args)
+  })
+}
+
+// ========================================================================== //
+// PUBLIC FACING                                                              //
+// ========================================================================== //
+
+impl <'a> Env<'a> {
+  pub fn create_function<'b: 'a, F>(&self, name: Option<String>, function: F) -> Handle<'a>
+  where
+    F: Fn(Env, Handle, Vec<Handle>) -> NapiResult + 'static
+  {
+    // See if this function is named or anonymous
+    let (name, name_len) = match name {
+      Some(name) => (name.as_ptr(), name.len()),
+      None => (ptr::null(), 0),
+    };
+
+    // Box up the callback function and immediately leak it
+    let boxed_function = Box::new(function);
+    let pointer_function = Box::into_raw(boxed_function);
+
+    // Create a callback wrapper with some safety for types
+    let wrapper = CallbackWrapper::<F> {
+      function: pointer_function,
+      type_id: TypeId::of::<F>(),
+    };
+
+    // Once again box-and-leak the wrapper... This will be the *data* passed
+    // in the CallbackInfo structure when we get called...
+    let boxed_wrapper = Box::new(wrapper);
+    let pointer_wrapper = Box::into_raw(boxed_wrapper);
+
+    // Get a hold on our trampoline's pointer (and erase its type!)
+    let trampoline = callback_trampoline::<F>;
+    let trampoline: nodejs_sys::napi_callback = unsafe { mem::transmute(trampoline as *mut ()) };
+
+    // Send everything off to NodeJS...
+    unsafe {
+      let mut result = MaybeUninit::<napi_value>::zeroed();
+      env_check!(
+        napi_create_function,
+        self,
+        name as *const raw::c_char,
+        name_len,
+        trampoline,
+        pointer_wrapper as *mut raw::c_void,
+        result.as_mut_ptr()
+      );
+
+      // Get the "napi_value" that NodeJS returned
+      let handle = self.handle(result.assume_init());
+
+      // Add a finalizer that will drop *both* wrapper and function (it can be
+      // a closure, it may have variables moved to it)
+      self.add_finalizer(&handle, pointer_wrapper);
+
+      // Done and return the handle
+      handle
+    }
+  }
+
+  pub fn call_function(&self, this: &Handle, function: &Handle, args: Vec<&Handle>) -> Result<Handle<'a>, Handle<'a>> {
+    unsafe {
+      let mut result = MaybeUninit::<napi_value>::zeroed();
+
+      let args: Vec<nodejs_sys::napi_value> = args
+          .into_iter()
+          .map(|handle| handle.value)
+          .collect::<Vec<napi_value>>();
+
+      // Call the function
+      env_check!(
+        napi_call_function,
+        self,
+        this.value,
+        function.value,
+        args.len(),
+        args.as_ptr(),
+        result.as_mut_ptr()
+      );
+
+      // If there's no pending exception fron NodeJS, then all is good
+      if ! self.is_exception_pending() {
+        return Ok(self.handle(result.assume_init()))
+      }
+
+      // There's a pending exception, wrap into a NapiError and err the result
+      let mut error = MaybeUninit::<napi_value>::zeroed();
+
+      env_check!(
+        napi_get_and_clear_last_exception,
+        self,
+        error.as_mut_ptr()
+      );
+
+      Err(self.handle(error.assume_init()))
+    }
   }
 }

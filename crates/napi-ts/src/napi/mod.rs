@@ -1,18 +1,53 @@
-use core::fmt;
+use crate::NapiErr;
+use crate::NapiResult;
+use std::fmt;
 use std::marker::PhantomData;
 use std::os::raw;
+use std::panic::AssertUnwindSafe;
+use std::panic;
 
 mod errors;
 mod externals;
+mod functions;
 mod objects;
 mod primitives;
 
 pub use nodejs_sys;
-pub type CallbackInfo = nodejs_sys::napi_callback_info;
-pub type Reference = nodejs_sys::napi_ref;
-pub type TypeOf = nodejs_sys::napi_valuetype;
 
 // =============================================================================
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TypeOf {
+  Undefined,
+  Null,
+  Boolean,
+  Number,
+  String,
+  Symbol,
+  Object,
+  Function,
+  External,
+  Bigint,
+}
+
+impl From<nodejs_sys::napi_valuetype> for TypeOf {
+  fn from(value: nodejs_sys::napi_valuetype) -> Self {
+    match value {
+      nodejs_sys::napi_valuetype::napi_undefined => Self::Undefined,
+      nodejs_sys::napi_valuetype::napi_null => Self::Null,
+      nodejs_sys::napi_valuetype::napi_boolean => Self::Boolean,
+      nodejs_sys::napi_valuetype::napi_number => Self::Number,
+      nodejs_sys::napi_valuetype::napi_string => Self::String,
+      nodejs_sys::napi_valuetype::napi_symbol => Self::Symbol,
+      nodejs_sys::napi_valuetype::napi_object => Self::Object,
+      nodejs_sys::napi_valuetype::napi_function => Self::Function,
+      nodejs_sys::napi_valuetype::napi_external => Self::External,
+      nodejs_sys::napi_valuetype::napi_bigint => Self::Bigint,
+      #[allow(unreachable_patterns)] // this should *really* never happen...
+      _ => panic!("Unsupported JavaScript type \"{:?}\"", value)
+    }
+  }
+}
 
 pub trait Finalizable {
   fn finalize(self);
@@ -39,11 +74,7 @@ impl <'a> Handle<'a> {
     self.env
   }
 
-  pub fn type_of(&self) -> TypeOf {
-    self.env.type_of(self)
-  }
-
-  pub fn expect_type_of(& self, expected: TypeOf) -> Result<(), NapiErr> {
+  pub fn expect_type_of(&self, expected: TypeOf) -> Result<(), NapiErr> {
     let actual = self.type_of();
     match actual == expected {
       false => Err(format!("Expected type {:?}, actual {:?}", expected, actual).into()),
@@ -73,10 +104,6 @@ impl fmt::Debug for Env<'_> {
 }
 
 impl <'a> Env<'a> {
-  pub (crate) fn new(env: nodejs_sys::napi_env) -> Self {
-    Self { phantom: PhantomData, env }
-  }
-
   pub (crate) fn handle(&self, value: nodejs_sys::napi_value) -> Handle<'a> {
     Handle { env: *self, value }
   }
@@ -84,6 +111,43 @@ impl <'a> Env<'a> {
   pub (crate) fn adopt(&self, handle: &Handle) -> Handle<'a> {
     assert!(self.env == handle.env.env, "Attempting to adopt foreign handle");
     Handle { env: *self, value: handle.value }
+  }
+
+  pub (crate) fn exec<F>(env: nodejs_sys::napi_env, callback: F) -> nodejs_sys::napi_value
+  where
+    F: Fn(Env) -> NapiResult
+  {
+
+    let env = Env { phantom: PhantomData, env };
+    let callback = AssertUnwindSafe(callback);
+
+    // Call up our initialization function with exports wrapped in a NapiObject
+    // and unwrap the result into a simple "napi_value" (the pointer)
+    let panic = panic::catch_unwind(|| {
+      callback(env)
+    });
+
+    // See if the initialization panicked
+    let result = panic.unwrap_or_else(|error| {
+      if let Some(message) = error.downcast_ref::<&str>() {
+        Err(format!("PANIC: {}", message).into())
+      } else if let Some(message) = error.downcast_ref::<String>() {
+        Err(format!("PANIC: {}", message).into())
+      } else {
+        Err("PANIC: Unknown error".into())
+      }
+    });
+
+    // When we get here, we dealt with possible panic situations, now we have
+    // a result, which (if OK) will hold the napi_value to return to node or
+    // (if ERR) will contain a NapiError to throw before returning
+    match result {
+      Ok(exports) => exports.value,
+      Err(error) => {
+        error.throw(env);
+        env.get_undefined().value()
+      },
+    }
   }
 }
 
@@ -110,4 +174,3 @@ macro_rules! env_check {
 }
 
 pub (self) use env_check;
-use crate::NapiErr;
