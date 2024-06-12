@@ -10,6 +10,7 @@ pub fn register_module(
 ) -> nodejs_sys::napi_value {
   napi::Env::exec(env, |env| {
     let init_env = Context::new(env);
+    println!("{:?}", init_env);
     let handle = env.handle(exports);
     let exports: NapiObject = NapiValue::from(handle).try_into()?;
     init(init_env, exports)

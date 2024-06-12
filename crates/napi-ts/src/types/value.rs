@@ -22,7 +22,7 @@ pub enum NapiValue<'a> {
 impl fmt::Debug for NapiValue<'_> {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct(&format!("{}", self))
-      .field("@", &self.napi_handle().value())
+      .field("@", &self.napi_handle().ptr())
       .finish()
   }
 }

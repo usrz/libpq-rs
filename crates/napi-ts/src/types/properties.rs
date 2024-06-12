@@ -8,9 +8,9 @@ pub trait NapiProperties<'a>: NapiType<'a> {
     let env = this.env();
 
     let key = env.create_string_utf8(key.as_ref());
-    let handle = this.get_property(&key);
+    let handle = env.get_property(&this, &key);
 
-    NapiValue::from(env.adopt(&handle))
+    NapiValue::from(handle)
   }
 
   fn set_property<K: AsRef<str>, V: NapiType<'a>>(

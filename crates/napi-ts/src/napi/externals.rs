@@ -1,26 +1,21 @@
 use super::*;
 
 use nodejs_sys::*;
-use std::mem::MaybeUninit;
-use std::mem;
-use std::os::raw;
 use std::any::Any;
+use std::mem::MaybeUninit;
+use std::os::raw;
 use std::ptr;
 
 // ========================================================================== //
 // TRAMPOLINE                                                                 //
 // ========================================================================== //
 
+/// Our finalizer trampoline, invoked by NodeJS and calling the `finalize()`
+/// function on a [`Finalizable`].
+///
 extern "C" fn finalizer_trampoline<T: Finalizable>(_: napi_env, data: *mut raw::c_void, _: *mut raw::c_void) {
   unsafe { Box::from_raw(data as *mut T) }.finalize();
 }
-
-type FinalizerTrampoline =
-  unsafe extern "C" fn(
-    env: napi_env,
-    finalize_data: *mut raw::c_void,
-    finalize_hint: *mut raw::c_void,
-  );
 
 // ========================================================================== //
 // PUBLIC FACING                                                              //
@@ -30,9 +25,8 @@ impl <'a> Env<'a> {
 
   pub fn add_finalizer<T: Finalizable>(&self, handle: &Handle, data: *mut T) {
     unsafe {
-      // Get a hold on our trampoline's pointer (and erase its type!)
+      // Get a hold on our trampoline's pointer
       let trampoline = finalizer_trampoline::<T>;
-      let trampoline: FinalizerTrampoline = mem::transmute(trampoline as *mut ());
 
       env_check!(
         napi_add_finalizer,
@@ -52,9 +46,8 @@ impl <'a> Env<'a> {
       let boxed = Box::new(data);
       let pointer = Box::into_raw(boxed);
 
-      // Get a hold on our trampoline's pointer (and erase its type!)
+      // Get a hold on our trampoline's pointer
       let trampoline = finalizer_trampoline::<T>;
-      let trampoline: FinalizerTrampoline = mem::transmute(trampoline as *mut ());
 
       // Handle for our external data
       let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
@@ -88,10 +81,6 @@ impl <'a> Env<'a> {
 }
 
 impl <'a> Handle<'a> {
-  pub fn add_finalizer<T: Finalizable>(&self, data: *mut T) {
-    self.env.add_finalizer(self, data)
-  }
-
   pub fn get_value_external(&self) -> *mut dyn Any {
     self.env.get_value_external(self)
   }

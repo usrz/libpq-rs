@@ -62,7 +62,7 @@ macro_rules! napi_type {
     impl $(<$($params: 'static)?>)? Debug for $type<'_ $(, $($params)?)?> {
       fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct(stringify!($type))
-          .field("@", &self.handle.value())
+          .field("@", &self.handle.ptr())
           .finish()
       }
     }

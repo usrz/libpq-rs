@@ -1,5 +1,4 @@
-use crate::NapiErr;
-use crate::NapiResult;
+use crate::*;
 use std::fmt;
 use std::marker::PhantomData;
 use std::os::raw;
@@ -17,21 +16,37 @@ pub use nodejs_sys;
 
 // =============================================================================
 
+/// Wrap the concept of a _JavaScript Type_ as given to us by NodeJS.
+///
+/// See [`napi_valuetype`](https://nodejs.org/api/n-api.html#napi_valuetype)
+///
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TypeOf {
+  /// The JavaScript constant `undefined`.
   Undefined,
+  /// The JavaScript constant `null`.
   Null,
+  /// The JavaScript type `boolean`.
   Boolean,
+  /// The JavaScript type `number`.
   Number,
+  /// The JavaScript type `string`.
   String,
+  /// The JavaScript type `symbol`.
   Symbol,
+  /// The JavaScript type `object`.
   Object,
+  /// The JavaScript type `function`.
   Function,
+  /// Indicates a native object provided to NodeJS.
   External,
+  /// The JavaScript type `bigint`.
   Bigint,
 }
 
 impl From<napi_valuetype> for TypeOf {
+  /// Create a [`TypeOf`] from a NodeJS [`napi_valuetype`].
+  ///
   fn from(value: napi_valuetype) -> Self {
     match value {
       napi_valuetype::napi_undefined => Self::Undefined,
@@ -50,46 +65,24 @@ impl From<napi_valuetype> for TypeOf {
   }
 }
 
+// =============================================================================
+
+/// A trait defining a callback from NodeJS indicating that the value
+/// associated with this was garbage collected.
+///
+/// See [`napi_finalize`](https://nodejs.org/api/n-api.html#napi_finalize)
+///
 pub trait Finalizable {
   fn finalize(self);
 }
 
 // =============================================================================
 
-#[derive(Clone, Copy)]
-pub struct Handle<'a> {
-  env: Env<'a>,
-  value: napi_value,
-}
-
-impl fmt::Debug for Handle<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-      f.debug_struct("Handle")
-        .field("@", &self.value)
-        .finish()
-  }
-}
-
-impl <'a> Handle<'a> {
-  pub fn env(&self) -> Env<'a> {
-    self.env
-  }
-
-  pub fn expect_type_of(&self, expected: TypeOf) -> Result<(), NapiErr> {
-    let actual = self.type_of();
-    match actual == expected {
-      false => Err(format!("Expected type {:?}, actual {:?}", expected, actual).into()),
-      true => Ok(())
-    }
-  }
-
-  pub (crate) fn value(&self) -> napi_value {
-    self.value
-  }
-}
-
-// =============================================================================
-
+/// A wrapper around NodeJS's own `napi_env`, _"a context that can be used to
+/// persist VM-specific state"_.
+///
+/// See [`napi_env`](https://nodejs.org/api/n-api.html#napi_env)
+///
 #[derive(Clone, Copy)]
 pub struct Env<'a> {
   phantom: PhantomData<&'a ()>,
@@ -105,20 +98,36 @@ impl fmt::Debug for Env<'_> {
 }
 
 impl <'a> Env<'a> {
+  /// The pointer of the [`napi_env`], for debugging.
+  ///
+  pub (crate) fn ptr(&self) -> *mut () {
+    self.env as *mut ()
+  }
+
+  /// Wrap a [`napi_value`] pointer and associate it with this [`Env`].
+  ///
   pub (crate) fn handle(&self, value: napi_value) -> Handle<'a> {
     Handle { env: *self, value }
   }
 
-  pub (crate) fn adopt(&self, handle: &Handle) -> Handle<'a> {
-    assert!(self.env == handle.env.env, "Attempting to adopt foreign handle");
-    Handle { env: *self, value: handle.value }
-  }
-
+  /// Execute a callback from NodeJS.
+  ///
+  /// This is our main entry point for all calls from NodeJS into Rust. It
+  /// will take care of preparing an [`Env`] instance, and passing it to the
+  /// callback.
+  ///
+  /// The callback's [`NapiResult`] will be used to either return a value to
+  /// NodeJS or throw an exception. Also panics will be unwinded and thrown
+  /// as JavaScript errors into the node environment.
+  ///
+  /// If an exception can not be thrown, the process will be terminated by
+  /// [`napi_fatal_error`](https://nodejs.org/api/n-api.html#napi_fatal_error).
+  ///
   pub (crate) fn exec<F>(env: napi_env, callback: F) -> napi_value
   where
     F: Fn(Env) -> NapiResult
   {
-
+    // Create our Env and assert the callback to be unwind safe
     let env = Env { phantom: PhantomData, env };
     let callback = AssertUnwindSafe(callback);
 
@@ -146,7 +155,7 @@ impl <'a> Env<'a> {
       Ok(exports) => exports.value,
       Err(error) => {
         error.throw(env);
-        env.get_undefined().value()
+        env.get_undefined().ptr()
       },
     }
   }
@@ -154,7 +163,43 @@ impl <'a> Env<'a> {
 
 // =============================================================================
 
-// this doesn't seem to esist in "nodejs_sys"
+/// A wrapper around NodeJS's own `napi_value`, _"an opaque pointer that is
+/// used to represent a JavaScript value."_.
+///
+/// See [`napi_value`](https://nodejs.org/api/n-api.html#napi_value)
+///
+#[derive(Clone, Copy)]
+pub struct Handle<'a> {
+  env: Env<'a>,
+  value: napi_value,
+}
+
+impl fmt::Debug for Handle<'_> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+      f.debug_struct("Handle")
+        .field("@", &self.value)
+        .finish()
+  }
+}
+
+impl <'a> Handle<'a> {
+  /// The pointer of the [`napi_env`], for debugging or converting to a
+  /// [`NapiOk`] or [`NapiErr`].
+  ///
+  pub (crate) fn ptr(&self) -> napi_value {
+    self.value
+  }
+
+  /// Return the [`Env`] associated with this [`Handle`].
+  ///
+  pub (crate) fn env(&self) -> Env<'a> {
+    self.env
+  }
+}
+
+// =============================================================================
+
+// This doesn't seem to esist in "nodejs_sys"
 extern "C" {
   fn node_api_symbol_for(
     env: napi_env,

@@ -52,8 +52,4 @@ impl <'a> Handle<'a> {
   pub fn set_property(&self, key: &Handle, value: &Handle) {
     self.env.set_property(self, key, value)
   }
-
-  pub fn get_property(&'a self, key: &Handle) -> Handle<'a> {
-    self.env.get_property(self, key)
-  }
 }

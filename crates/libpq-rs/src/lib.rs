@@ -83,6 +83,7 @@ napi_ts::napi_init!(|env, exports| {
 
   // exports.ok()
   Ok(exports.into())
+  // Err("Shuster!".into())
 });
 
 struct Blurb {}

@@ -24,9 +24,15 @@ impl fmt::Debug for NapiOk {
   }
 }
 
+impl Into<nodejs_sys::napi_value> for NapiOk {
+  fn into(self) -> nodejs_sys::napi_value {
+    self.value
+  }
+}
+
 impl From<napi::Handle<'_>> for NapiOk {
   fn from(handle: napi::Handle) -> Self {
-    Self { value: handle.value() }
+    Self { value: handle.ptr() }
   }
 }
 
@@ -62,15 +68,17 @@ impl From<napi::Handle<'_>> for NapiErr {
   fn from(handle: napi::Handle) -> Self {
     Self {
       message: "JavaScript Error".to_string(),
-      value: Some(handle.value()),
+      value: Some(handle.ptr()),
     }
   }
 }
 
 impl NapiErr {
   pub (crate) fn throw(&self, env: napi::Env) {
-    env.handle(self.value.unwrap_or_else(|| {
-      env.create_error(&self.message).value()
-    })).throw();
+    let error = env.handle(self.value.unwrap_or_else(|| {
+      env.create_error(&self.message).ptr()
+    }));
+
+    env.throw(error)
   }
 }

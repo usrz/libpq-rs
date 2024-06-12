@@ -5,9 +5,15 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use crate::NapiResult;
 
-#[derive(Debug)]
 pub struct Context<'a> {
   env: napi::Env<'a>,
+}
+
+impl Debug for Context<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f.debug_struct("Context")
+      .field("@", &self.env.ptr()).finish()
+  }
 }
 
 #[allow(private_bounds)]
