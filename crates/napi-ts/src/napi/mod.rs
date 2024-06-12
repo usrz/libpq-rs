@@ -78,6 +78,10 @@ pub trait Finalizable {
 
 // =============================================================================
 
+thread_local! {
+  static NAPI_ENV: Cell<nodejs_sys::napi_env> = Cell::new(ptr::null_mut());
+}
+
 /// A wrapper around NodeJS's own `napi_env`, _"a context that can be used to
 /// persist VM-specific state"_.
 ///
@@ -98,6 +102,17 @@ impl fmt::Debug for Env<'_> {
 }
 
 impl <'a> Env<'a> {
+  /// Return an [`Env`] bound to this thread _(a thread local)_.
+  ///
+  pub (self) fn local<'b>() -> Env<'a>
+  where
+    'a: 'b
+  {
+    let env = NAPI_ENV.get();
+    assert_ne!(env, ptr::null_mut(), "NAPI Environment not bound to current thread");
+    Env { phantom: PhantomData, env }
+  }
+
   /// The pointer of the [`napi_env`], for debugging.
   ///
   pub (crate) fn ptr(&self) -> *mut () {
@@ -127,6 +142,12 @@ impl <'a> Env<'a> {
   where
     F: Fn(Env) -> NapiResult
   {
+    // Contextualize ourselves in the *current* thread... There can only
+    // be one "napi_env" at a time in a single thread, and since we're supposed
+    // to be fully reentrant, this shouldn't create any problems...
+    let old = NAPI_ENV.replace(env);
+    println!(">>> ENTER >>> old={:?} new={:?}", old, env);
+
     // Create our Env and assert the callback to be unwind safe
     let env = Env { phantom: PhantomData, env };
     let callback = AssertUnwindSafe(callback);
@@ -151,13 +172,21 @@ impl <'a> Env<'a> {
     // When we get here, we dealt with possible panic situations, now we have
     // a result, which (if OK) will hold the napi_value to return to node or
     // (if ERR) will contain a NapiError to throw before returning
-    match result {
+    let value = match result {
       Ok(exports) => exports.value,
       Err(error) => {
         error.throw(env);
         env.get_undefined().ptr()
       },
-    }
+    };
+
+    // Return the old "napi_env" into the thread local. This allows to have
+    // nested calls Node->Rust->Node->Rust ... without fail.
+    NAPI_ENV.set(old);
+    println!(">>> EXIT >>> new={:?} old={:?} ", env, old);
+
+    // Return our value
+    value
   }
 }
 
@@ -199,6 +228,45 @@ impl <'a> Handle<'a> {
 
 // =============================================================================
 
+pub struct Reference {
+  value: nodejs_sys::napi_ref,
+}
+
+impl fmt::Debug for Reference {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    f
+      .debug_struct("Reference")
+      .field("@", &self.value)
+      .finish()
+  }
+}
+
+impl Clone for Reference {
+  fn clone(&self) -> Self {
+    let env = Env::local();
+    unsafe { env_check!(napi_reference_ref, env, self.value, ptr::null_mut()) };
+    Self { value: self.value }
+  }
+}
+
+impl Drop for Reference {
+  fn drop(&mut self) {
+    let env = Env::local();
+
+    unsafe {
+      let mut result = MaybeUninit::<u32>::zeroed();
+      env_check!(napi_reference_unref, env, self.value, result.as_mut_ptr());
+      let count = result.assume_init();
+
+      if count == 0 {
+        env_check!(napi_delete_reference, env, self.value);
+      }
+    };
+  }
+}
+
+// =============================================================================
+
 // This doesn't seem to esist in "nodejs_sys"
 extern "C" {
   fn node_api_symbol_for(
@@ -220,3 +288,6 @@ macro_rules! env_check {
 }
 
 pub (self) use env_check;
+use std::cell::Cell;
+use std::ptr;
+use std::mem::MaybeUninit;

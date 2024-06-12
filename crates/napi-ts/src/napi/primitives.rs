@@ -266,7 +266,7 @@ impl <'a> Env<'a> {
 }
 
 impl <'a> Handle<'a> {
-  pub fn type_of(&self) -> TypeOf {
+  pub (crate) fn type_of(&self) -> TypeOf {
     self.env.type_of(self)
   }
 

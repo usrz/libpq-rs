@@ -59,10 +59,14 @@ napi_ts::napi_init!(|env, exports| {
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
-  let ext: NapiValue = env.external(Foobar { s: "Hello, string".to_owned() }).into();
+  let ext = env.external(Foobar { s: "Hello, string".to_owned() });
+  let rrr = ext.reference();
+  let r22 = rrr.clone();
+  // let st1 = env.string("shuster");
+  // let st2 = NapiString::new();
 
   let foo = env.function(move |env, this, args| {
-    // println!("{:?} {:?}", ext, "foo");
+    println!("{:?} {:?}", rrr, "foo");
     Ok(this.into())
   });
 

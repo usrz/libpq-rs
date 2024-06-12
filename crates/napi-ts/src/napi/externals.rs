@@ -13,8 +13,11 @@ use std::ptr;
 /// Our finalizer trampoline, invoked by NodeJS and calling the `finalize()`
 /// function on a [`Finalizable`].
 ///
-extern "C" fn finalizer_trampoline<T: Finalizable>(_: napi_env, data: *mut raw::c_void, _: *mut raw::c_void) {
-  unsafe { Box::from_raw(data as *mut T) }.finalize();
+extern "C" fn finalizer_trampoline<T: Finalizable>(env: napi_env, data: *mut raw::c_void, _: *mut raw::c_void) {
+  Env::exec(env, |env| unsafe {
+    Box::from_raw(data as *mut T).finalize();
+    Ok(env.get_undefined().into())
+  });
 }
 
 // ========================================================================== //
@@ -78,10 +81,30 @@ impl <'a> Env<'a> {
       result.assume_init()
     }
   }
+
+  pub fn create_reference(&self, handle: &Handle) -> Reference {
+    unsafe {
+      let mut result = MaybeUninit::<napi_ref>::zeroed();
+      env_check!(napi_create_reference, self, handle.ptr(), 1, result.as_mut_ptr());
+      Reference { value: result.assume_init() }
+    }
+  }
+
+  pub fn get_reference_value(&self, reference: Reference) -> Handle<'a> {
+    unsafe {
+      let mut result = MaybeUninit::<napi_value>::zeroed();
+      env_check!(napi_get_reference_value, self, reference.value, result.as_mut_ptr());
+      self.handle(result.assume_init())
+    }
+  }
 }
 
 impl <'a> Handle<'a> {
   pub fn get_value_external(&self) -> *mut dyn Any {
     self.env.get_value_external(self)
+  }
+
+  pub fn create_reference(&self) -> Reference {
+    self.env.create_reference(&self)
   }
 }

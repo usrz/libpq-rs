@@ -5,6 +5,7 @@ use std::any::type_name;
 use std::ops::Deref;
 use std::any::TypeId;
 use crate::napi::Finalizable;
+use crate::napi::Reference;
 
 struct NapiExtrnalData<T: 'static> {
   type_id: TypeId,
@@ -78,5 +79,11 @@ impl <'a, T: 'static> Deref for NapiExternal<'a, T> {
 
   fn deref(&self) -> &Self::Target {
     unsafe { &*self.pointer }
+  }
+}
+
+impl <'a, T: 'static> NapiExternal<'a, T> {
+  pub fn reference(&self) -> Reference {
+    self.handle.env().create_reference(&self.handle)
   }
 }
