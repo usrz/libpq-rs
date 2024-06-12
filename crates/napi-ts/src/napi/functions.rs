@@ -141,7 +141,7 @@ impl <'a> Env<'a> {
 
     // Get a hold on our trampoline's pointer (and erase its type!)
     let trampoline = callback_trampoline::<F>;
-    let trampoline: nodejs_sys::napi_callback = unsafe { mem::transmute(trampoline as *mut ()) };
+    let trampoline: napi_callback = unsafe { mem::transmute(trampoline as *mut ()) };
 
     // Send everything off to NodeJS...
     unsafe {
@@ -172,7 +172,7 @@ impl <'a> Env<'a> {
     unsafe {
       let mut result = MaybeUninit::<napi_value>::zeroed();
 
-      let args: Vec<nodejs_sys::napi_value> = args
+      let args: Vec<napi_value> = args
           .into_iter()
           .map(|handle| handle.value)
           .collect::<Vec<napi_value>>();

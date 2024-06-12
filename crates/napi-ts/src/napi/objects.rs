@@ -7,7 +7,7 @@ impl <'a> Env<'a> {
 
   pub fn create_object(&self) -> Handle<'a> {
     unsafe {
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
         napi_create_object,
         self,
@@ -35,7 +35,7 @@ impl <'a> Env<'a> {
 
   pub fn get_property(&self, object: &Handle, key: &Handle) -> Handle<'a> {
     unsafe {
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
         napi_get_property,
         self,

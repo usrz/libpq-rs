@@ -22,7 +22,7 @@ impl <'a> Env<'a> {
 
   pub fn coerce_to_string(&self, handle: &Handle) -> String {
     unsafe {
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
         napi_coerce_to_string,
         self,
@@ -45,7 +45,7 @@ impl <'a> Env<'a> {
     };
 
     unsafe {
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
         napi_create_bigint_words,
         self,
@@ -97,7 +97,7 @@ impl <'a> Env<'a> {
 
   pub fn get_boolean(&self, value: bool) -> Handle<'a> {
     unsafe {
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
         napi_get_boolean,
         self,
@@ -127,7 +127,7 @@ impl <'a> Env<'a> {
 
   pub fn get_null(&self) -> Handle<'a> {
     unsafe {
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
         napi_get_null,
         self,
@@ -142,7 +142,7 @@ impl <'a> Env<'a> {
 
   pub fn create_double(&self, value: f64) -> Handle<'a> {
     unsafe {
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
         napi_create_double,
         self,
@@ -172,7 +172,7 @@ impl <'a> Env<'a> {
 
   pub fn create_string_utf8(&self, value: &str) -> Handle<'a> {
     unsafe {
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
         napi_create_string_utf8,
         self,
@@ -226,7 +226,7 @@ impl <'a> Env<'a> {
     };
 
     unsafe {
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
         napi_create_symbol,
         self,
@@ -240,7 +240,7 @@ impl <'a> Env<'a> {
 
   pub fn symbol_for(&self, description: &str) -> Handle<'a> {
     unsafe {
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
 
       env_check!(
         node_api_symbol_for,
@@ -258,7 +258,7 @@ impl <'a> Env<'a> {
 
   pub fn get_undefined(&self) -> Handle<'a> {
     unsafe {
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(napi_get_undefined, self, result.as_mut_ptr());
       Handle { env: *self, value: result.assume_init() }
     }

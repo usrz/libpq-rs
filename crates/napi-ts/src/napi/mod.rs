@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 use std::os::raw;
 use std::panic::AssertUnwindSafe;
 use std::panic;
+use nodejs_sys::*;
 
 mod errors;
 mod externals;
@@ -30,19 +31,19 @@ pub enum TypeOf {
   Bigint,
 }
 
-impl From<nodejs_sys::napi_valuetype> for TypeOf {
-  fn from(value: nodejs_sys::napi_valuetype) -> Self {
+impl From<napi_valuetype> for TypeOf {
+  fn from(value: napi_valuetype) -> Self {
     match value {
-      nodejs_sys::napi_valuetype::napi_undefined => Self::Undefined,
-      nodejs_sys::napi_valuetype::napi_null => Self::Null,
-      nodejs_sys::napi_valuetype::napi_boolean => Self::Boolean,
-      nodejs_sys::napi_valuetype::napi_number => Self::Number,
-      nodejs_sys::napi_valuetype::napi_string => Self::String,
-      nodejs_sys::napi_valuetype::napi_symbol => Self::Symbol,
-      nodejs_sys::napi_valuetype::napi_object => Self::Object,
-      nodejs_sys::napi_valuetype::napi_function => Self::Function,
-      nodejs_sys::napi_valuetype::napi_external => Self::External,
-      nodejs_sys::napi_valuetype::napi_bigint => Self::Bigint,
+      napi_valuetype::napi_undefined => Self::Undefined,
+      napi_valuetype::napi_null => Self::Null,
+      napi_valuetype::napi_boolean => Self::Boolean,
+      napi_valuetype::napi_number => Self::Number,
+      napi_valuetype::napi_string => Self::String,
+      napi_valuetype::napi_symbol => Self::Symbol,
+      napi_valuetype::napi_object => Self::Object,
+      napi_valuetype::napi_function => Self::Function,
+      napi_valuetype::napi_external => Self::External,
+      napi_valuetype::napi_bigint => Self::Bigint,
       #[allow(unreachable_patterns)] // this should *really* never happen...
       _ => panic!("Unsupported JavaScript type \"{:?}\"", value)
     }
@@ -58,7 +59,7 @@ pub trait Finalizable {
 #[derive(Clone, Copy)]
 pub struct Handle<'a> {
   env: Env<'a>,
-  value: nodejs_sys::napi_value,
+  value: napi_value,
 }
 
 impl fmt::Debug for Handle<'_> {
@@ -82,7 +83,7 @@ impl <'a> Handle<'a> {
     }
   }
 
-  pub (crate) fn value(&self) -> nodejs_sys::napi_value {
+  pub (crate) fn value(&self) -> napi_value {
     self.value
   }
 }
@@ -92,7 +93,7 @@ impl <'a> Handle<'a> {
 #[derive(Clone, Copy)]
 pub struct Env<'a> {
   phantom: PhantomData<&'a ()>,
-  env: nodejs_sys::napi_env,
+  env: napi_env,
 }
 
 impl fmt::Debug for Env<'_> {
@@ -104,7 +105,7 @@ impl fmt::Debug for Env<'_> {
 }
 
 impl <'a> Env<'a> {
-  pub (crate) fn handle(&self, value: nodejs_sys::napi_value) -> Handle<'a> {
+  pub (crate) fn handle(&self, value: napi_value) -> Handle<'a> {
     Handle { env: *self, value }
   }
 
@@ -113,7 +114,7 @@ impl <'a> Env<'a> {
     Handle { env: *self, value: handle.value }
   }
 
-  pub (crate) fn exec<F>(env: nodejs_sys::napi_env, callback: F) -> nodejs_sys::napi_value
+  pub (crate) fn exec<F>(env: napi_env, callback: F) -> napi_value
   where
     F: Fn(Env) -> NapiResult
   {
@@ -156,18 +157,18 @@ impl <'a> Env<'a> {
 // this doesn't seem to esist in "nodejs_sys"
 extern "C" {
   fn node_api_symbol_for(
-    env: nodejs_sys::napi_env,
+    env: napi_env,
     descr: *const raw::c_char,
     length: usize,
-    result: *mut nodejs_sys::napi_value,
-  ) -> nodejs_sys::napi_status;
+    result: *mut napi_value,
+  ) -> napi_status;
 }
 
 /// Call a NodeJS API returning a status and check it's OK or panic.
 macro_rules! env_check {
   ($syscall:ident, $self:ident, $($args:expr), +) => {
     match { $syscall($self.env, $($args),+) } {
-      nodejs_sys::napi_status::napi_ok => (),
+      napi_status::napi_ok => (),
       status => panic!("Error calling \"{}\": {:?}", stringify!($syscall), status),
     }
   };

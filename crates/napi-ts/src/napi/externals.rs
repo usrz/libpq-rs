@@ -57,7 +57,7 @@ impl <'a> Env<'a> {
       let trampoline: FinalizerTrampoline = mem::transmute(trampoline as *mut ());
 
       // Handle for our external data
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
 
       // Create the external
       env_check!(

@@ -22,7 +22,7 @@ impl <'a> Env<'a> {
     unsafe {
       let message = self.create_string_utf8(message);
 
-      let mut result: MaybeUninit<nodejs_sys::napi_value> = MaybeUninit::zeroed();
+      let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
         napi_create_error,
         self,
@@ -44,7 +44,7 @@ impl <'a> Env<'a> {
 
       let location = format!("{} line {}", file!(), line!());
       let message = format!("Error throwing (status={:?})", status);
-      nodejs_sys::napi_fatal_error(
+      napi_fatal_error(
         location.as_ptr() as *const raw::c_char,
         location.len(),
         message.as_ptr() as *const raw::c_char,
