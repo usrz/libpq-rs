@@ -16,25 +16,29 @@ pub trait NapiProperties<'a>: NapiRefInternal {
 
   fn set_property_bigint<K: AsRef<str>, V: Into<i128>>(&self, key: K, value: V) -> &Self {
     let value = NapiBigint::new(self.napi_env(), value.into());
-    self.set_property(&key, &value.as_napi_ref())
+    self.set_property(key, &value.as_napi_ref())
   }
 
   fn set_property_boolean<K: AsRef<str>, V: Into<bool>>(&self, key: K, value: V) -> &Self {
     let value = NapiBoolean::new(self.napi_env(), value.into());
-    self.set_property(&key, &value.as_napi_ref())
+    self.set_property(key, &value.as_napi_ref())
   }
 
-  // fn set_property_external<K: AsRef<str>, V: 'static>(
+  fn set_property_external<K: AsRef<str>, T: 'static>(&self, key: K, data: T) -> &Self {
+    let value = NapiExternal::new(self.napi_env(), data);
+    self.set_property(key, &value.as_napi_ref())
+  }
+
   // fn set_property_function<K: AsRef<str>, V: 'static>(
 
   fn set_property_null<K: AsRef<str>>(&self, key: K) -> &Self {
     let value = NapiNull::new(self.napi_env());
-    self.set_property(&key, &value.as_napi_ref())
+    self.set_property(key, &value.as_napi_ref())
   }
 
   fn set_property_number<K: AsRef<str>, V: Into<f64>>(&self, key: K, value: V) -> &Self {
     let value = NapiNumber::new(self.napi_env(), value.into());
-    self.set_property(&key, &value.as_napi_ref())
+    self.set_property(key, &value.as_napi_ref())
   }
 
   fn set_property_string<K: AsRef<str>, V: AsRef<str>>(&self, key: K, value: V) -> &Self {
@@ -57,6 +61,6 @@ pub trait NapiProperties<'a>: NapiRefInternal {
 
   fn set_property_undefined<K: AsRef<str>>(&self, key: K) -> &Self {
     let value = NapiUndefined::new(self.napi_env());
-    self.set_property(&key, &value.as_napi_ref())
+    self.set_property(key, &value.as_napi_ref())
   }
 }

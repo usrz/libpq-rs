@@ -26,9 +26,9 @@ impl <'a> Context<'a> {
     NapiBoolean::new(self.env, value.into()).as_napi_ref()
   }
 
-  // pub fn external<T: 'static>(&self, value: T) -> NapiExternal<'a, T> {
-  //   value.napi_into(self.env)
-  // }
+  pub fn external<T: 'static>(&self, data: T) -> NapiRef<'a, NapiExternal<T>> {
+    NapiExternal::new(self.env, data).as_napi_ref()
+  }
 
   pub fn function<'b, F, T>(&self, function: F) -> NapiRef<'a, NapiFunction> where
     'a: 'b,
