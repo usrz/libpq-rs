@@ -25,11 +25,21 @@ pub trait NapiProperties<'a>: NapiRefInternal {
   }
 
   fn set_property_external<K: AsRef<str>, T: 'static>(&self, key: K, data: T) -> &Self {
-    let value = NapiExternal::new(self.napi_env(), data);
-    self.set_property(key, &value.as_napi_ref())
+    let external = NapiExternal::new(self.napi_env(), data);
+    self.set_property(key, &external.as_napi_ref())
   }
 
-  // fn set_property_function<K: AsRef<str>, V: 'static>(
+  fn set_property_function<'b, K: AsRef<str>, F, T>(&self, key: K, function: F) -> &Self
+  where
+    F: Fn(Context<'b>,
+          NapiRef<'b, NapiValue>,
+          Vec<NapiRef<'b, NapiValue>>
+       ) -> NapiResult<'b, T> + 'static,
+    T: NapiType + 'b
+  {
+    let function = NapiFunction::new(self.napi_env(), None, function);
+    self.set_property(key, &function.as_napi_ref())
+  }
 
   fn set_property_null<K: AsRef<str>>(&self, key: K) -> &Self {
     let value = NapiNull::new(self.napi_env());

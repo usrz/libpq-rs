@@ -144,6 +144,7 @@ impl Env {
     // Contextualize ourselves in the *current* thread... There can only
     // be one "napi_env" at a time in a single thread, and since we're supposed
     // to be fully reentrant, this shouldn't create any problems...
+    // This allows to have nested calls Node->Rust->Node->Rust ... without fail.
     let old = NAPI_ENV.replace(env);
     println!(">>> ENTER >>> old={:?} new={:?}", old, env);
 
@@ -168,26 +169,17 @@ impl Env {
       }
     });
 
+    // Return the old "napi_env" into the thread local.
+    println!(">>> EXIT >>> new={:?} old={:?} ", env, old);
+    NAPI_ENV.set(old);
+
     // When we get here, we dealt with possible panic situations, now we have
     // a result, which (if OK) will hold the `Handle` with the `napi_value`
     // to return to node or (if ERR) will hold a `NapiErr` containing either a
     // `Handle` to throw, or a message from which to generate an error to throw.
-    let result = result.unwrap_or_else(|error| {
-      let throwable = match error.handle {
-        Some(handle) => handle,
-        None => env.create_error(&error.message),
-      };
-      env.throw(&throwable);
-      env.get_undefined()
-    });
-
-    // Return the old "napi_env" into the thread local. This allows to have
-    // nested calls Node->Rust->Node->Rust ... without fail.
-    NAPI_ENV.set(old);
-    println!(">>> EXIT >>> new={:?} old={:?} ", env, old);
-
-    // Return our value
-    result.value
+    result.unwrap_or_else(|error| {
+      env.throw(&error.into_handle(env))
+    }).value
   }
 }
 
@@ -208,10 +200,9 @@ pub struct Handle {
 
 impl fmt::Debug for Handle {
   fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
-      fm.debug_tuple("Handle")
-        .field(&self.env.0)
-        .field(&self.value)
-        .finish()
+    fm.debug_tuple("Handle")
+      .field(&self.value)
+      .finish()
   }
 }
 

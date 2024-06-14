@@ -39,10 +39,17 @@ pub (self) use macros::napi_type;
 // ===== TYPES =================================================================
 
 #[allow(private_bounds)]
-#[derive(Debug)]
 pub struct NapiRef<'a, T: NapiTypeInternal + 'a> {
   phantom: PhantomData<&'a mut T>,
   value: T,
+}
+
+impl <T: NapiType> fmt::Debug for NapiRef<'_, T> {
+  fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fm.debug_tuple("NapiRef")
+      .field(&self.value)
+      .finish()
+  }
 }
 
 impl <'a, T: NapiType + 'a> NapiRefInternal for NapiRef<'a, T> {
@@ -57,10 +64,7 @@ impl <'a, T: NapiType + 'a> NapiRefInternal for NapiRef<'a, T> {
 
 impl <'a, T: NapiType + 'a> Into<NapiErr> for NapiRef<'a, T> {
   fn into(self) -> NapiErr {
-    NapiErr {
-      message: "JavaScript Error".into(),
-      handle: Some(self.napi_handle()),
-    }
+    NapiErr::from_handle(self.napi_handle())
   }
 }
 

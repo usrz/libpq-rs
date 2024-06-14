@@ -43,4 +43,24 @@ impl NapiFunction {
 
     Self { handle }
   }
+
+  pub fn call<'a>(
+    &self,
+    this: Option<NapiRef<'a, NapiValue>>,
+    args: Vec<NapiRef<'a, NapiValue>>,
+  ) -> NapiResult<'a, NapiValue> {
+    let this = this
+      .map(|this| this.napi_handle())
+      .unwrap_or_else(|| self.handle.env().get_null());
+
+    let args = args
+      .into_iter()
+      .map(|arg| arg.napi_handle())
+      .collect();
+
+    println!("ABOUT TO CALL NOW!!!");
+    self.napi_handle().call_function(&this, args)
+      .map(|ok| NapiValue::from_handle(ok).as_napi_ref())
+      .map_err(|err| NapiValue::from_handle(err).as_napi_ref().into())
+  }
 }

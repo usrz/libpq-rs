@@ -13,16 +13,17 @@ pub type NapiResult<'a, T> = Result<NapiRef<'a, T>, NapiErr>;
 // ========================================================================== //
 
 pub struct NapiErr {
-  pub (crate) message: String,
-  pub (crate) handle: Option<napi::Handle>,
+  message: String,
+  handle: Option<napi::Handle>,
 }
 
 impl fmt::Debug for NapiErr {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+  fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let mut debug = fm.debug_tuple("NapiErr");
     match self.handle {
-      Some(value) => f.debug_tuple("NapiErr").field(&value).finish(),
-      None => f.debug_struct("NapiErr").field("message", &self.message).finish(),
-    }
+      Some(handle) => debug.field(&handle).field(&self.message),
+      None => debug.field(&self.message)
+    }.finish()
   }
 }
 
@@ -31,6 +32,30 @@ impl <T: AsRef<str>> From<T> for NapiErr {
     Self {
       message: value.as_ref().to_string(),
       handle: None,
+    }
+  }
+}
+
+impl NapiErr {
+  pub (crate) fn from_handle(handle: napi::Handle) -> Self {
+    let message = match handle.is_error() {
+      false => handle.coerce_to_string(),
+      true => {
+        let message = handle.get_named_property("message");
+        match message.type_of() {
+          napi::TypeOf::String => message.get_value_string_utf8(),
+          _ => "Unknown JavaScript Error".to_owned()
+        }
+      },
+    };
+
+    Self { message, handle: Some(handle) }
+  }
+
+  pub (crate) fn into_handle(self, env: napi::Env) -> napi::Handle {
+    match self.handle {
+      Some(handle) => handle,
+      None => env.create_error(&self.message),
     }
   }
 }
