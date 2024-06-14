@@ -114,7 +114,7 @@ where
 // ========================================================================== //
 
 impl Env {
-  pub fn create_function<F>(&self, name: Option<String>, function: F) -> Handle
+  pub fn create_function<F>(&self, name: Option<&str>, function: F) -> Handle
   where
     F: Fn(Env, Handle, Vec<Handle>) -> NapiResult + 'static
   {

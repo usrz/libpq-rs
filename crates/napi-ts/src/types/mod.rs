@@ -1,6 +1,5 @@
 use crate::errors::*;
 use crate::napi;
-use std::any::type_name;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::ops::Deref;
@@ -8,7 +7,7 @@ use std::ops::Deref;
 mod bigint;
 mod boolean;
 // mod external;
-// mod function;
+mod function;
 mod macros;
 mod null;
 mod number;
@@ -23,7 +22,7 @@ mod value;
 pub use bigint::*;
 pub use boolean::*;
 // pub use external::*;
-// pub use function::*;
+pub use function::*;
 pub use null::*;
 pub use number::*;
 pub use object::*;
@@ -35,36 +34,17 @@ pub use undefined::*;
 pub use value::*;
 
 pub (self) use macros::napi_type;
-pub (self) use macros::napi_value;
-
-// ===== CONVERSION ============================================================
-
-pub (crate) trait NapiFrom<'a, T>: Sized {
-  fn napi_from(value: T, env: napi::Env) -> Self;
-}
-
-pub (crate) trait NapiInto<'a, T>: Sized {
-  fn napi_into(self, env: napi::Env) -> T;
-}
-
-impl<'a, T, U> NapiInto<'a, U> for T
-where
-  U: NapiFrom<'a, T>,
-{
-  fn napi_into(self, env: napi::Env) -> U {
-    U::napi_from(self, env)
-  }
-}
 
 // ===== TYPES =================================================================
 
+#[allow(private_bounds)]
 #[derive(Debug)]
-pub struct NapiRef<'a, T: NapiType + 'a> {
+pub struct NapiRef<'a, T: NapiTypeInternal + 'a> {
   phantom: PhantomData<&'a mut T>,
   value: T,
 }
 
-impl <'a, T: NapiType + 'a> NapiInternal for NapiRef<'a, T> {
+impl <'a, T: NapiType + 'a> NapiRefInternal for NapiRef<'a, T> {
   fn from_handle(handle: napi::Handle) -> Self {
     Self { phantom: PhantomData, value: T::from_handle(handle) }
   }
@@ -97,12 +77,6 @@ impl <'a, T: NapiType + 'a> Deref for NapiRef<'a, T> {
   }
 }
 
-impl <'a, T: NapiType + 'a> From<T> for NapiRef<'a, T> {
-  fn from(value: T) -> Self {
-    Self { phantom: PhantomData, value }
-  }
-}
-
 impl <'a, T: NapiType + 'a> NapiRef<'a, T> {
   pub fn as_value(&self) -> NapiRef<'a, NapiValue> {
     let handle = self.napi_handle();
@@ -113,21 +87,14 @@ impl <'a, T: NapiType + 'a> NapiRef<'a, T> {
 
 impl <'a> NapiRef<'a, NapiValue> {
   pub fn downcast<T: NapiType>(self) -> Result<NapiRef<'a, T>, NapiErr> {
-    let value = self.value;
-    let t = value.to_string();
-
-    let q: Result<T, <T as TryFrom<NapiValue>>::Error> = T::try_from(value);
-    match q {
-      Ok(value) => Ok(NapiRef { phantom: PhantomData, value }),
-      Err(_) => Err(format!("Unable to downcast {} into {}", t, type_name::<T>()).into()),
-    }
+    T::try_from_napi_value(self.value).map(|value| value.as_napi_ref())
   }
 }
 
 
 // ===== TYPES =================================================================
 
-pub (crate) trait NapiInternal: {
+pub (crate) trait NapiRefInternal {
   fn from_handle(handle: napi::Handle) -> Self;
   fn napi_handle(&self) -> napi::Handle;
   fn napi_env(&self) -> napi::Env {
@@ -135,15 +102,16 @@ pub (crate) trait NapiInternal: {
   }
 }
 
-pub (crate) trait NapiTypeInternal: Into<NapiValue> {
+pub (crate) trait NapiTypeInternal: Into<NapiValue> + Debug + Sized {
   fn from_handle(handle: napi::Handle) -> Self;
   fn napi_handle(&self) -> napi::Handle;
-  fn napi_env(&self) -> napi::Env {
-    self.napi_handle().env()
+  fn as_napi_ref<'a>(self) -> NapiRef<'a, Self> {
+    NapiRef { phantom: PhantomData, value: self }
   }
 }
 
 #[allow(private_bounds)]
-pub trait NapiType: TryFrom<NapiValue> + NapiTypeInternal + Debug + Sized {
-  // marker
+pub trait NapiType: NapiTypeInternal {
+  fn into_napi_value(self) -> NapiValue;
+  fn try_from_napi_value(value: NapiValue) -> Result<Self, NapiErr>;
 }

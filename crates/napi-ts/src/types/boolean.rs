@@ -8,7 +8,7 @@ pub struct NapiBoolean {
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_value!(NapiBoolean, Boolean);
+napi_type!(NapiBoolean, Boolean);
 
 impl NapiTypeInternal for NapiBoolean {
   #[inline]
@@ -22,18 +22,14 @@ impl NapiTypeInternal for NapiBoolean {
   }
 }
 
-// ===== CONVERSION OUT ========================================================
+// ===== BOOLEAN ===============================================================
 
 impl NapiBoolean {
+  pub fn new(env: napi::Env, value: bool) -> Self {
+    Self { handle: env.get_boolean(value), value }
+  }
+
   pub fn value(&self) -> bool {
     self.value
-  }
-}
-
-// ===== CONVERSION IN =========================================================
-
-impl <'a> NapiFrom<'a, bool> for NapiRef<'a, NapiBoolean> {
-  fn napi_from(value: bool, env: napi::Env) -> Self {
-    NapiBoolean { handle: env.get_boolean(value), value }.into()
   }
 }

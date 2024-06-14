@@ -2,18 +2,13 @@
 use crate::napi;
 use crate::types::*;
 
-pub (crate) enum NapiSymbolInternal {
-  Symbol(Option<String>),
-  SymbolFor(String),
-}
-
 pub struct NapiSymbol {
   handle: napi::Handle,
 }
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_value!(NapiSymbol, Symbol);
+napi_type!(NapiSymbol, Symbol);
 
 impl NapiTypeInternal for NapiSymbol {
   fn from_handle(handle: napi::Handle) -> Self {
@@ -27,25 +22,15 @@ impl NapiTypeInternal for NapiSymbol {
 
 // ===== SYMBOL ================================================================
 
-impl <'a> NapiFrom<'a, NapiSymbolInternal> for NapiRef<'a, NapiSymbol> {
-  fn napi_from(value: NapiSymbolInternal, env: napi::Env) -> Self {
-    let handle = match value {
-      NapiSymbolInternal::SymbolFor(description) => env.symbol_for(&description),
-      NapiSymbolInternal::Symbol(description) => {
-        match description {
-          Some(description) => env.create_symbol(Some(&description)),
-          None => env.create_symbol(None),
-        }
-      }
-    };
-
-    NapiSymbol { handle }.into()
-  }
-}
-
-// ===== EXTRA METHODS =========================================================
-
 impl NapiSymbol {
+  pub fn new(env: napi::Env, description: Option<&str>) -> Self {
+    Self { handle: env.create_symbol(description)}
+  }
+
+  pub fn new_for(env: napi::Env, description: &str) -> Self {
+    Self { handle: env.symbol_for(description)}
+  }
+
   pub fn description(&self) -> Option<String> {
     let value = self.handle.get_named_property("description");
     match value.type_of() {

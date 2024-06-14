@@ -54,35 +54,35 @@ struct Foobar {
 
 unsafe impl Send for Foobar { }
 
-napi_ts::napi_init!(|env, exports| {
+napi_ts::napi_init!(|ctx, exports| {
   println!("Initializing...");
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
-  let ext = env.external(Foobar { s: "Hello, string".to_owned() });
-  let rrr = ext.reference();
-  let r22 = rrr.clone();
-  // let st1 = env.string("shuster");
-  // let st2 = NapiString::new();
+  let str = ctx.string("foobar");
+  let val = str.as_value();
 
-  let foo = env.function(move |env, this, args| {
-    println!("{:?} {:?}", rrr, "foo");
-    Ok(this.into())
-  });
+  let down = val.downcast::<NapiString>().unwrap();
 
   exports
     .set_property_string("openssl_version", openssl_version())
     .set_property_string("libpq_version", libpq_version())
     .set_property_boolean("libpq_threadsafe", libpq_threadsafe())
-    .set_property_external("foobar", Foobar { s: "Hello, string".to_owned() })
-    .set_property("foo", &foo)
-    // .set_property("another", &ext)
+    .set_property("foobar", &str)
   ;
+
+  ctx.function(move |cx, this, args| {
+    // println!("{:?}", down);
+
+    Ok(this.into())
+  });
+
+
 
   let blurb = Blurb {};
 
   blurb.call(move || {
-    // println!("{:?} {:?}", ext, "foo");
+    // println!("{:?}", down);
   });
 
   // exports.ok()

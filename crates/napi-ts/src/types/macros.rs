@@ -6,7 +6,16 @@ macro_rules! napi_type {
   ) => {
     // impl NapiType for NapiBoolean
     impl $(<$($params: 'static,)?>)? NapiType for $type$(<$($params,)?>)? {
-      // marker
+      fn into_napi_value(self) -> NapiValue {
+        NapiValue::$value(self.napi_handle())
+      }
+
+      fn try_from_napi_value(value: NapiValue) -> Result<Self, NapiErr> {
+        match value {
+          NapiValue::$value(handle) => Ok($type::from_handle(handle)),
+          _ => Err(format!("Unable to downcast {} into {}", value, stringify!(NapiNull)).into())
+        }
+      }
     }
 
     // impl Into<NapiValue> for NapiBoolean
@@ -27,27 +36,4 @@ macro_rules! napi_type {
   }
 }
 
-macro_rules! napi_value {
-  (
-    $type:ident // The final type, e.g. NapiObject
-    $(<$($params:ident),+>)?, // Any generic parameters
-    $value:ident // The NapiValue type to associate with this
-  ) => {
-    napi_type!($type$(<$($params,)?>)?, $value);
-
-    // impl TryFrom<NapiValue> for NapiBoolean
-    impl TryFrom<NapiValue> for $type$(<$($params,)?>)? {
-      type Error = NapiErr;
-
-      fn try_from(value: NapiValue) -> Result<Self, Self::Error> {
-        match value {
-          NapiValue::$value(handle) => Ok($type::from_handle(handle)),
-          _ => Err(format!("Unable to downcast {} into {}", value, stringify!(NapiNull)).into())
-        }
-      }
-    }
-  }
-}
-
 pub (super) use napi_type;
-pub (super) use napi_value;

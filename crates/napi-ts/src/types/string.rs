@@ -8,7 +8,7 @@ pub struct NapiString {
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_value!(NapiString, String);
+napi_type!(NapiString, String);
 
 impl NapiTypeInternal for NapiString {
   fn from_handle(handle: napi::Handle) -> Self {
@@ -20,21 +20,17 @@ impl NapiTypeInternal for NapiString {
   }
 }
 
-// ===== CONVERSION OUT ========================================================
+// ===== STRING ================================================================
 
 impl NapiString {
-  pub fn value(&self) -> &str {
-    &self.value
-  }
-}
-
-// ===== CONVERSION IN =========================================================
-
-impl <'a> NapiFrom<'a, &str> for NapiRef<'a, NapiString> {
-  fn napi_from(value: &str, env: napi::Env) -> Self {
-    NapiString {
+  pub fn new(env: napi::Env, value: &str) -> Self {
+    Self {
       handle: env.create_string_utf8(&value),
       value: value.to_owned(),
-    }.into()
+    }
+  }
+
+  pub fn value(&self) -> &str {
+    &self.value
   }
 }

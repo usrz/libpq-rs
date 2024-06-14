@@ -7,7 +7,7 @@ pub struct NapiObject {
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_value!(NapiObject, Object);
+napi_type!(NapiObject, Object);
 
 impl <'a> NapiProperties<'a> for NapiRef<'a, NapiObject> {}
 
@@ -23,8 +23,8 @@ impl NapiTypeInternal for NapiObject {
 
 // ===== CONVERSION IN =========================================================
 
-impl <'a> NapiFrom<'a, ()> for NapiRef<'a, NapiObject> {
-  fn napi_from(_: (), env: napi::Env) -> Self {
-    NapiObject { handle: env.create_object() }.into()
+impl NapiObject {
+  pub fn new(env: napi::Env) -> Self {
+    Self { handle: env.create_object() }
   }
 }

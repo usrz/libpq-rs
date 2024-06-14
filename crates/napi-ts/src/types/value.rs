@@ -6,6 +6,7 @@ use std::fmt;
 // VALUE ENUM (ALL TYPES)                                                     //
 // ========================================================================== //
 
+#[derive(Clone, Copy)]
 pub enum NapiValue {
   Bigint(napi::Handle),
   Boolean(napi::Handle),
@@ -46,7 +47,14 @@ impl fmt::Display for NapiValue {
 
 // ===== NAPI TYPE BASICS ======================================================
 
-impl NapiType for NapiValue {}
+impl NapiType for NapiValue {
+  fn into_napi_value(self) -> NapiValue {
+    self // identity....
+  }
+  fn try_from_napi_value(value: NapiValue) -> Result<Self, NapiErr> {
+    Ok(value) // identity
+  }
+}
 
 impl NapiTypeInternal for NapiValue {
   fn from_handle(handle: napi::Handle) -> Self {
@@ -81,13 +89,3 @@ impl NapiTypeInternal for NapiValue {
     }
   }
 }
-
-// ===== DOWNCASTING ===========================================================
-
-// impl <'a, T> Into<NapiRef<'a, NapiValue>> for NapiRef<'a, T>
-// where
-//   T: NapiTypeInternal
-// {
-//   pub vn
-
-// }

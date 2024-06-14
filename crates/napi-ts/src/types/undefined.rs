@@ -7,7 +7,7 @@ pub struct NapiUndefined {
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_value!(NapiUndefined, Undefined);
+napi_type!(NapiUndefined, Undefined);
 
 impl NapiTypeInternal for NapiUndefined {
   fn from_handle(handle: napi::Handle) -> Self {
@@ -19,10 +19,10 @@ impl NapiTypeInternal for NapiUndefined {
   }
 }
 
-// ===== CONVERSION IN =========================================================
+// ===== UNDEFINED =============================================================
 
-impl <'a> NapiFrom<'a, ()> for NapiRef<'a, NapiUndefined> {
-  fn napi_from(_: (), env: napi::Env) -> Self {
-    NapiUndefined { handle: env.get_undefined() }.into()
+impl NapiUndefined {
+  pub fn new(env: napi::Env) -> Self {
+    Self { handle: env.get_undefined() }
   }
 }

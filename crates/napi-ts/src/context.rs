@@ -2,6 +2,7 @@ use crate::napi;
 use crate::types::*;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use crate::NapiResult;
 
 pub struct Context<'a> {
   phantom: PhantomData<&'a mut ()>,
@@ -17,57 +18,53 @@ impl Debug for Context<'_> {
 
 #[allow(private_bounds)]
 impl <'a> Context<'a> {
-  pub fn bigint<T: NapiInto<'a, NapiRef<'a, NapiBigint>>>(&self, value: T) -> NapiRef<'a, NapiBigint> {
-    value.napi_into(self.env)
+  pub fn bigint<V: Into<i128>>(&self, value: V) -> NapiRef<'a, NapiBigint> {
+    NapiBigint::new(self.env, value.into()).as_napi_ref()
   }
 
-  pub fn boolean<T: NapiInto<'a, NapiRef<'a, NapiBoolean>>>(&self, value: T) -> NapiRef<'a, NapiBoolean> {
-    value.napi_into(self.env)
+  pub fn boolean<V: Into<bool>>(&self, value: V) -> NapiRef<'a, NapiBoolean> {
+    NapiBoolean::new(self.env, value.into()).as_napi_ref()
   }
 
   // pub fn external<T: 'static>(&self, value: T) -> NapiExternal<'a, T> {
   //   value.napi_into(self.env)
   // }
 
-  // pub fn function<F>(&self, function: F) -> NapiFunction<'a> where
-  //   F: Fn(Context, NapiValue, Vec<NapiValue>) -> NapiResult + 'static
-  // {
-  //   let value = NapiFunctionInternal { phantom: PhantomData, name: None, function };
-  //   value.napi_into(self.env)
-  // }
-
-  pub fn null(&self) -> NapiRef<'a, NapiNull> {
-    ().napi_into(self.env)
+  pub fn function<F>(&self, function: F) -> NapiRef<'a, NapiFunction> where
+    F: Fn(Context, NapiRef<NapiValue>, Vec<NapiRef<NapiValue>>) -> NapiResult + 'static
+  {
+    NapiFunction::new(self.env, None, function).as_napi_ref()
   }
 
-  pub fn number<T: NapiInto<'a, NapiRef<'a, NapiNumber>>>(&self, value: T) -> NapiRef<'a, NapiNumber> {
-    value.napi_into(self.env)
+  pub fn null(&self) -> NapiRef<'a, NapiNull> {
+    NapiNull::new(self.env).as_napi_ref()
+  }
+
+  pub fn number<V: Into<f64>>(&self, value: V) -> NapiRef<'a, NapiNumber> {
+    NapiNumber::new(self.env, value.into()).as_napi_ref()
   }
 
   pub fn object(&self) -> NapiRef<'a, NapiObject> {
-    ().napi_into(self.env)
+    NapiObject::new(self.env).as_napi_ref()
   }
 
   pub fn string<T: AsRef<str>>(&self, value: T) -> NapiRef<'a, NapiString> {
-    value.as_ref().napi_into(self.env)
+    NapiString::new(self.env, value.as_ref()).as_napi_ref()
   }
 
-  pub fn symbol<T: AsRef<str>>(&self, value: Option<T>) -> NapiRef<'a, NapiSymbol> {
-    let symbol = NapiSymbolInternal::Symbol(match value {
-      Some(str) => Some(str.as_ref().to_string()),
-      None => None,
-    });
-
-    symbol.napi_into(self.env)
+  pub fn symbol<T: AsRef<str>>(&self, description: Option<T>) -> NapiRef<'a, NapiSymbol> {
+    match description {
+      Some(str) => NapiSymbol::new(self.env, Some(str.as_ref())),
+      None => NapiSymbol::new(self.env, None),
+    }.as_napi_ref()
   }
 
-  pub fn symbol_for<T: AsRef<str>>(&self, value: T) -> NapiRef<'a, NapiSymbol> {
-    let symbol = NapiSymbolInternal::SymbolFor(value.as_ref().to_string());
-    symbol.napi_into(self.env)
+  pub fn symbol_for<T: AsRef<str>>(&self, description: T) -> NapiRef<'a, NapiSymbol> {
+    NapiSymbol::new_for(self.env, description.as_ref()).as_napi_ref()
   }
 
   pub fn undefined(&self) -> NapiRef<'a, NapiUndefined> {
-    ().napi_into(self.env)
+    NapiUndefined::new(self.env).as_napi_ref()
   }
 }
 
