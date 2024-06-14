@@ -1,31 +1,30 @@
 use crate::napi;
 use crate::types::*;
 
-pub struct NapiObject<'a> {
-  handle: napi::Handle<'a>,
+pub struct NapiObject {
+  handle: napi::Handle,
 }
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiObject, Object);
+napi_value!(NapiObject, Object);
 
-impl <'a> NapiProperties<'a> for NapiObject<'a> {}
+impl <'a> NapiProperties<'a> for NapiRef<'a, NapiObject> {}
 
-impl <'a> TryFrom<NapiValue<'a>> for NapiObject<'a> {
-  type Error = NapiErr;
+impl NapiTypeInternal for NapiObject {
+  fn from_handle(handle: napi::Handle) -> Self {
+    Self { handle }
+  }
 
-  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
-    match value {
-      NapiValue::Object(handle) => Ok(Self { handle }),
-      _ => Err(format!("Can't downcast {} into NapiObject", value).into()),
-    }
+  fn napi_handle(&self) -> napi::Handle {
+    self.handle
   }
 }
 
-// ===== OBJECT ================================================================
+// ===== CONVERSION IN =========================================================
 
-impl <'a> NapiFrom<'a, ()> for NapiObject<'a> {
-  fn napi_from(_: (), env: napi::Env<'a>) -> Self {
-    Self { handle: env.create_object() }
+impl <'a> NapiFrom<'a, ()> for NapiRef<'a, NapiObject> {
+  fn napi_from(_: (), env: napi::Env) -> Self {
+    NapiObject { handle: env.create_object() }.into()
   }
 }

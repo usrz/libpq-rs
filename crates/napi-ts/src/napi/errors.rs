@@ -5,7 +5,7 @@ use std::mem::MaybeUninit;
 use std::os::raw;
 use std::ptr;
 
-impl <'a> Env<'a> {
+impl Env {
   /// Checks whether an exception is pending in NodeJS
   ///
   /// See [`napi_is_exception_pending`](https://nodejs.org/api/n-api.html#napi_is_exception_pending)
@@ -26,7 +26,7 @@ impl <'a> Env<'a> {
   ///
   /// See [`napi_create_error`](https://nodejs.org/api/n-api.html#napi_create_error)
   ///
-  pub fn create_error(&self, message: &str) -> Handle<'a> {
+  pub fn create_error(&self, message: &str) -> Handle {
     unsafe {
       let message = self.create_string_utf8(message);
 
@@ -39,7 +39,7 @@ impl <'a> Env<'a> {
         result.as_mut_ptr()
       );
 
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 
@@ -47,7 +47,7 @@ impl <'a> Env<'a> {
   ///
   /// See [`napi_create_type_error`](https://nodejs.org/api/n-api.html#napi_create_type_error)
   ///
-  pub fn create_type_error(&self, message: &str) -> Handle<'a> {
+  pub fn create_type_error(&self, message: &str) -> Handle {
     unsafe {
       let message = self.create_string_utf8(message);
 
@@ -60,7 +60,7 @@ impl <'a> Env<'a> {
         result.as_mut_ptr()
       );
 
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 
@@ -68,7 +68,7 @@ impl <'a> Env<'a> {
   ///
   /// See [`napi_create_range_error`](https://nodejs.org/api/n-api.html#napi_create_range_error)
   ///
-  pub fn create_range_error(&self, message: &str) -> Handle<'a> {
+  pub fn create_range_error(&self, message: &str) -> Handle {
     unsafe {
       let message = self.create_string_utf8(message);
 
@@ -81,7 +81,7 @@ impl <'a> Env<'a> {
         result.as_mut_ptr()
       );
 
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 
@@ -99,9 +99,9 @@ impl <'a> Env<'a> {
   ///
   /// See [`napi_throw`](https://nodejs.org/api/n-api.html#napi_throw)
   ///
-  pub fn throw(&self, handle: Handle) {
+  pub fn throw(&self, handle: &Handle) {
     unsafe {
-      let status = napi_throw(self.env, handle.value);
+      let status = napi_throw(self.0, handle.value);
       if status == napi_status::napi_ok {
         return
       }
@@ -114,5 +114,11 @@ impl <'a> Env<'a> {
         message.as_ptr() as *const raw::c_char,
         message.len());
     }
+  }
+}
+
+impl Handle {
+  pub fn throw(&self) {
+    self.env.throw(self)
   }
 }

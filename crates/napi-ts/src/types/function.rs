@@ -13,7 +13,7 @@ where
 }
 
 pub struct NapiFunction<'a> {
-  handle: napi::Handle<'a>,
+  handle: napi::Value<'a>,
 }
 
 // ===== NAPI TYPE BASICS ======================================================

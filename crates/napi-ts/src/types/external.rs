@@ -19,7 +19,7 @@ impl <T: 'static> Finalizable for NapiExtrnalData<T> {
 }
 
 pub struct NapiExternal<'a, T: 'static> {
-  handle: napi::Handle<'a>,
+  handle: napi::Value<'a>,
 
   // type_id: TypeId, // this _is_ NapiExternal<T>
   // type_name: String, // the full name of NapiExternal<T>
@@ -36,7 +36,7 @@ impl <'a, T: 'static> TryFrom<NapiValue<'a>> for NapiExternal<'a, T> {
 
   fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
     let handle = match value {
-      NapiValue::External(handle) => Ok::<napi::Handle, NapiErr>(handle),
+      NapiValue::External(handle) => Ok::<napi::Value, NapiErr>(handle),
       _ => Err(format!("Can't downcast {} into NapiExternal", value).into()),
     }?;
 

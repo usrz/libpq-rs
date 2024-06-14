@@ -113,8 +113,8 @@ where
 // PUBLIC FACING                                                              //
 // ========================================================================== //
 
-impl <'a> Env<'a> {
-  pub fn create_function<'b: 'a, F>(&self, name: Option<String>, function: F) -> Handle<'a>
+impl Env {
+  pub fn create_function<F>(&self, name: Option<String>, function: F) -> Handle
   where
     F: Fn(Env, Handle, Vec<Handle>) -> NapiResult + 'static
   {
@@ -163,18 +163,18 @@ impl <'a> Env<'a> {
       // a closure, it may have variables moved to it)
       self.add_finalizer(&handle, pointer_wrapper);
 
-      // Done and return the handle
+      // Done and return the value
       handle
     }
   }
 
-  pub fn call_function(&self, this: &Handle, function: &Handle, args: Vec<&Handle>) -> Result<Handle<'a>, Handle<'a>> {
+  pub fn call_function(&self, function: &Handle, this: &Handle, args: Vec<&Handle>) -> Result<Handle, Handle> {
     unsafe {
       let mut result = MaybeUninit::<napi_value>::zeroed();
 
       let args: Vec<napi_value> = args
           .into_iter()
-          .map(|handle| handle.value)
+          .map(|arg| arg.value)
           .collect::<Vec<napi_value>>();
 
       // Call the function
@@ -204,5 +204,11 @@ impl <'a> Env<'a> {
 
       Err(self.handle(error.assume_init()))
     }
+  }
+}
+
+impl Handle {
+  pub fn call_function(&self, this: &Handle, args: Vec<&Handle>) -> Result<Handle, Handle> {
+    self.env.call_function(self, this, args)
   }
 }

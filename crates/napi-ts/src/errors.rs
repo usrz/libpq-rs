@@ -1,7 +1,6 @@
 use core::fmt;
 use crate::napi;
 
-
 // ========================================================================== //
 // RESULT TYPE                                                                //
 // ========================================================================== //
@@ -13,26 +12,14 @@ pub type NapiResult = Result<NapiOk, NapiErr>;
 // ========================================================================== //
 
 pub struct NapiOk {
-  pub (crate) value: nodejs_sys::napi_value,
+  pub (crate) handle: napi::Handle,
 }
 
 impl fmt::Debug for NapiOk {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.debug_struct("NapiOk")
-      .field("@", &self.value)
+    f.debug_tuple("NapiOk")
+      .field(&self.handle)
       .finish()
-  }
-}
-
-impl Into<nodejs_sys::napi_value> for NapiOk {
-  fn into(self) -> nodejs_sys::napi_value {
-    self.value
-  }
-}
-
-impl From<napi::Handle<'_>> for NapiOk {
-  fn from(handle: napi::Handle) -> Self {
-    Self { value: handle.ptr() }
   }
 }
 
@@ -41,14 +28,14 @@ impl From<napi::Handle<'_>> for NapiOk {
 // ========================================================================== //
 
 pub struct NapiErr {
-  pub message: String,
-  pub value: Option<nodejs_sys::napi_value>,
+  pub (crate) message: String,
+  pub (crate) handle: Option<napi::Handle>,
 }
 
 impl fmt::Debug for NapiErr {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let mut f = f.debug_struct("NapiErr");
-    match self.value {
+    match self.handle {
       Some(value) => f.field("@", &value),
       None => f.field("message", &self.message),
     }.finish()
@@ -59,26 +46,7 @@ impl <T: AsRef<str>> From<T> for NapiErr {
   fn from(value: T) -> Self {
     Self {
       message: value.as_ref().to_string(),
-      value: None,
+      handle: None,
     }
-  }
-}
-
-impl From<napi::Handle<'_>> for NapiErr {
-  fn from(handle: napi::Handle) -> Self {
-    Self {
-      message: "JavaScript Error".to_string(),
-      value: Some(handle.ptr()),
-    }
-  }
-}
-
-impl NapiErr {
-  pub (crate) fn throw(&self, env: napi::Env) {
-    let error = env.handle(self.value.unwrap_or_else(|| {
-      env.create_error(&self.message).ptr()
-    }));
-
-    env.throw(error)
   }
 }

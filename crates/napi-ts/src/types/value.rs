@@ -6,28 +6,28 @@ use std::fmt;
 // VALUE ENUM (ALL TYPES)                                                     //
 // ========================================================================== //
 
-pub enum NapiValue<'a> {
-  Bigint(napi::Handle<'a>),
-  Boolean(napi::Handle<'a>),
-  External(napi::Handle<'a>),
-  Function(napi::Handle<'a>),
-  Null(napi::Handle<'a>),
-  Number(napi::Handle<'a>),
-  Object(napi::Handle<'a>),
-  String(napi::Handle<'a>),
-  Symbol(napi::Handle<'a>),
-  Undefined(napi::Handle<'a>),
+pub enum NapiValue {
+  Bigint(napi::Handle),
+  Boolean(napi::Handle),
+  External(napi::Handle),
+  Function(napi::Handle),
+  Null(napi::Handle),
+  Number(napi::Handle),
+  Object(napi::Handle),
+  String(napi::Handle),
+  Symbol(napi::Handle),
+  Undefined(napi::Handle),
 }
 
-impl fmt::Debug for NapiValue<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.debug_struct(&format!("{}", self))
-      .field("@", &self.napi_handle().ptr())
+impl fmt::Debug for NapiValue {
+  fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fm.debug_struct(&format!("{}", self))
+      .field("@", &self.napi_handle())
       .finish()
   }
 }
 
-impl fmt::Display for NapiValue<'_> {
+impl fmt::Display for NapiValue {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.write_str(match self {
       Self::Bigint(_) => "NapiValue<Bigint>",
@@ -44,22 +44,29 @@ impl fmt::Display for NapiValue<'_> {
   }
 }
 
-// ===== NAPI::HANDLE CONVERSION ===============================================
+// ===== NAPI TYPE BASICS ======================================================
 
-impl <'a> Into<NapiOk> for NapiValue<'a> {
-  fn into(self) -> NapiOk {
-    self.napi_handle().into()
+impl NapiType for NapiValue {}
+
+impl NapiTypeInternal for NapiValue {
+  fn from_handle(handle: napi::Handle) -> Self {
+    let value_type = handle.type_of();
+
+    match value_type {
+      napi::TypeOf::Bigint => NapiValue::Bigint(handle).into(),
+      napi::TypeOf::Boolean => NapiValue::Boolean(handle).into(),
+      napi::TypeOf::External => NapiValue::External(handle).into(),
+      napi::TypeOf::Function => NapiValue::Function(handle).into(),
+      napi::TypeOf::Null => NapiValue::Null(handle).into(),
+      napi::TypeOf::Number => NapiValue::Number(handle).into(),
+      napi::TypeOf::Object => NapiValue::Object(handle).into(),
+      napi::TypeOf::String => NapiValue::String(handle).into(),
+      napi::TypeOf::Symbol => NapiValue::Symbol(handle).into(),
+      napi::TypeOf::Undefined => NapiValue::Undefined(handle).into(),
+    }
   }
-}
 
-impl <'a> Into<NapiErr> for NapiValue<'a> {
-  fn into(self) -> NapiErr {
-    self.napi_handle().into()
-  }
-}
-
-impl <'a> NapiType<'a> for NapiValue<'a> {
-  fn napi_handle(&self) -> napi::Handle<'a> {
+  fn napi_handle(&self) -> napi::Handle {
     match self {
       Self::Bigint(handle) => *handle,
       Self::Boolean(handle) => *handle,
@@ -75,20 +82,12 @@ impl <'a> NapiType<'a> for NapiValue<'a> {
   }
 }
 
-impl <'a> From<napi::Handle<'a>> for NapiValue<'a> {
-  fn from(handle: napi::Handle<'a>) -> Self {
-    let value_type = handle.type_of();
-    match value_type {
-      napi::TypeOf::Bigint => Self::Bigint(handle),
-      napi::TypeOf::Boolean => Self::Boolean(handle),
-      napi::TypeOf::External => Self::External(handle),
-      napi::TypeOf::Function => Self::Function(handle),
-      napi::TypeOf::Null => Self::Null(handle),
-      napi::TypeOf::Number => Self::Number(handle),
-      napi::TypeOf::Object => Self::Object(handle),
-      napi::TypeOf::String => Self::String(handle),
-      napi::TypeOf::Symbol => Self::Symbol(handle),
-      napi::TypeOf::Undefined => Self::Undefined(handle),
-    }
-  }
-}
+// ===== DOWNCASTING ===========================================================
+
+// impl <'a, T> Into<NapiRef<'a, NapiValue>> for NapiRef<'a, T>
+// where
+//   T: NapiTypeInternal
+// {
+//   pub vn
+
+// }

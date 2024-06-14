@@ -1,29 +1,42 @@
 use crate::napi;
 use crate::types::*;
 
-pub struct NapiNull<'a> {
-  handle: napi::Handle<'a>,
+pub struct NapiNull {
+  handle: napi::Handle,
 }
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiNull, Null);
+// napi_type!(NapiNull, Null);
+napi_value!(NapiNull, Null);
 
-impl <'a> TryFrom<NapiValue<'a>> for NapiNull<'a> {
-  type Error = NapiErr;
+impl NapiTypeInternal for NapiNull {
+  fn from_handle(handle: napi::Handle) -> Self {
+    Self { handle }
+  }
 
-  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
-    match value {
-      NapiValue::Null(handle) => Ok(Self { handle }),
-      _ => Err(format!("Can't downcast {} into NapiNull", value).into()),
-    }
+  fn napi_handle(&self) -> napi::Handle {
+    self.handle
   }
 }
 
-// ===== NULL ==================================================================
 
-impl <'a> NapiFrom<'a, ()> for NapiNull<'a> {
-  fn napi_from(_: (), env: napi::Env<'a>) -> Self {
-    Self { handle: env.get_null() }
+// impl TryFrom<&NapiValue> for NapiNull {
+//   type Error = NapiErr;
+
+//   fn try_from(value: &NapiValue) -> Result<Self, Self::Error> {
+//     match value {
+//       NapiValue::Null(handle) => Ok(NapiNull::from_handle(*handle)),
+//       _ => Err(format!("Unable to downcast {} into {}", value, stringify!(NapiNull)).into())
+//     }
+//   }
+// }
+
+
+// ===== CONVERSION IN =========================================================
+
+impl <'a> NapiFrom<'a, ()> for NapiRef<'a, NapiNull> {
+  fn napi_from(_: (), env: napi::Env) -> Self {
+    NapiNull { handle: env.get_null() }.into()
   }
 }

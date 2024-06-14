@@ -6,14 +6,12 @@ use crate::types::*;
 pub fn register_module(
   env: nodejs_sys::napi_env,
   exports: nodejs_sys::napi_value,
-  init: fn(Context, NapiObject) -> NapiResult
+  init: fn(Context, NapiRef<NapiObject>) -> NapiResult
 ) -> nodejs_sys::napi_value {
   napi::Env::exec(env, |env| {
-    let init_env = Context::new(env);
-    println!("{:?}", init_env);
+    let ctx = Context::new(env);
     let handle = env.handle(exports);
-    let exports: NapiObject = NapiValue::from(handle).try_into()?;
-    init(init_env, exports)
+    init(ctx, NapiRef::<NapiObject>::from_handle(handle))
   })
 }
 

@@ -1,75 +1,49 @@
 use crate::types::*;
 
 #[allow(private_bounds)]
-pub trait NapiProperties<'a>: NapiType<'a> {
-
-  fn get_property<K: AsRef<str>>(&self, key: K) -> NapiValue<'a> {
-    let this = self.napi_handle();
-    let env = this.env();
-
-    let key = env.create_string_utf8(key.as_ref());
-    let handle = env.get_property(&this, &key);
-
-    NapiValue::from(handle)
+pub trait NapiProperties<'a>: NapiInternal {
+  fn get_property<K: AsRef<str>>(&self, key: K) -> NapiRef<'a, NapiValue> {
+    let value = self.napi_handle().get_named_property(key.as_ref());
+    NapiValue::from_handle(value).into()
   }
 
-  fn set_property<K: AsRef<str>, V: NapiType<'a>>(
-    &self, key: K, value: &V
+  fn set_property<K: AsRef<str>, T: NapiType + 'a>(
+    &self, key: K, value: &NapiRef<'a, T>
   ) -> &Self {
-    let this = self.napi_handle();
-    let env = this.env();
-
-    let key = env.create_string_utf8(key.as_ref());
-    let value = value.napi_handle();
-
-    this.set_property(&key, &value);
+    self.napi_handle().set_named_property(key.as_ref(), &value.napi_handle());
     self
   }
 
-  fn set_property_bigint<K: AsRef<str>, V: NapiInto<'a, NapiBigint<'a>>>(
+  fn set_property_bigint<K: AsRef<str>, V: NapiInto<'a, NapiRef<'a, NapiBigint>>>(
     &self, key: K, value: V
   ) -> &Self {
-    let value: NapiBigint = value.napi_into(self.napi_handle().env());
-    self.set_property(key, &value)
+    self.set_property(&key, &value.napi_into(self.napi_env()))
   }
 
-  fn set_property_boolean<K: AsRef<str>, V: NapiInto<'a, NapiBoolean<'a>>>(
+  fn set_property_boolean<K: AsRef<str>, V: NapiInto<'a, NapiRef<'a, NapiBoolean>>>(
     &self, key: K, value: V
   ) -> &Self {
-    let value: NapiBoolean = value.napi_into(self.napi_handle().env());
-    self.set_property(key, &value)
+    self.set_property(&key, &value.napi_into(self.napi_env()))
   }
 
-  fn set_property_external<K: AsRef<str>, V: 'static>(
-    &self, key: K, value: V
-  ) -> &Self {
-    let value: NapiExternal<V> = value.napi_into(self.napi_handle().env());
-    self.set_property(key, &value)
-  }
+  // fn set_property_external<K: AsRef<str>, V: 'static>(
+  // fn set_property_function<K: AsRef<str>, V: 'static>(
 
   fn set_property_null<K: AsRef<str>>(&self, key: K) -> &Self {
-    let value: NapiNull = ().napi_into(self.napi_handle().env());
-    self.set_property(key, &value)
+    let value: NapiRef<NapiNull> = ().napi_into(self.napi_env());
+    self.set_property(&key, &value)
   }
 
-  fn set_property_number<K: AsRef<str>, V: NapiInto<'a, NapiNumber<'a>>>(
+  fn set_property_number<K: AsRef<str>, V: NapiInto<'a, NapiRef<'a, NapiNumber>>>(
     &self, key: K, value: V
   ) -> &Self {
-    let value: NapiNumber = value.napi_into(self.napi_handle().env());
-    self.set_property(key, &value)
-  }
-
-  fn set_property_object<K: AsRef<str>>(
-    &self, key: K
-  ) -> &Self {
-    let value: NapiObject = ().napi_into(self.napi_handle().env());
-    self.set_property(key, &value)
+    self.set_property(&key, &value.napi_into(self.napi_env()))
   }
 
   fn set_property_string<K: AsRef<str>, V: AsRef<str>>(
     &self, key: K, value: V
   ) -> &Self {
-    let value: NapiString = value.as_ref().napi_into(self.napi_handle().env());
+    let value: NapiRef<NapiString> = value.as_ref().napi_into(self.napi_handle().env());
     self.set_property(key, &value)
   }
 
@@ -81,8 +55,8 @@ pub trait NapiProperties<'a>: NapiType<'a> {
       None => None,
     });
 
-    let value: NapiSymbol = symbol.napi_into(self.napi_handle().env());
-    self.set_property(key, &value)
+    let value: NapiRef<NapiSymbol> = symbol.napi_into(self.napi_env());
+    self.set_property(&key, &value)
   }
 
   fn set_property_symbol_for<K: AsRef<str>, V: AsRef<str>>(
@@ -90,14 +64,12 @@ pub trait NapiProperties<'a>: NapiType<'a> {
   ) -> &Self {
     let symbol = NapiSymbolInternal::SymbolFor(value.as_ref().to_string());
 
-    let value: NapiSymbol = symbol.napi_into(self.napi_handle().env());
-    self.set_property(key, &value)
+    let value: NapiRef<NapiSymbol> = symbol.napi_into(self.napi_env());
+    self.set_property(&key, &value)
   }
 
-  fn set_property_undefined<K: AsRef<str>>(
-    &self, key: K
-  ) -> &Self {
-    let value: NapiUndefined = ().napi_into(self.napi_handle().env());
-    self.set_property(key, &value)
+  fn set_property_undefined<K: AsRef<str>>(&self, key: K) -> &Self {
+    let value: NapiRef<NapiUndefined> = ().napi_into(self.napi_env());
+    self.set_property(&key, &value)
   }
 }

@@ -7,53 +7,49 @@ pub (crate) enum NapiSymbolInternal {
   SymbolFor(String),
 }
 
-pub struct NapiSymbol<'a> {
-  handle: napi::Handle<'a>,
+pub struct NapiSymbol {
+  handle: napi::Handle,
 }
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiSymbol, Symbol);
+napi_value!(NapiSymbol, Symbol);
 
-impl <'a> TryFrom<NapiValue<'a>> for NapiSymbol<'a> {
-  type Error = NapiErr;
+impl NapiTypeInternal for NapiSymbol {
+  fn from_handle(handle: napi::Handle) -> Self {
+    Self { handle }
+  }
 
-  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
-    match value {
-      NapiValue::Symbol(handle) => Ok(Self { handle }),
-      _ => Err(format!("Can't downcast {} into NapiSymbol", value).into()),
-    }
+  fn napi_handle(&self) -> napi::Handle {
+    self.handle
   }
 }
 
 // ===== SYMBOL ================================================================
 
-impl <'a> NapiFrom<'a, NapiSymbolInternal> for NapiSymbol<'a> {
-  fn napi_from(value: NapiSymbolInternal, env: napi::Env<'a>) -> Self {
-    Self {
-      handle: match value {
-        NapiSymbolInternal::SymbolFor(description) => env.symbol_for(&description),
-        NapiSymbolInternal::Symbol(description) => {
-          match description {
-            Some(description) => env.create_symbol(Some(&description)),
-            None => env.create_symbol(None),
-          }
+impl <'a> NapiFrom<'a, NapiSymbolInternal> for NapiRef<'a, NapiSymbol> {
+  fn napi_from(value: NapiSymbolInternal, env: napi::Env) -> Self {
+    let handle = match value {
+      NapiSymbolInternal::SymbolFor(description) => env.symbol_for(&description),
+      NapiSymbolInternal::Symbol(description) => {
+        match description {
+          Some(description) => env.create_symbol(Some(&description)),
+          None => env.create_symbol(None),
         }
       }
-    }
+    };
+
+    NapiSymbol { handle }.into()
   }
 }
 
 // ===== EXTRA METHODS =========================================================
 
-impl NapiSymbol<'_> {
+impl NapiSymbol {
   pub fn description(&self) -> Option<String> {
-    let env = self.handle.env();
-    let key = env.create_string_utf8("description");
-    let value = env.get_property(&self.handle, &key);
-
-    match self.handle.env().type_of(&value) {
-      napi::TypeOf::String => Some(env.get_value_string_utf8(&value)),
+    let value = self.handle.get_named_property("description");
+    match value.type_of() {
+      napi::TypeOf::String => Some(value.get_value_string_utf8()),
       _ => None,
     }
   }

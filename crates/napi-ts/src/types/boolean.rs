@@ -1,42 +1,39 @@
 use crate::napi;
 use crate::types::*;
 
-pub struct NapiBoolean<'a> {
-  handle: napi::Handle<'a>,
+pub struct NapiBoolean {
+  handle: napi::Handle,
   value: bool,
 }
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiBoolean, Boolean);
+napi_value!(NapiBoolean, Boolean);
 
-impl <'a> TryFrom<NapiValue<'a>> for NapiBoolean<'a> {
-  type Error = NapiErr;
+impl NapiTypeInternal for NapiBoolean {
+  #[inline]
+  fn from_handle(handle: napi::Handle) -> Self {
+    Self { handle, value: handle.get_value_bool() }
+  }
 
-  fn try_from(value: NapiValue<'a>) -> Result<Self, Self::Error> {
-    match value {
-      NapiValue::Boolean(handle) => Ok(Self { handle, value: handle.get_value_bool() }),
-      _ => Err(format!("Can't downcast {} into NapiBoolean", value).into()),
-    }
+  #[inline]
+  fn napi_handle(&self) -> napi::Handle {
+    self.handle
   }
 }
 
-impl <'a> NapiBoolean<'a> {
+// ===== CONVERSION OUT ========================================================
+
+impl NapiBoolean {
   pub fn value(&self) -> bool {
     self.value
   }
 }
 
-// ===== BOOL ==================================================================
+// ===== CONVERSION IN =========================================================
 
-impl <'a> NapiFrom<'a, bool> for NapiBoolean<'a> {
-  fn napi_from(value: bool, env: napi::Env<'a>) -> Self {
-    Self { handle: env.get_boolean(value), value }
-  }
-}
-
-impl Into<bool> for NapiBoolean<'_> {
-  fn into(self) -> bool {
-    self.value
+impl <'a> NapiFrom<'a, bool> for NapiRef<'a, NapiBoolean> {
+  fn napi_from(value: bool, env: napi::Env) -> Self {
+    NapiBoolean { handle: env.get_boolean(value), value }.into()
   }
 }

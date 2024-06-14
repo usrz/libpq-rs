@@ -5,7 +5,7 @@ use std::mem::MaybeUninit;
 use std::os::raw;
 use std::ptr;
 
-impl <'a> Env<'a> {
+impl Env {
 
   pub fn type_of(&self, handle: &Handle) -> TypeOf {
     unsafe {
@@ -30,15 +30,15 @@ impl <'a> Env<'a> {
         result.as_mut_ptr()
       );
 
-      let handle = Handle { env: *self, value: result.assume_init() };
+      let value = self.handle(result.assume_init());
 
-      self.get_value_string_utf8(&handle)
+      self.get_value_string_utf8(&value)
     }
   }
 
   // ===== BIGINT ================================================================
 
-  pub fn create_bigint_words(&self, value: i128) -> Handle<'a> {
+  pub fn create_bigint_words(&self, value: i128) -> Handle {
     let (sign, unsigned) = match value.is_negative() {
       true => (1, value.overflowing_neg().0),
       false => (0, value),
@@ -55,7 +55,7 @@ impl <'a> Env<'a> {
         result.as_mut_ptr()
       );
 
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 
@@ -95,7 +95,7 @@ impl <'a> Env<'a> {
 
   // ===== BOOLEAN ===============================================================
 
-  pub fn get_boolean(&self, value: bool) -> Handle<'a> {
+  pub fn get_boolean(&self, value: bool) -> Handle {
     unsafe {
       let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
@@ -105,7 +105,7 @@ impl <'a> Env<'a> {
         result.as_mut_ptr()
       );
 
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 
@@ -125,7 +125,7 @@ impl <'a> Env<'a> {
 
   // ===== NULL ==================================================================
 
-  pub fn get_null(&self) -> Handle<'a> {
+  pub fn get_null(&self) -> Handle {
     unsafe {
       let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
@@ -134,13 +134,13 @@ impl <'a> Env<'a> {
         result.as_mut_ptr()
       );
 
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 
   // ===== NUMBER ================================================================
 
-  pub fn create_double(&self, value: f64) -> Handle<'a> {
+  pub fn create_double(&self, value: f64) -> Handle {
     unsafe {
       let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
@@ -150,7 +150,7 @@ impl <'a> Env<'a> {
         result.as_mut_ptr()
       );
 
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 
@@ -170,7 +170,7 @@ impl <'a> Env<'a> {
 
   // ===== STRING ================================================================
 
-  pub fn create_string_utf8(&self, value: &str) -> Handle<'a> {
+  pub fn create_string_utf8(&self, value: &str) -> Handle {
     unsafe {
       let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
@@ -181,7 +181,7 @@ impl <'a> Env<'a> {
         result.as_mut_ptr()
       );
 
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 
@@ -219,7 +219,7 @@ impl <'a> Env<'a> {
 
   // ===== SYMBOL ================================================================
 
-  pub fn create_symbol(&self, description: Option<&str>) -> Handle<'a> {
+  pub fn create_symbol(&self, description: Option<&str>) -> Handle {
     let handle = match description {
       Some(description) => self.create_string_utf8(description),
       None => self.get_undefined(),
@@ -234,11 +234,11 @@ impl <'a> Env<'a> {
         result.as_mut_ptr()
       );
 
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 
-  pub fn symbol_for(&self, description: &str) -> Handle<'a> {
+  pub fn symbol_for(&self, description: &str) -> Handle {
     unsafe {
       let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
 
@@ -250,23 +250,23 @@ impl <'a> Env<'a> {
         result.as_mut_ptr()
       );
 
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 
   // ===== UNDEFINED =============================================================
 
-  pub fn get_undefined(&self) -> Handle<'a> {
+  pub fn get_undefined(&self) -> Handle {
     unsafe {
       let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(napi_get_undefined, self, result.as_mut_ptr());
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 }
 
-impl <'a> Handle<'a> {
-  pub (crate) fn type_of(&self) -> TypeOf {
+impl Handle {
+  pub fn type_of(&self) -> TypeOf {
     self.env.type_of(self)
   }
 
@@ -289,4 +289,9 @@ impl <'a> Handle<'a> {
   pub fn get_value_string_utf8(&self) -> String {
     self.env.get_value_string_utf8(self)
   }
+
+  pub fn get_undefined(&self) -> Handle {
+    self.env.get_undefined()
+  }
+
 }

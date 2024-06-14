@@ -1,6 +1,5 @@
 use crate::*;
 use std::fmt;
-use std::marker::PhantomData;
 use std::os::raw;
 use std::panic::AssertUnwindSafe;
 use std::panic;
@@ -79,49 +78,44 @@ pub trait Finalizable {
 // =============================================================================
 
 thread_local! {
-  static NAPI_ENV: Cell<nodejs_sys::napi_env> = Cell::new(ptr::null_mut());
+  static NAPI_ENV: Cell<napi_env> = Cell::new(ptr::null_mut());
 }
+
+// =============================================================================
 
 /// A wrapper around NodeJS's own `napi_env`, _"a context that can be used to
 /// persist VM-specific state"_.
 ///
 /// See [`napi_env`](https://nodejs.org/api/n-api.html#napi_env)
 ///
+#[repr(transparent)]
 #[derive(Clone, Copy)]
-pub struct Env<'a> {
-  phantom: PhantomData<&'a ()>,
-  env: napi_env,
-}
+pub struct Env(pub napi_env);
 
-impl fmt::Debug for Env<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-      f.debug_struct("Env")
-        .field("@", &self.env)
+impl fmt::Debug for Env {
+  fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
+      fm.debug_tuple("Env")
+        .field(&self.0)
         .finish()
   }
 }
 
-impl <'a> Env<'a> {
+impl From<napi_env> for Env {
+  fn from(value: napi_env) -> Self {
+    Self(value)
+  }
+}
+
+impl Env {
   /// Return an [`Env`] bound to this thread _(a thread local)_.
   ///
-  pub (self) fn local<'b>() -> Env<'a>
-  where
-    'a: 'b
-  {
+  fn local() -> Env {
     let env = NAPI_ENV.get();
     assert_ne!(env, ptr::null_mut(), "NAPI Environment not bound to current thread");
-    Env { phantom: PhantomData, env }
+    Env(env)
   }
 
-  /// The pointer of the [`napi_env`], for debugging.
-  ///
-  pub (crate) fn ptr(&self) -> *mut () {
-    self.env as *mut ()
-  }
-
-  /// Wrap a [`napi_value`] pointer and associate it with this [`Env`].
-  ///
-  pub (crate) fn handle(&self, value: napi_value) -> Handle<'a> {
+  pub (crate) fn handle(&self, value: napi_value) -> Handle {
     Handle { env: *self, value }
   }
 
@@ -149,7 +143,7 @@ impl <'a> Env<'a> {
     println!(">>> ENTER >>> old={:?} new={:?}", old, env);
 
     // Create our Env and assert the callback to be unwind safe
-    let env = Env { phantom: PhantomData, env };
+    let env = Env(env);
     let callback = AssertUnwindSafe(callback);
 
     // Call up our initialization function with exports wrapped in a NapiObject
@@ -173,10 +167,14 @@ impl <'a> Env<'a> {
     // a result, which (if OK) will hold the napi_value to return to node or
     // (if ERR) will contain a NapiError to throw before returning
     let value = match result {
-      Ok(exports) => exports.value,
+      Ok(exports) => exports.handle,
       Err(error) => {
-        error.throw(env);
-        env.get_undefined().ptr()
+        let throwable = match error.handle {
+          Some(handle) => handle,
+          None => env.create_error(&error.message),
+        };
+        env.throw(&throwable);
+        env.get_undefined()
       },
     };
 
@@ -186,7 +184,7 @@ impl <'a> Env<'a> {
     println!(">>> EXIT >>> new={:?} old={:?} ", env, old);
 
     // Return our value
-    value
+    value.value
   }
 }
 
@@ -195,33 +193,27 @@ impl <'a> Env<'a> {
 /// A wrapper around NodeJS's own `napi_value`, _"an opaque pointer that is
 /// used to represent a JavaScript value."_.
 ///
+/// This always associates the `napi_value` with the [`Env`] it lives into.
+///
 /// See [`napi_value`](https://nodejs.org/api/n-api.html#napi_value)
 ///
 #[derive(Clone, Copy)]
-pub struct Handle<'a> {
-  env: Env<'a>,
+pub struct Handle {
+  env: Env,
   value: napi_value,
 }
 
-impl fmt::Debug for Handle<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-      f.debug_struct("Handle")
-        .field("@", &self.value)
+impl fmt::Debug for Handle {
+  fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
+      fm.debug_tuple("Handle")
+        .field(&self.env.0)
+        .field(&self.value)
         .finish()
   }
 }
 
-impl <'a> Handle<'a> {
-  /// The pointer of the [`napi_env`], for debugging or converting to a
-  /// [`NapiOk`] or [`NapiErr`].
-  ///
-  pub (crate) fn ptr(&self) -> napi_value {
-    self.value
-  }
-
-  /// Return the [`Env`] associated with this [`Handle`].
-  ///
-  pub (crate) fn env(&self) -> Env<'a> {
+impl Handle {
+  pub (crate) fn env(&self) -> Env {
     self.env
   }
 }
@@ -229,7 +221,7 @@ impl <'a> Handle<'a> {
 // =============================================================================
 
 pub struct Reference {
-  value: nodejs_sys::napi_ref,
+  value: napi_ref,
 }
 
 impl fmt::Debug for Reference {
@@ -280,7 +272,7 @@ extern "C" {
 /// Call a NodeJS API returning a status and check it's OK or panic.
 macro_rules! env_check {
   ($syscall:ident, $self:ident, $($args:expr), +) => {
-    match { $syscall($self.env, $($args),+) } {
+    match { $syscall($self.0, $($args),+) } {
       napi_status::napi_ok => (),
       status => panic!("Error calling \"{}\": {:?}", stringify!($syscall), status),
     }

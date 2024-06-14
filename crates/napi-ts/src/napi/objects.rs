@@ -3,9 +3,9 @@ use super::*;
 use nodejs_sys::*;
 use std::mem::MaybeUninit;
 
-impl <'a> Env<'a> {
+impl Env {
 
-  pub fn create_object(&self) -> Handle<'a> {
+  pub fn create_object(&self) -> Handle {
     unsafe {
       let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
@@ -13,16 +13,21 @@ impl <'a> Env<'a> {
         self,
         result.as_mut_ptr()
       );
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 
-  /* ========================================================================== *
-  * PROPERTIES                                                                 *
-  * ========================================================================== */
+  /* ======================================================================== *
+   * PROPERTIES                                                               *
+   * ======================================================================== */
 
-  pub fn set_property(&self, object: &Handle, key: &Handle, value: &Handle) {
+  pub fn set_named_property(&self, object: &Handle, key: &str, value: &Handle) {
     unsafe {
+      // here we use "napi_set_property" to get the same results of
+      // "napi_set_named_property" but we don't deal with null-terminating
+      // strings, as "napi_set_named_property" doesn't accept "length"
+      let key = self.create_string_utf8(key);
+
       env_check!(
         napi_set_property,
         self,
@@ -33,8 +38,13 @@ impl <'a> Env<'a> {
     }
   }
 
-  pub fn get_property(&self, object: &Handle, key: &Handle) -> Handle<'a> {
+  pub fn get_named_property(&self, object: &Handle, key: &str) -> Handle {
     unsafe {
+      // here we use "napi_get_property" to get the same results of
+      // "napi_get_named_property" but we don't deal with null-terminating
+      // strings, as "napi_get_named_property" doesn't accept "length"
+      let key = self.create_string_utf8(key);
+
       let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(
         napi_get_property,
@@ -43,13 +53,16 @@ impl <'a> Env<'a> {
         key.value,
         result.as_mut_ptr()
       );
-      Handle { env: *self, value: result.assume_init() }
+      self.handle(result.assume_init())
     }
   }
 }
 
-impl <'a> Handle<'a> {
-  pub fn set_property(&self, key: &Handle, value: &Handle) {
-    self.env.set_property(self, key, value)
+impl Handle {
+  pub fn set_named_property(&self, key: &str, value: &Handle) {
+    self.env.set_named_property(self, key, value)
+  }
+  pub fn get_named_property(&self, key: &str) -> Handle {
+    self.env.get_named_property(self, key)
   }
 }
