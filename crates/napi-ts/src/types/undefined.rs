@@ -7,10 +7,12 @@ napi_type!(NapiUndefined, Undefined, {
 });
 
 impl NapiTypeInternal for NapiUndefined {
+  #[inline]
   fn from_handle(handle: napi::Handle) -> Self {
     Self { handle }
   }
 
+  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }

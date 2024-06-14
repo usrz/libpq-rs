@@ -8,10 +8,12 @@ napi_type!(NapiSymbol, Symbol, {
 });
 
 impl NapiTypeInternal for NapiSymbol {
+  #[inline]
   fn from_handle(handle: napi::Handle) -> Self {
     Self { handle }
   }
 
+  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }

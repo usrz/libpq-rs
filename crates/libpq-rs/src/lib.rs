@@ -54,7 +54,13 @@ struct Foobar {
 
 unsafe impl Send for Foobar { }
 
-napi_ts::napi_init!(|ctx, exports| {
+
+
+
+
+napi_ts::napi_init!(|ctx| {
+  let exports = ctx.exports();
+
   println!("Initializing...");
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
@@ -65,21 +71,20 @@ napi_ts::napi_init!(|ctx, exports| {
     .set_property_string("openssl_version", openssl_version())
     .set_property_string("libpq_version", libpq_version())
     .set_property_boolean("libpq_threadsafe", libpq_threadsafe())
+    .set_property_function("foo", |cx| {
+      println!("-> foo -> THIS {:?}", cx.this());
+      println!("-> foo -> ARGS {:?}", cx.args());
+      cx.args()[2].downcast::<NapiFunction>()?.call(
+        None,
+        vec![cx.string("shuster").as_value()]
+      )
+    })
+    .set_property_function("bar", |cx| {
+      println!("-> bar -> THIS {:?}", cx.this());
+      println!("-> bar -> ARGS {:?}", cx.args());
+      Ok(cx.undefined())
+    })
   ;
 
-  ctx.function(move |cx, _, _| {
-    // println!("{:?}", str);
-    let str1 = cx.string("foo");
-
-    cx.function(move |cx2, _, _| {
-      // println!("{:?}", str);
-      // println!("{:?}", str1);
-
-      Ok(cx2.string("foo"))
-    });
-
-    Ok(cx.string("foo"))
-  });
-
-  Ok(())
+  Ok(exports)
 });

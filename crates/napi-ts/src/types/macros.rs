@@ -9,10 +9,12 @@ macro_rules! napi_type {
 
     // impl NapiType for NapiBoolean
     impl $(<$($params: 'static,)?>)? NapiType for $type$(<$($params,)?>)? {
+      #[inline]
       fn into_napi_value(self) -> NapiValue {
         NapiValue::$value(self.napi_handle())
       }
 
+      #[inline]
       fn try_from_napi_value(value: &NapiValue) -> Result<Self, NapiErr> {
         match value {
           NapiValue::$value(handle) => Ok($type::from_handle(*handle)),
@@ -23,6 +25,7 @@ macro_rules! napi_type {
 
     // impl Into<NapiValue> for NapiBoolean
     impl $(<$($params: 'static,)?>)? Into<NapiValue> for $type$(<$($params,)?>)? {
+      #[inline]
       fn into(self) -> NapiValue {
         NapiValue::$value(self.napi_handle())
       }

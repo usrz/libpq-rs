@@ -49,15 +49,19 @@ impl fmt::Display for NapiValue {
 // ===== NAPI TYPE BASICS ======================================================
 
 impl NapiType for NapiValue {
+  #[inline]
   fn into_napi_value(self) -> NapiValue {
     self // identity....
   }
+
+  #[inline]
   fn try_from_napi_value(value: &NapiValue) -> Result<Self, NapiErr> {
     Ok(*value) // identity
   }
 }
 
 impl NapiTypeInternal for NapiValue {
+  #[inline]
   fn from_handle(handle: napi::Handle) -> Self {
     let value_type = handle.type_of();
 
@@ -75,6 +79,7 @@ impl NapiTypeInternal for NapiValue {
     }
   }
 
+  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     match self {
       Self::Bigint(handle) => *handle,

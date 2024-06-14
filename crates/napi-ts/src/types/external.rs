@@ -34,6 +34,7 @@ impl <T: 'static> NapiTypeInternal for NapiExternal<T> {
     }
   }
 
+  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }

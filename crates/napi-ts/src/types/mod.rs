@@ -53,16 +53,19 @@ impl <T: NapiType> fmt::Debug for NapiRef<'_, T> {
 }
 
 impl <'a, T: NapiType + 'a> NapiRefInternal for NapiRef<'a, T> {
+  #[inline]
   fn from_handle(handle: napi::Handle) -> Self {
     Self { phantom: PhantomData, value: T::from_handle(handle) }
   }
 
+  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.value.napi_handle()
   }
 }
 
 impl <'a, T: NapiType + 'a> Into<NapiErr> for NapiRef<'a, T> {
+  #[inline]
   fn into(self) -> NapiErr {
     NapiErr::from_handle(self.napi_handle())
   }
@@ -77,6 +80,7 @@ impl <'a, T: NapiType + 'a> Deref for NapiRef<'a, T> {
 }
 
 impl <'a, T: NapiType + 'a> NapiRef<'a, T> {
+  #[inline]
   pub fn as_value(&self) -> NapiRef<'a, NapiValue> {
     let handle = self.napi_handle();
     let value = NapiValue::from_handle(handle);
@@ -85,6 +89,7 @@ impl <'a, T: NapiType + 'a> NapiRef<'a, T> {
 }
 
 impl <'a> NapiRef<'a, NapiValue> {
+  #[inline]
   pub fn downcast<T: NapiType>(&self) -> NapiResult<'a, T> {
     T::try_from_napi_value(&self.value).map(|value| value.as_napi_ref())
   }

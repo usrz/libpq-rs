@@ -8,10 +8,12 @@ napi_type!(NapiString, String, {
 });
 
 impl NapiTypeInternal for NapiString {
+  #[inline]
   fn from_handle(handle: napi::Handle) -> Self {
     Self { handle, value: handle.get_value_string_utf8() }
   }
 
+  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }

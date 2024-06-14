@@ -29,15 +29,12 @@ pub trait NapiProperties<'a>: NapiRefInternal {
     self.set_property(key, &external.as_napi_ref())
   }
 
-  fn set_property_function<'b, K: AsRef<str>, F, T>(&self, key: K, function: F) -> &Self
+  fn set_property_function<K: AsRef<str>, F, T>(&self, key: K, function: F) -> &Self
   where
-    F: Fn(Context<'b>,
-          NapiRef<'b, NapiValue>,
-          Vec<NapiRef<'b, NapiValue>>
-       ) -> NapiResult<'b, T> + 'static,
-    T: NapiType + 'b
+    F: Fn(FunctionContext) -> NapiResult<T> + 'static,
+    T: NapiType,
   {
-    let function = NapiFunction::new(self.napi_env(), None, function);
+    let function = NapiFunction::new(self.napi_env(), Some(key.as_ref()), function);
     self.set_property(key, &function.as_napi_ref())
   }
 

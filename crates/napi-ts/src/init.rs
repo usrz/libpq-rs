@@ -1,18 +1,17 @@
 use crate::context::*;
 use crate::errors::*;
 use crate::napi;
-use crate::types::*;
+use crate::NapiType;
 
-pub fn register_module(
+pub fn register_module<T: NapiType>(
   env: crate::napi::nodejs_sys::napi_env,
   exports: crate::napi::nodejs_sys::napi_value,
-  init: fn(Context, NapiRef<NapiObject>) -> Result<(), NapiErr>
+  init: fn(Context) -> NapiResult<T>
 ) -> crate::napi::nodejs_sys::napi_value {
   napi::Env::exec(env, |env| {
-    let ctx = Context::new(env);
     let handle = env.handle(exports);
-    let object = NapiRef::<NapiObject>::from_handle(handle);
-    init(ctx, object).map(|_| handle)
+    let ctx = Context::new(env, handle);
+    init(ctx).map(|_| handle)
   })
 }
 
