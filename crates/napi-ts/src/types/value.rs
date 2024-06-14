@@ -30,8 +30,8 @@ impl fmt::Debug for NapiValue {
 }
 
 impl fmt::Display for NapiValue {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.write_str(match self {
+  fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fm.write_str(match self {
       Self::Bigint(_) => "NapiValue<Bigint>",
       Self::Boolean(_) => "NapiValue<Boolean>",
       Self::External(_) => "NapiValue<External>",

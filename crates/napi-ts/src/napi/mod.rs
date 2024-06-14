@@ -219,10 +219,9 @@ pub struct Reference {
 }
 
 impl fmt::Debug for Reference {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f
-      .debug_struct("Reference")
-      .field("@", &self.value)
+  fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fm.debug_tuple("Reference")
+      .field(&self.value)
       .finish()
   }
 }

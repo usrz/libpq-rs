@@ -10,9 +10,10 @@ pub struct Context<'a> {
 }
 
 impl fmt::Debug for Context<'_> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.debug_struct("Context")
-      .field("@", &self.env).finish()
+  fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fm.debug_tuple("Context")
+      .field(&self.env)
+      .finish()
   }
 }
 
