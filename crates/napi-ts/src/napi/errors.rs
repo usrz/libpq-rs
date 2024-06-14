@@ -17,6 +17,19 @@ impl Env {
     }
   }
 
+  pub fn is_error(&self, handle: &Handle) -> bool {
+    unsafe {
+      let mut result = MaybeUninit::<bool>::zeroed();
+      env_check!(
+        napi_is_error,
+        self,
+        handle.value,
+        result.as_mut_ptr()
+      );
+      result.assume_init()
+    }
+  }
+
   /// Create a JavaScript `Error` with the provided text.
   ///
   /// See [`napi_create_error`](https://nodejs.org/api/n-api.html#napi_create_error)
@@ -94,11 +107,12 @@ impl Env {
   ///
   /// See [`napi_throw`](https://nodejs.org/api/n-api.html#napi_throw)
   ///
-  pub fn throw(&self, handle: &Handle) {
+  pub fn throw(&self, handle: &Handle) -> Handle {
     unsafe {
+      let undefined = self.get_undefined(); // get this *first*
       let status = napi_throw(self.0, handle.value);
       if status == napi_status::napi_ok {
-        return
+        return undefined
       }
 
       let location = format!("{} line {}", file!(), line!());
@@ -113,7 +127,11 @@ impl Env {
 }
 
 impl Handle {
-  pub fn throw(&self) {
+  pub fn is_error(&self) -> bool {
+    self.env.is_error(self)
+  }
+
+  pub fn throw(&self) -> Handle {
     self.env.throw(self)
   }
 }
