@@ -1,12 +1,10 @@
 use crate::types::*;
 
-pub struct NapiFunction {
-  handle: napi::Handle,
-}
-
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiFunction, Function);
+napi_type!(NapiFunction, Function, {
+  handle: napi::Handle,
+});
 
 impl NapiTypeInternal for NapiFunction {
   fn from_handle(handle: napi::Handle) -> Self {

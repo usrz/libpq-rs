@@ -1,12 +1,10 @@
 use crate::types::*;
 
-pub struct NapiObject {
-  handle: napi::Handle,
-}
-
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiObject, Object);
+napi_type!(NapiObject, Object, {
+  handle: napi::Handle,
+});
 
 impl <'a> NapiProperties<'a> for NapiRef<'a, NapiObject> {}
 

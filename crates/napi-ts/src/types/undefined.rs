@@ -1,12 +1,10 @@
 use crate::types::*;
 
-pub struct NapiUndefined {
-  handle: napi::Handle,
-}
-
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiUndefined, Undefined);
+napi_type!(NapiUndefined, Undefined, {
+  handle: napi::Handle,
+});
 
 impl NapiTypeInternal for NapiUndefined {
   fn from_handle(handle: napi::Handle) -> Self {

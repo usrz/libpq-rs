@@ -1,13 +1,11 @@
 use crate::types::*;
 
-pub struct NapiBoolean {
-  handle: napi::Handle,
-  value: bool,
-}
-
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiBoolean, Boolean);
+napi_type!(NapiBoolean, Boolean, {
+  handle: napi::Handle,
+  value: bool,
+});
 
 impl NapiTypeInternal for NapiBoolean {
   #[inline]

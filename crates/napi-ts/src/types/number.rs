@@ -1,13 +1,11 @@
 use crate::types::*;
 
-pub struct NapiNumber {
-  handle: napi::Handle,
-  value: f64,
-}
-
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiNumber, Number);
+napi_type!(NapiNumber, Number, {
+  handle: napi::Handle,
+  value: f64,
+});
 
 impl NapiTypeInternal for NapiNumber {
   fn from_handle(handle: napi::Handle) -> Self {

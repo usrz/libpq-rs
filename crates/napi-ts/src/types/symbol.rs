@@ -1,13 +1,11 @@
 
 use crate::types::*;
 
-pub struct NapiSymbol {
-  handle: napi::Handle,
-}
-
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiSymbol, Symbol);
+napi_type!(NapiSymbol, Symbol, {
+  handle: napi::Handle,
+});
 
 impl NapiTypeInternal for NapiSymbol {
   fn from_handle(handle: napi::Handle) -> Self {

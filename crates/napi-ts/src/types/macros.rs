@@ -2,8 +2,11 @@ macro_rules! napi_type {
   (
     $type:ident // The final type, e.g. NapiObject
     $(<$($params:ident),+>)?, // Any generic parameters
-    $value:ident // The NapiValue type to associate with this
+    $value:ident, // The NapiValue type to associate with this
+    $def:tt // The block defining the structure
   ) => {
+    pub struct $type$(<$($params: 'static,)?>)? $def
+
     // impl NapiType for NapiBoolean
     impl $(<$($params: 'static,)?>)? NapiType for $type$(<$($params,)?>)? {
       fn into_napi_value(self) -> NapiValue {

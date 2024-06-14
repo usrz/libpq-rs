@@ -7,7 +7,7 @@ use std::ops::Deref;
 
 mod bigint;
 mod boolean;
-// mod external;
+mod external;
 mod function;
 mod macros;
 mod null;
@@ -22,7 +22,7 @@ mod value;
 
 pub use bigint::*;
 pub use boolean::*;
-// pub use external::*;
+pub use external::*;
 pub use function::*;
 pub use null::*;
 pub use number::*;

@@ -1,13 +1,11 @@
 use crate::types::*;
 
-pub struct NapiBigint {
-  handle: napi::Handle,
-  value: i128,
-}
-
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiBigint, Bigint);
+napi_type!(NapiBigint, Bigint, {
+  handle: napi::Handle,
+  value: i128,
+});
 
 impl NapiTypeInternal for NapiBigint {
   #[inline]
