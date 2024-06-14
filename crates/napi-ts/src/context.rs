@@ -30,7 +30,8 @@ impl <'a> Context<'a> {
     NapiExternal::new(self.env, data).as_napi_ref()
   }
 
-  pub fn function<'b, F, T>(&self, function: F) -> NapiRef<'a, NapiFunction> where
+  pub fn function<'b, F, T>(&self, function: F) -> NapiRef<'a, NapiFunction>
+  where
     'a: 'b,
     F: Fn(Context<'b>,
           NapiRef<'b, NapiValue>,
