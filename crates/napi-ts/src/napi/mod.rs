@@ -19,7 +19,7 @@ pub use nodejs_sys;
 ///
 /// See [`napi_valuetype`](https://nodejs.org/api/n-api.html#napi_valuetype)
 ///
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum TypeOf {
   /// The JavaScript constant `undefined`.
   Undefined,

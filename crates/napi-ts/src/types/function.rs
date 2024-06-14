@@ -2,7 +2,6 @@ use crate::napi;
 use crate::types::*;
 use crate::context::Context;
 
-#[derive(Clone, Copy)]
 pub struct NapiFunction {
   handle: napi::Handle,
 }

@@ -6,7 +6,6 @@ use std::fmt;
 // VALUE ENUM (ALL TYPES)                                                     //
 // ========================================================================== //
 
-#[derive(Clone, Copy)]
 pub enum NapiValue {
   Bigint(napi::Handle),
   Boolean(napi::Handle),
