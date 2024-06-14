@@ -58,14 +58,14 @@ unsafe impl Send for Foobar { }
 
 
 
-napi_ts::napi_init!(|ctx| {
-  let exports = ctx.exports();
+napi_ts::napi_init!(|cx| {
+  let exports = cx.exports();
 
   println!("Initializing...");
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
-  let str = ctx.string("foobar");
+  let str = cx.string("foobar");
 
   exports
     .set_property_string("openssl_version", openssl_version())
@@ -86,5 +86,5 @@ napi_ts::napi_init!(|ctx| {
     })
   ;
 
-  Ok(exports)
+  Ok(cx.string("shister"))
 });

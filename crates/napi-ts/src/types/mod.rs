@@ -54,11 +54,6 @@ impl <T: NapiType> fmt::Debug for NapiRef<'_, T> {
 
 impl <'a, T: NapiType + 'a> NapiRefInternal for NapiRef<'a, T> {
   #[inline]
-  fn from_handle(handle: napi::Handle) -> Self {
-    Self { phantom: PhantomData, value: T::from_handle(handle) }
-  }
-
-  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.value.napi_handle()
   }
@@ -99,7 +94,6 @@ impl <'a> NapiRef<'a, NapiValue> {
 // ===== TYPES =================================================================
 
 pub (crate) trait NapiRefInternal {
-  fn from_handle(handle: napi::Handle) -> Self;
   fn napi_handle(&self) -> napi::Handle;
   fn napi_env(&self) -> napi::Env {
     self.napi_handle().env()
