@@ -1,8 +1,7 @@
 use crate::napi;
-use crate::types::*;
+use crate::*;
 use std::fmt::Debug;
 use std::marker::PhantomData;
-use crate::NapiResult;
 
 pub struct Context<'a> {
   phantom: PhantomData<&'a mut ()>,
@@ -30,8 +29,13 @@ impl <'a> Context<'a> {
   //   value.napi_into(self.env)
   // }
 
-  pub fn function<F>(&self, function: F) -> NapiRef<'a, NapiFunction> where
-    F: Fn(Context, NapiRef<NapiValue>, Vec<NapiRef<NapiValue>>) -> NapiResult + 'static
+  pub fn function<'b, F, T>(&self, function: F) -> NapiRef<'a, NapiFunction> where
+    'a: 'b,
+    F: Fn(Context<'b>,
+          NapiRef<'b, NapiValue>,
+          Vec<NapiRef<'b, NapiValue>>
+       ) -> NapiResult<'b, T> + 'static,
+    T: NapiType + 'b
   {
     NapiFunction::new(self.env, None, function).as_napi_ref()
   }

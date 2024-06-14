@@ -22,7 +22,7 @@ use std::ptr;
 /// retrieved we'll find a pointer to this structure...
 struct CallbackWrapper<F>
 where
-  F: Fn(Env, Handle, Vec<Handle>) -> NapiResult + 'static
+  F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, NapiErr> + 'static
 {
   type_id: TypeId,
   function: *mut F,
@@ -30,9 +30,9 @@ where
 
 impl <F> CallbackWrapper<F>
 where
-  F: Fn(Env, Handle, Vec<Handle>) -> NapiResult + 'static
+  F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, NapiErr> + 'static
 {
-  fn call(&self, env: Env, this: Handle, args: Vec<Handle>) -> NapiResult {
+  fn call(&self, env: Env, this: Handle, args: Vec<Handle>) -> Result<Handle, NapiErr> {
     let cb = unsafe { &* { self.function }};
     cb(env, this, args)
   }
@@ -40,7 +40,7 @@ where
 
 impl <F> Finalizable for CallbackWrapper<F>
 where
-  F: Fn(Env, Handle, Vec<Handle>) -> NapiResult + 'static
+  F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, NapiErr> + 'static
 {
   fn finalize(self) {
     drop(unsafe { Box::from_raw(self.function) });
@@ -53,7 +53,7 @@ where
 
 extern "C" fn callback_trampoline<F>(env: napi_env, info: napi_callback_info) -> napi_value
 where
-  F: Fn(Env, Handle, Vec<Handle>) -> NapiResult + 'static
+  F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, NapiErr> + 'static
 {
   Env::exec(env, |env| unsafe {
     let mut argc = MaybeUninit::<usize>::zeroed();
@@ -116,7 +116,7 @@ where
 impl Env {
   pub fn create_function<F>(&self, name: Option<&str>, function: F) -> Handle
   where
-    F: Fn(Env, Handle, Vec<Handle>) -> NapiResult + 'static
+    F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, NapiErr> + 'static
   {
     // See if this function is named or anonymous
     let (name, name_len) = match name {

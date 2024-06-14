@@ -54,12 +54,6 @@ impl <'a, T: NapiType + 'a> NapiRefInternal for NapiRef<'a, T> {
   }
 }
 
-impl <'a, T: NapiType + 'a> Into<NapiOk> for NapiRef<'a, T> {
-  fn into(self) -> NapiOk {
-    NapiOk { handle: self.napi_handle() }
-  }
-}
-
 impl <'a, T: NapiType + 'a> Into<NapiErr> for NapiRef<'a, T> {
   fn into(self) -> NapiErr {
     NapiErr {
@@ -86,8 +80,8 @@ impl <'a, T: NapiType + 'a> NapiRef<'a, T> {
 }
 
 impl <'a> NapiRef<'a, NapiValue> {
-  pub fn downcast<T: NapiType>(self) -> Result<NapiRef<'a, T>, NapiErr> {
-    T::try_from_napi_value(self.value).map(|value| value.as_napi_ref())
+  pub fn downcast<T: NapiType>(&self) -> NapiResult<'a, T> {
+    T::try_from_napi_value(&self.value).map(|value| value.as_napi_ref())
   }
 }
 
@@ -113,5 +107,5 @@ pub (crate) trait NapiTypeInternal: Into<NapiValue> + Debug + Sized {
 #[allow(private_bounds)]
 pub trait NapiType: NapiTypeInternal {
   fn into_napi_value(self) -> NapiValue;
-  fn try_from_napi_value(value: NapiValue) -> Result<Self, NapiErr>;
+  fn try_from_napi_value(value: &NapiValue) -> Result<Self, NapiErr>;
 }

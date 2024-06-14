@@ -16,7 +16,7 @@ use std::ptr;
 extern "C" fn finalizer_trampoline<T: Finalizable>(env: napi_env, data: *mut raw::c_void, _: *mut raw::c_void) {
   Env::exec(env, |env| unsafe {
     Box::from_raw(data as *mut T).finalize();
-    Ok(NapiOk { handle: env.get_undefined() })
+    Ok(env.get_undefined())
   });
 }
 

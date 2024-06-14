@@ -60,43 +60,26 @@ napi_ts::napi_init!(|ctx, exports| {
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
   let str = ctx.string("foobar");
-  let val = str.as_value();
-
-  let down = val.downcast::<NapiString>().unwrap();
 
   exports
     .set_property_string("openssl_version", openssl_version())
     .set_property_string("libpq_version", libpq_version())
     .set_property_boolean("libpq_threadsafe", libpq_threadsafe())
-    .set_property("foobar", &str)
   ;
 
-  ctx.function(move |cx, this, args| {
-    // println!("{:?}", down);
+  ctx.function(move |cx, _, _| {
+    // println!("{:?}", str);
+    let str1 = cx.string("foo");
 
-    Ok(this.into())
+    cx.function(move |cx2, _, _| {
+      // println!("{:?}", str);
+      // println!("{:?}", str1);
+
+      Ok(cx2.string("foo"))
+    });
+
+    Ok(cx.string("foo"))
   });
 
-
-
-  let blurb = Blurb {};
-
-  blurb.call(move || {
-    // println!("{:?}", down);
-  });
-
-  // exports.ok()
-  Ok(exports.into())
-  // Err("Shuster!".into())
+  Ok(())
 });
-
-struct Blurb {}
-
-impl Blurb {
-  pub fn call<F>(&self, callback: F)
-  where
-    F: Fn() + 'static,
-  {
-    callback();
-  }
-}

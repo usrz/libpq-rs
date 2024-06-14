@@ -134,7 +134,7 @@ impl Env {
   ///
   pub (crate) fn exec<F>(env: napi_env, callback: F) -> napi_value
   where
-    F: Fn(Env) -> NapiResult
+    F: Fn(Env) -> Result<Handle, NapiErr>
   {
     // Contextualize ourselves in the *current* thread... There can only
     // be one "napi_env" at a time in a single thread, and since we're supposed
@@ -164,19 +164,17 @@ impl Env {
     });
 
     // When we get here, we dealt with possible panic situations, now we have
-    // a result, which (if OK) will hold the napi_value to return to node or
-    // (if ERR) will contain a NapiError to throw before returning
-    let value = match result {
-      Ok(exports) => exports.handle,
-      Err(error) => {
-        let throwable = match error.handle {
-          Some(handle) => handle,
-          None => env.create_error(&error.message),
-        };
-        env.throw(&throwable);
-        env.get_undefined()
-      },
-    };
+    // a result, which (if OK) will hold the `Handle` with the `napi_value`
+    // to return to node or (if ERR) will hold a `NapiErr` containing either a
+    // `Handle` to throw, or a message from which to generate an error to throw.
+    let result = result.unwrap_or_else(|error| {
+      let throwable = match error.handle {
+        Some(handle) => handle,
+        None => env.create_error(&error.message),
+      };
+      env.throw(&throwable);
+      env.get_undefined()
+    });
 
     // Return the old "napi_env" into the thread local. This allows to have
     // nested calls Node->Rust->Node->Rust ... without fail.
@@ -184,7 +182,7 @@ impl Env {
     println!(">>> EXIT >>> new={:?} old={:?} ", env, old);
 
     // Return our value
-    value.value
+    result.value
   }
 }
 
@@ -213,7 +211,7 @@ impl fmt::Debug for Handle {
 }
 
 impl Handle {
-  pub (crate) fn env(&self) -> Env {
+  pub fn env(&self) -> Env {
     self.env
   }
 }

@@ -23,9 +23,13 @@ impl NapiTypeInternal for NapiFunction {
 // ===== FUNCTION ==============================================================
 
 impl NapiFunction {
-  pub fn new<F>(env: napi::Env, name: Option<&str>, function: F) -> NapiFunction
+  pub fn new<'a, F, T>(env: napi::Env, name: Option<&str>, function: F) -> NapiFunction
   where
-    F: Fn(Context, NapiRef<NapiValue>, Vec<NapiRef<NapiValue>>) -> NapiResult + 'static
+    F: Fn(Context<'a>,
+          NapiRef<'a, NapiValue>,
+          Vec<NapiRef<'a, NapiValue>>
+       ) -> NapiResult<'a, T> + 'static,
+    T: NapiType + 'a,
   {
 
     let handle = env.create_function(name, move |env, this, args| {
@@ -36,9 +40,9 @@ impl NapiFunction {
         .map(|handle| NapiValue::from_handle(*handle).as_napi_ref())
         .collect();
 
-      let foo = (function)(env, this, args);
-      println!("{:?}", foo);
-      foo
+      let result = (function)(env, this, args);
+      println!("{:?}", result); // TODO cleanup
+      result.map(|value| value.napi_handle())
     });
 
     Self { handle }

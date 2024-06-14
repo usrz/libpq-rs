@@ -1,27 +1,12 @@
 use core::fmt;
 use crate::napi;
+use crate::*;
 
 // ========================================================================== //
 // RESULT TYPE                                                                //
 // ========================================================================== //
 
-pub type NapiResult = Result<NapiOk, NapiErr>;
-
-// ========================================================================== //
-// "OK" TYPE => only holds the napi value pointer                             //
-// ========================================================================== //
-
-pub struct NapiOk {
-  pub (crate) handle: napi::Handle,
-}
-
-impl fmt::Debug for NapiOk {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.debug_tuple("NapiOk")
-      .field(&self.handle)
-      .finish()
-  }
-}
+pub type NapiResult<'a, T> = Result<NapiRef<'a, T>, NapiErr>;
 
 // ========================================================================== //
 // "ERR" TYPE => holds an error message and an optional the napi value ptr    //

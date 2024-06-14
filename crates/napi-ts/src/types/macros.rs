@@ -10,9 +10,9 @@ macro_rules! napi_type {
         NapiValue::$value(self.napi_handle())
       }
 
-      fn try_from_napi_value(value: NapiValue) -> Result<Self, NapiErr> {
+      fn try_from_napi_value(value: &NapiValue) -> Result<Self, NapiErr> {
         match value {
-          NapiValue::$value(handle) => Ok($type::from_handle(handle)),
+          NapiValue::$value(handle) => Ok($type::from_handle(*handle)),
           _ => Err(format!("Unable to downcast {} into {}", value, stringify!(NapiNull)).into())
         }
       }
