@@ -1,6 +1,7 @@
+use crate::context::*;
 use crate::errors::*;
 use crate::napi;
-use std::fmt::Debug;
+use std::fmt;
 use std::marker::PhantomData;
 use std::ops::Deref;
 
@@ -96,7 +97,7 @@ pub (crate) trait NapiRefInternal {
   }
 }
 
-pub (crate) trait NapiTypeInternal: Into<NapiValue> + Debug + Sized {
+pub (crate) trait NapiTypeInternal: Into<NapiValue> + fmt::Debug + Sized {
   fn from_handle(handle: napi::Handle) -> Self;
   fn napi_handle(&self) -> napi::Handle;
   fn as_napi_ref<'a>(self) -> NapiRef<'a, Self> {

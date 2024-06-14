@@ -4,8 +4,7 @@ use crate::types::*;
 use std::any::type_name;
 use std::ops::Deref;
 use std::any::TypeId;
-use crate::napi::Finalizable;
-use crate::napi::Reference;
+use crate::napi::*;
 
 struct NapiExtrnalData<T: 'static> {
   type_id: TypeId,

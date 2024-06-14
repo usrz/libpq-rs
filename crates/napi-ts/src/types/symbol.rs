@@ -1,5 +1,4 @@
 
-use crate::napi;
 use crate::types::*;
 
 pub struct NapiSymbol {

@@ -26,7 +26,7 @@ macro_rules! napi_type {
     }
 
     // impl Debug for NapiBoolean
-    impl $(<$($params: 'static,)?>)? Debug for $type$(<$($params,)?>)? {
+    impl $(<$($params: 'static,)?>)? std::fmt::Debug for $type$(<$($params,)?>)? {
       fn fmt(&self, fm: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
           fm.debug_tuple(stringify!($type))
             .field(&self.napi_handle())

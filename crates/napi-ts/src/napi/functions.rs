@@ -1,14 +1,7 @@
-use crate::errors::*;
-use super::*;
-
-use nodejs_sys::*;
+use crate::napi::*;
 use std::any::TypeId;
 use std::any::type_name;
-use std::mem::MaybeUninit;
-use std::mem;
-use std::os::raw;
-use std::panic;
-use std::ptr;
+use std::mem::transmute;
 
 // ========================================================================== //
 // INTERNAL WRAPPING                                                          //
@@ -141,7 +134,7 @@ impl Env {
 
     // Get a hold on our trampoline's pointer (and erase its type!)
     let trampoline = callback_trampoline::<F>;
-    let trampoline: napi_callback = unsafe { mem::transmute(trampoline as *mut ()) };
+    let trampoline: napi_callback = unsafe { transmute(trampoline as *mut ()) };
 
     // Send everything off to NodeJS...
     unsafe {

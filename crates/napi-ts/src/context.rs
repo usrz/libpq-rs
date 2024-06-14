@@ -1,6 +1,7 @@
+use crate::errors::*;
 use crate::napi;
-use crate::*;
-use std::fmt::Debug;
+use crate::types::*;
+use std::fmt;
 use std::marker::PhantomData;
 
 pub struct Context<'a> {
@@ -8,8 +9,8 @@ pub struct Context<'a> {
   env: napi::Env,
 }
 
-impl Debug for Context<'_> {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Debug for Context<'_> {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f.debug_struct("Context")
       .field("@", &self.env).finish()
   }

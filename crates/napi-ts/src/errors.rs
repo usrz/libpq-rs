@@ -1,6 +1,6 @@
-use core::fmt;
 use crate::napi;
-use crate::*;
+use crate::types::*;
+use std::fmt;
 
 // ========================================================================== //
 // RESULT TYPE                                                                //
@@ -19,11 +19,10 @@ pub struct NapiErr {
 
 impl fmt::Debug for NapiErr {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    let mut f = f.debug_struct("NapiErr");
     match self.handle {
-      Some(value) => f.field("@", &value),
-      None => f.field("message", &self.message),
-    }.finish()
+      Some(value) => f.debug_tuple("NapiErr").field(&value).finish(),
+      None => f.debug_struct("NapiErr").field("message", &self.message).finish(),
+    }
   }
 }
 

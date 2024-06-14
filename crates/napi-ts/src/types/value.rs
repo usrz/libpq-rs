@@ -1,4 +1,3 @@
-use crate::napi;
 use crate::types::*;
 use std::fmt;
 
@@ -20,10 +19,12 @@ pub enum NapiValue {
   Undefined(napi::Handle),
 }
 
+// ===== DEBUG / DISPLAY NICETIES ==============================================
+
 impl fmt::Debug for NapiValue {
   fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
-    fm.debug_struct(&format!("{}", self))
-      .field("@", &self.napi_handle())
+    fm.debug_tuple(&format!("{}", self))
+      .field(&self.napi_handle())
       .finish()
   }
 }

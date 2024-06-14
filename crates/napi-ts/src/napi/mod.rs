@@ -1,17 +1,22 @@
-use crate::*;
-use std::fmt;
-use std::os::raw;
-use std::panic::AssertUnwindSafe;
-use std::panic;
+use crate::errors::*;
 use nodejs_sys::*;
+use std::cell::Cell;
+use std::fmt;
+use std::mem::MaybeUninit;
+use std::os::raw;
+use std::panic;
+use std::ptr;
 
 mod errors;
 mod externals;
+mod macros;
 mod functions;
 mod objects;
 mod primitives;
 
 pub use nodejs_sys;
+
+pub (self) use macros::env_check;
 
 // =============================================================================
 
@@ -144,7 +149,7 @@ impl Env {
 
     // Create our Env and assert the callback to be unwind safe
     let env = Env(env);
-    let callback = AssertUnwindSafe(callback);
+    let callback = panic::AssertUnwindSafe(callback);
 
     // Call up our initialization function with exports wrapped in a NapiObject
     // and unwrap the result into a simple "napi_value" (the pointer)
@@ -223,7 +228,7 @@ pub struct Reference {
 }
 
 impl fmt::Debug for Reference {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     f
       .debug_struct("Reference")
       .field("@", &self.value)
@@ -266,18 +271,3 @@ extern "C" {
     result: *mut napi_value,
   ) -> napi_status;
 }
-
-/// Call a NodeJS API returning a status and check it's OK or panic.
-macro_rules! env_check {
-  ($syscall:ident, $self:ident, $($args:expr), +) => {
-    match { $syscall($self.0, $($args),+) } {
-      napi_status::napi_ok => (),
-      status => panic!("Error calling \"{}\": {:?}", stringify!($syscall), status),
-    }
-  };
-}
-
-pub (self) use env_check;
-use std::cell::Cell;
-use std::ptr;
-use std::mem::MaybeUninit;

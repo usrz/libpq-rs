@@ -1,6 +1,4 @@
-use crate::napi;
 use crate::types::*;
-use crate::context::Context;
 
 pub struct NapiFunction {
   handle: napi::Handle,
