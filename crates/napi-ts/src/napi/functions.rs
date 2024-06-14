@@ -161,7 +161,7 @@ impl Env {
     }
   }
 
-  pub fn call_function(&self, function: &Handle, this: &Handle, args: Vec<&Handle>) -> Result<Handle, Handle> {
+  pub fn call_function(&self, function: &Handle, this: &Handle, args: Vec<Handle>) -> Result<Handle, Handle> {
     unsafe {
       let mut result = MaybeUninit::<napi_value>::zeroed();
 
@@ -171,9 +171,8 @@ impl Env {
           .collect::<Vec<napi_value>>();
 
       // Call the function
-      env_check!(
-        napi_call_function,
-        self,
+      let status = napi_call_function(
+        self.0,
         this.value,
         function.value,
         args.len(),
@@ -182,8 +181,13 @@ impl Env {
       );
 
       // If there's no pending exception fron NodeJS, then all is good
-      if ! self.is_exception_pending() {
+      if status == napi_status::napi_ok {
         return Ok(self.handle(result.assume_init()))
+      }
+
+      // If there's any other error *but* a pending exception, panic!
+      if status != napi_status::napi_pending_exception {
+        panic!("Error calling \"napi_call_function\": {:?}", status)
       }
 
       // There's a pending exception, wrap into a NapiError and err the result
@@ -201,7 +205,7 @@ impl Env {
 }
 
 impl Handle {
-  pub fn call_function(&self, this: &Handle, args: Vec<&Handle>) -> Result<Handle, Handle> {
+  pub fn call_function(&self, this: &Handle, args: Vec<Handle>) -> Result<Handle, Handle> {
     self.env.call_function(self, this, args)
   }
 }
