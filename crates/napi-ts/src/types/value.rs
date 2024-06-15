@@ -5,7 +5,7 @@ use std::cell::OnceCell;
 
 pub struct NapiValue {
   handle: napi::Handle,
-  type_of: OnceCell<TypeOf>,
+  type_of: OnceCell<NapiTypeOf>,
 }
 
 impl fmt::Debug for NapiValue {
@@ -20,11 +20,11 @@ impl fmt::Debug for NapiValue {
 impl NapiType for NapiValue {}
 
 impl NapiTypeIdInternal for NapiValue {
-  fn has_type_of(_: TypeOf) -> bool {
+  fn has_type_of(_: NapiTypeOf) -> bool {
     true
   }
 
-  fn type_of(&self) -> TypeOf {
+  fn type_of(&self) -> NapiTypeOf {
     self.type_of.get_or_init(|| self.handle.type_of()).clone()
   }
 }
@@ -44,7 +44,7 @@ impl NapiValue {
     Self { handle, type_of: OnceCell::new() }
   }
 
-  pub (crate) fn from_handle_and_type_of(handle: napi::Handle, type_of: TypeOf) -> Self {
+  pub (crate) fn from_handle_and_type_of(handle: napi::Handle, type_of: NapiTypeOf) -> Self {
     let cell = OnceCell::new();
     cell.set(type_of).unwrap();
     Self { handle, type_of: cell }

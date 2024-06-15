@@ -31,7 +31,7 @@ where
   }
 }
 
-impl <F> Finalizable for CallbackWrapper<F>
+impl <F> NapiFinalizable for CallbackWrapper<F>
 where
   F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, NapiErr> + 'static
 {

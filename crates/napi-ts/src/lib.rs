@@ -1,8 +1,10 @@
-pub mod context;
-pub mod errors;
+mod context;
+mod errors;
+mod types;
+
+pub mod contexts;
 pub mod init;
 pub mod napi;
-pub mod types;
 
 pub use context::*;
 pub use errors::*;
@@ -13,7 +15,7 @@ pub use types::*;
 /// See [`napi_valuetype`](https://nodejs.org/api/n-api.html#napi_valuetype)
 ///
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum TypeOf {
+pub enum NapiTypeOf {
   /// The JavaScript constant `undefined`.
   Undefined,
   /// The JavaScript constant `null`.
@@ -36,7 +38,7 @@ pub enum TypeOf {
   Bigint,
 }
 
-impl std::fmt::Display for TypeOf {
+impl std::fmt::Display for NapiTypeOf {
   fn fmt(
     &self, fm:
     &mut std::fmt::Formatter<'_>
@@ -54,4 +56,13 @@ impl std::fmt::Display for TypeOf {
       Self::Undefined => "Undefined",
     })
   }
+}
+
+/// A trait defining a callback from NodeJS indicating that the value
+/// associated with this was garbage collected.
+///
+/// See [`napi_finalize`](https://nodejs.org/api/n-api.html#napi_finalize)
+///
+pub trait NapiFinalizable {
+  fn finalize(self);
 }

@@ -1,3 +1,4 @@
+use crate::NapiFinalizable;
 use crate::types::*;
 use std::any::TypeId;
 use std::any::type_name;
@@ -7,7 +8,7 @@ struct NapiExtrnalData<T: 'static> {
   pointer: *mut T,
 }
 
-impl <T: 'static> napi::Finalizable for NapiExtrnalData<T> {
+impl <T: 'static> NapiFinalizable for NapiExtrnalData<T> {
   fn finalize(self) {
     drop(unsafe { Box::from_raw(self.pointer) });
   }

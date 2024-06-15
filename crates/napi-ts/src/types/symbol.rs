@@ -30,7 +30,7 @@ impl NapiSymbol {
   pub fn description(&self) -> Option<String> {
     let value = self.handle.get_named_property("description");
     match value.type_of() {
-      TypeOf::String => Some(value.get_value_string_utf8()),
+      NapiTypeOf::String => Some(value.get_value_string_utf8()),
       _ => None,
     }
   }

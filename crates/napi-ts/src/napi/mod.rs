@@ -1,3 +1,5 @@
+use crate::NapiFinalizable;
+use crate::NapiTypeOf;
 use crate::errors::*;
 use nodejs_sys::*;
 use std::cell::Cell;
@@ -17,17 +19,6 @@ mod primitives;
 pub use nodejs_sys;
 
 pub (self) use macros::env_check;
-
-// =============================================================================
-
-/// A trait defining a callback from NodeJS indicating that the value
-/// associated with this was garbage collected.
-///
-/// See [`napi_finalize`](https://nodejs.org/api/n-api.html#napi_finalize)
-///
-pub trait Finalizable {
-  fn finalize(self);
-}
 
 // =============================================================================
 

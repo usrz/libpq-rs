@@ -1,9 +1,8 @@
-use crate::TypeOf;
 use crate::napi::*;
 
 impl Env {
 
-  pub fn type_of(&self, handle: &Handle) -> TypeOf {
+  pub fn type_of(&self, handle: &Handle) -> NapiTypeOf {
     unsafe {
       let mut result = MaybeUninit::<napi_valuetype>::zeroed();
       env_check!(
@@ -15,16 +14,16 @@ impl Env {
 
       let value = result.assume_init().into();
       match value  {
-        napi_valuetype::napi_undefined => TypeOf::Undefined,
-        napi_valuetype::napi_null => TypeOf::Null,
-        napi_valuetype::napi_boolean => TypeOf::Boolean,
-        napi_valuetype::napi_number => TypeOf::Number,
-        napi_valuetype::napi_string => TypeOf::String,
-        napi_valuetype::napi_symbol => TypeOf::Symbol,
-        napi_valuetype::napi_object => TypeOf::Object,
-        napi_valuetype::napi_function => TypeOf::Function,
-        napi_valuetype::napi_external => TypeOf::External,
-        napi_valuetype::napi_bigint => TypeOf::Bigint,
+        napi_valuetype::napi_undefined => NapiTypeOf::Undefined,
+        napi_valuetype::napi_null => NapiTypeOf::Null,
+        napi_valuetype::napi_boolean => NapiTypeOf::Boolean,
+        napi_valuetype::napi_number => NapiTypeOf::Number,
+        napi_valuetype::napi_string => NapiTypeOf::String,
+        napi_valuetype::napi_symbol => NapiTypeOf::Symbol,
+        napi_valuetype::napi_object => NapiTypeOf::Object,
+        napi_valuetype::napi_function => NapiTypeOf::Function,
+        napi_valuetype::napi_external => NapiTypeOf::External,
+        napi_valuetype::napi_bigint => NapiTypeOf::Bigint,
         #[allow(unreachable_patterns)] // this should *really* never happen...
         _ => panic!("Unsupported JavaScript type \"{:?}\"", value)
       }
@@ -278,7 +277,7 @@ impl Env {
 }
 
 impl Handle {
-  pub fn type_of(&self) -> TypeOf {
+  pub fn type_of(&self) -> NapiTypeOf {
     self.env.type_of(self)
   }
 

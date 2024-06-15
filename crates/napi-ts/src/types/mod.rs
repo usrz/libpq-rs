@@ -1,5 +1,4 @@
-use crate::TypeOf;
-use crate::context::*;
+use crate::NapiTypeOf;
 use crate::errors::*;
 use crate::napi;
 use std::fmt;
@@ -105,9 +104,9 @@ impl <'a> NapiRef<'a, NapiValue> {
 // ===== PRIVATE TRAITS ========================================================
 
 pub (crate) trait NapiTypeIdInternal {
-  fn has_type_of(type_of: TypeOf) -> bool;
+  fn has_type_of(type_of: NapiTypeOf) -> bool;
 
-  fn type_of(&self) -> TypeOf;
+  fn type_of(&self) -> NapiTypeOf;
 }
 
 pub (crate) trait NapiTypeInternal: NapiTypeIdInternal + fmt::Debug + Sized {

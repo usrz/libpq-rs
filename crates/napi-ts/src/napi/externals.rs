@@ -8,7 +8,7 @@ use std::any::Any;
 /// Our finalizer trampoline, invoked by NodeJS and calling the `finalize()`
 /// function on a [`Finalizable`].
 ///
-extern "C" fn finalizer_trampoline<T: Finalizable>(env: napi_env, data: *mut raw::c_void, _: *mut raw::c_void) {
+extern "C" fn finalizer_trampoline<T: NapiFinalizable>(env: napi_env, data: *mut raw::c_void, _: *mut raw::c_void) {
   Env::exec(env, |env| unsafe {
     Box::from_raw(data as *mut T).finalize();
     Ok(env.get_undefined())
@@ -21,7 +21,7 @@ extern "C" fn finalizer_trampoline<T: Finalizable>(env: napi_env, data: *mut raw
 
 impl Env {
 
-  pub fn add_finalizer<T: Finalizable>(&self, handle: &Handle, data: *mut T) {
+  pub fn add_finalizer<T: NapiFinalizable>(&self, handle: &Handle, data: *mut T) {
     unsafe {
       // Get a hold on our trampoline's pointer
       let trampoline = finalizer_trampoline::<T>;
@@ -38,7 +38,7 @@ impl Env {
     }
   }
 
-  pub fn create_value_external<T: Finalizable>(&self, data: T) -> Handle {
+  pub fn create_value_external<T: NapiFinalizable>(&self, data: T) -> Handle {
     unsafe {
       // Box the data, and leak the raw pointer
       let boxed = Box::new(data);
@@ -95,7 +95,7 @@ impl Env {
 }
 
 impl Handle {
-  pub fn add_finalizer<T: Finalizable>(&self, data: *mut T) {
+  pub fn add_finalizer<T: NapiFinalizable>(&self, data: *mut T) {
     self.env.add_finalizer(self, data)
   }
 

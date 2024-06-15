@@ -1,8 +1,7 @@
+use crate::contexts::*;
 use crate::errors::*;
 use crate::napi;
 use crate::types::*;
-use std::fmt;
-use std::marker::PhantomData;
 
 pub (crate) trait NapiContextInternal<'a> {
   fn napi_env(&self) -> napi::Env;
@@ -59,85 +58,5 @@ pub trait NapiContext<'a>: NapiContextInternal<'a> {
 
   fn undefined(&self) -> NapiRef<'a, NapiUndefined> {
     NapiUndefined::new(self.napi_env()).as_napi_ref()
-  }
-}
-
-// ========================================================================== //
-// INIT CONTEXT                                                               //
-// ========================================================================== //
-
-pub struct Context<'a> {
-  phantom: PhantomData<&'a mut ()>,
-  env: napi::Env,
-  exports: napi::Handle,
-}
-
-impl fmt::Debug for Context<'_> {
-  fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
-    fm.debug_tuple("InitContext")
-      .field(&self.env)
-      .finish()
-  }
-}
-
-impl <'a> NapiContext<'a> for Context<'a> {}
-impl <'a> NapiContextInternal<'a> for Context<'a> {
-  #[inline]
-  fn napi_env(&self) -> napi::Env {
-    self.env
-  }
-}
-
-impl <'a> Context<'a> {
-  pub (crate) fn new(env: napi::Env, exports: napi::Handle) -> Self {
-    Self { phantom: PhantomData, env, exports }
-  }
-
-  pub fn exports(&self) -> NapiRef<'a, NapiObject> {
-    unsafe { NapiObject::from_handle(self.exports).as_napi_ref() }
-  }
-}
-
-// ========================================================================== //
-// FUNCTION CONTEXT                                                           //
-// ========================================================================== //
-
-pub struct FunctionContext<'a> {
-  phantom: PhantomData<&'a mut ()>,
-  env: napi::Env,
-  this: napi::Handle,
-  args: Vec<napi::Handle>,
-}
-
-impl fmt::Debug for FunctionContext<'_> {
-  fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
-    fm.debug_tuple("InitContext")
-      .field(&self.env)
-      .finish()
-  }
-}
-
-impl <'a> NapiContext<'a> for FunctionContext<'a> {}
-impl <'a> NapiContextInternal<'a> for FunctionContext<'a> {
-  #[inline]
-  fn napi_env(&self) -> napi::Env {
-    self.env
-  }
-}
-
-impl <'a> FunctionContext<'a> {
-  pub (crate) fn new(env: napi::Env, this: napi::Handle, args: Vec<napi::Handle>) -> Self {
-    Self { phantom: PhantomData, env, this, args: args.to_vec() }
-  }
-
-  pub fn this(&self) -> NapiRef<'a, NapiValue> {
-    NapiValue::from_handle(self.this).as_napi_ref()
-  }
-
-  pub fn args(&self) -> Vec<NapiRef<'a, NapiValue>> {
-    self.args
-      .iter()
-      .map(|handle| NapiValue::from_handle(*handle).as_napi_ref())
-      .collect()
   }
 }
