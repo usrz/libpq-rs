@@ -2,21 +2,19 @@ use crate::types::*;
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiFunction, Function, {
+pub struct NapiFunction {
   handle: napi::Handle,
-});
+}
 
-impl NapiTypeInternal for NapiFunction {
-  #[inline]
-  fn from_handle(handle: napi::Handle) -> Self {
+napi_type!(NapiFunction, Function, {
+  unsafe fn from_handle(handle: napi::Handle) -> Self {
     Self { handle }
   }
 
-  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
-}
+});
 
 // ===== FUNCTION ==============================================================
 

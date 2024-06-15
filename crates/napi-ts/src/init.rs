@@ -11,7 +11,7 @@ pub fn register_module<T: NapiType>(
   napi::Env::exec(env, |env| {
     let handle = env.handle(exports);
     let ctx = Context::new(env, handle);
-    init(ctx).map(|_| handle)
+    init(ctx).map(|exports| exports.napi_handle())
   })
 }
 

@@ -1,33 +1,27 @@
 macro_rules! napi_type {
   (
+    $(#[$outer:meta])*
     $type:ident // The final type, e.g. NapiObject
     $(<$($params:ident),+>)?, // Any generic parameters
     $value:ident, // The NapiValue type to associate with this
     $def:tt // The block defining the structure
   ) => {
-    pub struct $type$(<$($params: 'static,)?>)? $def
-
     // impl NapiType for NapiBoolean
     impl $(<$($params: 'static,)?>)? NapiType for $type$(<$($params,)?>)? {
-      #[inline]
-      fn into_napi_value(self) -> NapiValue {
-        NapiValue::$value(self.napi_handle())
-      }
-
-      #[inline]
-      fn try_from_napi_value(value: &NapiValue) -> Result<Self, NapiErr> {
-        match value {
-          NapiValue::$value(handle) => Ok($type::from_handle(*handle)),
-          _ => Err(format!("Unable to downcast {} into {}", value, stringify!($type)).into())
-        }
-      }
+      // Marker type
     }
 
-    // impl Into<NapiValue> for NapiBoolean
-    impl $(<$($params: 'static,)?>)? Into<NapiValue> for $type$(<$($params,)?>)? {
-      #[inline]
-      fn into(self) -> NapiValue {
-        NapiValue::$value(self.napi_handle())
+    // impl NapiTypeInternal for NapiBoolean
+    impl $(<$($params: 'static,)?>)? NapiTypeInternal for $type$(<$($params,)?>)? $def
+
+    // impl NapiTypeIdInternal for NapiBoolean
+    impl $(<$($params: 'static,)?>)? NapiTypeIdInternal for $type$(<$($params,)?>)? {
+      fn has_type_of(type_of: crate::TypeOf) -> bool {
+        crate::TypeOf::$value == type_of
+      }
+
+      fn type_of(&self) -> crate::TypeOf {
+        crate::TypeOf::$value
       }
     }
 

@@ -1,3 +1,4 @@
+use crate::TypeOf;
 use crate::napi::*;
 
 impl Env {
@@ -11,7 +12,23 @@ impl Env {
         handle.value,
         result.as_mut_ptr()
       );
-      result.assume_init().into()
+
+      let value = result.assume_init().into();
+      match value  {
+        napi_valuetype::napi_undefined => TypeOf::Undefined,
+        napi_valuetype::napi_null => TypeOf::Null,
+        napi_valuetype::napi_boolean => TypeOf::Boolean,
+        napi_valuetype::napi_number => TypeOf::Number,
+        napi_valuetype::napi_string => TypeOf::String,
+        napi_valuetype::napi_symbol => TypeOf::Symbol,
+        napi_valuetype::napi_object => TypeOf::Object,
+        napi_valuetype::napi_function => TypeOf::Function,
+        napi_valuetype::napi_external => TypeOf::External,
+        napi_valuetype::napi_bigint => TypeOf::Bigint,
+        #[allow(unreachable_patterns)] // this should *really* never happen...
+        _ => panic!("Unsupported JavaScript type \"{:?}\"", value)
+      }
+
     }
   }
 

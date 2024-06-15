@@ -67,6 +67,12 @@ napi_ts::napi_init!(|cx| {
 
   let str = cx.string("foobar");
 
+  let val = exports.as_value();
+  match val.downcast::<NapiString>() {
+    Ok(val) => println!("Downcasted OK into {:?}", val),
+    Err(err) => println!("Can't downcast: {:?}", err),
+  }
+
   exports
     .set_property_string("openssl_version", openssl_version())
     .set_property_string("libpq_version", libpq_version())
@@ -86,5 +92,5 @@ napi_ts::napi_init!(|cx| {
     })
   ;
 
-  Ok(cx.string("shister"))
+  Ok(exports)
 });

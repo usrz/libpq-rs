@@ -94,7 +94,7 @@ impl <'a> Context<'a> {
   }
 
   pub fn exports(&self) -> NapiRef<'a, NapiObject> {
-    NapiObject::from_handle(self.exports).as_napi_ref()
+    unsafe { NapiObject::from_handle(self.exports).as_napi_ref() }
   }
 }
 

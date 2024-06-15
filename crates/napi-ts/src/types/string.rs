@@ -2,22 +2,20 @@ use crate::types::*;
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiString, String, {
+pub struct NapiString {
   handle: napi::Handle,
   value: String,
-});
+}
 
-impl NapiTypeInternal for NapiString {
-  #[inline]
-  fn from_handle(handle: napi::Handle) -> Self {
+napi_type!(NapiString, String, {
+  unsafe fn from_handle(handle: napi::Handle) -> Self {
     Self { handle, value: handle.get_value_string_utf8() }
   }
 
-  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
-}
+});
 
 // ===== STRING ================================================================
 

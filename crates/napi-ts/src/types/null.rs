@@ -2,21 +2,19 @@ use crate::types::*;
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiNull, Null, {
+pub struct NapiNull {
   handle: napi::Handle,
-});
+}
 
-impl NapiTypeInternal for NapiNull {
-  #[inline]
-  fn from_handle(handle: napi::Handle) -> Self {
+napi_type!(NapiNull, Null, {
+  unsafe fn from_handle(handle: napi::Handle) -> Self {
     Self { handle }
   }
 
-  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
-}
+});
 
 // ===== NULL ==================================================================
 

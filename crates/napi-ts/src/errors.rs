@@ -1,3 +1,4 @@
+use crate::TypeOf;
 use crate::napi;
 use crate::types::*;
 use std::fmt;
@@ -43,7 +44,7 @@ impl NapiErr {
       true => {
         let message = handle.get_named_property("message");
         match message.type_of() {
-          napi::TypeOf::String => message.get_value_string_utf8(),
+          TypeOf::String => message.get_value_string_utf8(),
           _ => "Unknown JavaScript Error".to_owned()
         }
       },

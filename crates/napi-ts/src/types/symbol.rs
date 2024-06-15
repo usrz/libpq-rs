@@ -1,23 +1,20 @@
-
 use crate::types::*;
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiSymbol, Symbol, {
+pub struct NapiSymbol {
   handle: napi::Handle,
-});
+}
 
-impl NapiTypeInternal for NapiSymbol {
-  #[inline]
-  fn from_handle(handle: napi::Handle) -> Self {
+napi_type!(NapiSymbol, Symbol, {
+  unsafe fn from_handle(handle: napi::Handle) -> Self {
     Self { handle }
   }
 
-  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
-}
+});
 
 // ===== SYMBOL ================================================================
 
@@ -33,7 +30,7 @@ impl NapiSymbol {
   pub fn description(&self) -> Option<String> {
     let value = self.handle.get_named_property("description");
     match value.type_of() {
-      napi::TypeOf::String => Some(value.get_value_string_utf8()),
+      TypeOf::String => Some(value.get_value_string_utf8()),
       _ => None,
     }
   }

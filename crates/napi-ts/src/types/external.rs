@@ -15,30 +15,37 @@ impl <T: 'static> napi::Finalizable for NapiExtrnalData<T> {
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiExternal<T>, External, {
+pub struct NapiExternal<T> {
   handle: napi::Handle,
   pointer: *mut T,
-});
+}
 
-impl <T: 'static> NapiTypeInternal for NapiExternal<T> {
-  fn from_handle(handle: napi::Handle) -> Self {
+napi_type!(NapiExternal<T>, External, {
+  unsafe fn from_handle(_: napi::Handle) -> Self {
+    panic!("Cowardly refusing to restore NapiExternal without checking");
+  }
+
+  fn from_napi_value(value: &NapiValue) -> Result<Self, NapiErr> {
+    let handle = value.napi_handle();
+
+    if ! Self::has_type_of(value.type_of()) {
+      return Err(format!("Unable to downcast {:?} into {}", value.type_of(), type_name::<Self>()).into())
+    }
+
     let pointer = handle.get_value_external();
     let data = unsafe { &*(pointer as *mut NapiExtrnalData<T>) };
 
-    println!("EXTERNAL RESTORED FROM {:?}", pointer);
-
     if TypeId::of::<T>() == data.type_id {
-      Self { handle, pointer: data.pointer }
+      Ok(Self { handle, pointer: data.pointer })
     } else {
-      panic!("Unable to downcast external value to \"{}\"", type_name::<T>())
+      Err(format!("Unable to downcast external value into \"{}\"", type_name::<T>()).into())
     }
   }
 
-  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
-}
+});
 
 // ===== EXTERNAL ==============================================================
 

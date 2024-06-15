@@ -2,22 +2,21 @@ use crate::types::*;
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiBigint, Bigint, {
+pub struct NapiBigint {
   handle: napi::Handle,
   value: i128,
-});
+}
 
-impl NapiTypeInternal for NapiBigint {
-  #[inline]
-  fn from_handle(handle: napi::Handle) -> Self {
+napi_type!(NapiBigint, Bigint, {
+  unsafe fn from_handle(handle: napi::Handle) -> Self {
     Self { handle, value: handle.get_value_bigint_words() }
   }
 
-  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
-}
+});
+
 
 // ===== BIGINT ================================================================
 

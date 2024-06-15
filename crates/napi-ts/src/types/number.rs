@@ -2,22 +2,20 @@ use crate::types::*;
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiNumber, Number, {
+pub struct NapiNumber {
   handle: napi::Handle,
   value: f64,
-});
+}
 
-impl NapiTypeInternal for NapiNumber {
-  #[inline]
-  fn from_handle(handle: napi::Handle) -> Self {
+napi_type!(NapiNumber, Number, {
+  unsafe fn from_handle(handle: napi::Handle) -> Self {
     Self { handle, value: handle.get_value_double() }
   }
 
-  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
-}
+});
 
 // ===== NUMBER ================================================================
 

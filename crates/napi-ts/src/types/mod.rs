@@ -1,3 +1,4 @@
+use crate::TypeOf;
 use crate::context::*;
 use crate::errors::*;
 use crate::napi;
@@ -35,8 +36,17 @@ pub use undefined::*;
 pub use value::*;
 
 pub (self) use macros::napi_type;
+use std::any::type_name;
 
 // ===== TYPES =================================================================
+
+pub (crate) trait NapiRefInternal {
+  fn napi_handle(&self) -> napi::Handle;
+  fn napi_env(&self) -> napi::Env {
+    self.napi_handle().env()
+  }
+}
+
 
 #[allow(private_bounds)]
 pub struct NapiRef<'a, T: NapiTypeInternal + 'a> {
@@ -86,30 +96,45 @@ impl <'a, T: NapiType + 'a> NapiRef<'a, T> {
 impl <'a> NapiRef<'a, NapiValue> {
   #[inline]
   pub fn downcast<T: NapiType>(&self) -> NapiResult<'a, T> {
-    T::try_from_napi_value(&self.value).map(|value| value.as_napi_ref())
+    T::from_napi_value(&self.value.as_napi_value())
+      .map(|value| value.as_napi_ref())
   }
 }
 
 
-// ===== TYPES =================================================================
+// ===== PRIVATE TRAITS ========================================================
 
-pub (crate) trait NapiRefInternal {
-  fn napi_handle(&self) -> napi::Handle;
-  fn napi_env(&self) -> napi::Env {
-    self.napi_handle().env()
-  }
+pub (crate) trait NapiTypeIdInternal {
+  fn has_type_of(type_of: TypeOf) -> bool;
+
+  fn type_of(&self) -> TypeOf;
 }
 
-pub (crate) trait NapiTypeInternal: Into<NapiValue> + fmt::Debug + Sized {
-  fn from_handle(handle: napi::Handle) -> Self;
+pub (crate) trait NapiTypeInternal: NapiTypeIdInternal + fmt::Debug + Sized {
   fn napi_handle(&self) -> napi::Handle;
+
+  unsafe fn from_handle(handle: napi::Handle) -> Self;
+
+  fn from_napi_value(value: &NapiValue) -> Result<Self, NapiErr> {
+    if Self::has_type_of(value.type_of()) {
+      return Ok(unsafe { Self::from_handle(value.napi_handle()) })
+    }
+
+    Err(format!("Unable to downcast {:?} into {}", value.type_of(), type_name::<Self>()).into())
+  }
+
+  fn as_napi_value(&self) -> NapiValue {
+    NapiValue::from_handle_and_type_of(self.napi_handle(), self.type_of())
+  }
+
   fn as_napi_ref<'a>(self) -> NapiRef<'a, Self> {
     NapiRef { phantom: PhantomData, value: self }
   }
 }
 
+// ===== PUBLIC TRAITS =========================================================
+
 #[allow(private_bounds)]
 pub trait NapiType: NapiTypeInternal {
-  fn into_napi_value(self) -> NapiValue;
-  fn try_from_napi_value(value: &NapiValue) -> Result<Self, NapiErr>;
+  // Marker type
 }

@@ -2,22 +2,20 @@ use crate::types::*;
 
 // ===== NAPI TYPE BASICS ======================================================
 
-napi_type!(NapiBoolean, Boolean, {
+pub struct NapiBoolean {
   handle: napi::Handle,
   value: bool,
-});
+}
 
-impl NapiTypeInternal for NapiBoolean {
-  #[inline]
-  fn from_handle(handle: napi::Handle) -> Self {
+napi_type!(NapiBoolean, Boolean, {
+  unsafe fn from_handle(handle: napi::Handle) -> Self {
     Self { handle, value: handle.get_value_bool() }
   }
 
-  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }
-}
+});
 
 // ===== BOOLEAN ===============================================================
 
