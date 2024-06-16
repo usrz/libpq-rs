@@ -9,6 +9,7 @@ use std::os::raw;
 use std::panic;
 use std::ptr;
 
+mod arrays;
 mod errors;
 mod externals;
 mod macros;
