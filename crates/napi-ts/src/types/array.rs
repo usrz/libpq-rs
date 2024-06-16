@@ -5,8 +5,9 @@ use std::cell::OnceCell;
 
 pub struct NapiArray {
   handle: napi::Handle,
-  push: OnceCell<napi::Handle>,
   pop: OnceCell<napi::Handle>,
+  push: OnceCell<napi::Handle>,
+  splice: OnceCell<napi::Handle>,
 }
 
 napi_type!(NapiArray, Object, {
@@ -16,8 +17,9 @@ napi_type!(NapiArray, Object, {
     } else {
       Ok(Self {
         handle,
-        push: OnceCell::new(),
         pop: OnceCell::new(),
+        push: OnceCell::new(),
+        splice: OnceCell::new(),
       })
     }
   }
@@ -43,6 +45,8 @@ impl <'a> NapiRef<'a, NapiArray> {
     value.get_value_double() as u32
   }
 
+  // ===== ELEMENT OPS =========================================================
+
   pub fn get_element(&self, index: u32) -> NapiRef<'a, NapiValue> {
     let value = self.handle.get_element(index);
     NapiValue::from_handle(value).as_napi_ref()
@@ -63,15 +67,58 @@ impl <'a> NapiRef<'a, NapiArray> {
     self.handle.delete_element(index)
   }
 
-  pub fn push<T: NapiType + 'a>(&self, value: &NapiRef<'a, T>) -> u32 {
+  // ===== PUSH ================================================================
+
+  pub fn push<T: NapiType + 'a>(&self, item: &NapiRef<'a, T>) -> u32 {
     let push = self.value.push.get_or_init(|| self.handle.get_named_property("push"));
-    let result = push.call_function(&self.handle, &[&value.napi_handle()]).unwrap();
+    let result = push.call_function(&self.handle, &[&item.napi_handle()]).unwrap();
     self.handle.env().get_value_double(&result) as u32
   }
 
-  pub fn pop<T: NapiType + 'a>(&self) -> u32 {
+  pub fn pushn(&self, items: &[&NapiRef<'a, NapiValue>]) -> u32 {
+    let push = self.value.push.get_or_init(|| self.handle.get_named_property("push"));
+
+    let handles: Vec<napi::Handle> = items
+      .into_iter()
+      .map(|arg| arg.napi_handle())
+      .collect();
+    let ehandles: Vec<&napi::Handle> = handles.iter().collect();
+
+    let result = push.call_function(&self.handle, ehandles.as_slice()).unwrap();
+    self.handle.env().get_value_double(&result) as u32
+  }
+
+  // ===== POP =================================================================
+
+  pub fn pop<T: NapiType + 'a>(&self) -> NapiRef<'a, NapiValue> {
     let push = self.value.pop.get_or_init(|| self.handle.get_named_property("pop"));
     let result = push.call_function(&self.handle, &[]).unwrap();
-    self.handle.env().get_value_double(&result) as u32
+    NapiValue::from_handle(result).as_napi_ref()
+  }
+
+  // ===== SPLICE ==============================================================
+
+  pub fn splice(
+    &self,
+    start: u32,
+    delete_count: u32,
+    items: &[&NapiRef<'a, NapiValue>],
+  ) {
+    let splice = self.value.splice.get_or_init(|| self.handle.get_named_property("splice"));
+    let start = self.handle.env().create_double(start as f64);
+    let delete_count = self.handle.env().create_double(delete_count as f64);
+
+    let mut handles: Vec<napi::Handle> = items
+      .into_iter()
+      .map(|arg| arg.napi_handle())
+      .collect();
+    handles.insert(0, delete_count); // this will become args[1]
+    handles.insert(0, start); // this stays as args[0]
+
+    let ehandles: Vec<&napi::Handle> = handles.iter().collect();
+
+    splice.call_function(&self.handle, ehandles.as_slice()).unwrap();
+
+    // TODO: this returns a JavaScript array with the removed elements...
   }
 }

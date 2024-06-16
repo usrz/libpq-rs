@@ -3,7 +3,6 @@
 use napi_ts::*;
 
 use ffi::to_string_lossy;
-use context::Context;
 pub mod connection;
 pub mod conninfo;
 pub mod debug;
@@ -49,7 +48,13 @@ fn openssl_version() -> String {
 
 #[derive(Debug)]
 struct Foobar {
-  s: String
+  value: String
+}
+
+impl Foobar {
+  fn new(value: &str) -> Self {
+    Self { value: value.to_owned() }
+  }
 }
 
 unsafe impl Send for Foobar { }
@@ -65,14 +70,6 @@ napi_ts::napi_init!(|cx| {
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
-  let str = cx.string("foobar");
-
-  let val = exports.as_value();
-  match val.downcast::<NapiString>() {
-    Ok(val) => println!("Downcasted OK into {:?}", val),
-    Err(err) => println!("Can't downcast: {:?}", err),
-  }
-
   exports
     .set_property_string("openssl_version", openssl_version())
     .set_property_string("libpq_version", libpq_version())
@@ -80,10 +77,10 @@ napi_ts::napi_init!(|cx| {
     .set_property_function("foo", |cx| {
       println!("-> foo -> THIS {:?}", cx.this());
       println!("-> foo -> ARGS {:?}", cx.args());
-      cx.args()[2].downcast::<NapiFunction>()?.call(
-        None,
-        vec![cx.string("shuster").as_value()]
-      )
+      cx.args()[2].downcast::<NapiFunction>()?.call( None, &[
+        &cx.string("shuster").as_value(),
+        &cx.bigint(123).as_value()
+      ])
     })
     .set_property_function("bar", |cx| {
       println!("-> bar -> THIS {:?}", cx.this());
@@ -91,6 +88,23 @@ napi_ts::napi_init!(|cx| {
       Ok(cx.undefined())
     })
   ;
+
+  println!("\n\n\n------------------------------------------------------");
+
+  let arr = cx.array();
+  println!("ARRAY {:?}", arr);
+  println!("{}", arr.length());
+  arr.set_element(0, &cx.string("xxx"));
+  arr.set_element(12, &cx.string("xxx"));
+  println!("{}", arr.length());
+  arr.delete_element(12);
+  arr.delete_element(0);
+  arr.push(&cx.string("shii"));
+  arr.pushn(&[&cx.string("shoo").as_value(), &cx.string("shaa").as_value()]);
+  arr.splice(0, 13, &[]);
+
+  exports.set_property("arr", &arr);
+  println!("------------------------------------------------------\n\n\n");
 
   Ok(exports)
 });

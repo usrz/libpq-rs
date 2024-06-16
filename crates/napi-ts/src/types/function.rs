@@ -51,11 +51,7 @@ impl NapiFunction {
       .into_iter()
       .map(|arg| arg.napi_handle())
       .collect();
-
-    let ehandles: Vec<&napi::Handle> = handles
-      .iter()
-      .map(|arg| arg)
-      .collect();
+    let ehandles: Vec<&napi::Handle> = handles.iter().collect();
 
     self.handle.call_function(&this, ehandles.as_slice())
       .map(|ok| NapiValue::from_handle(ok).as_napi_ref())
