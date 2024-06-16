@@ -161,7 +161,12 @@ impl Env {
     }
   }
 
-  pub fn call_function(&self, function: &Handle, this: &Handle, args: Vec<Handle>) -> Result<Handle, Handle> {
+  pub fn call_function(
+    &self,
+    function: &Handle,
+    this: &Handle,
+    args: &[&Handle],
+  ) -> Result<Handle, Handle> {
     unsafe {
       let mut result = MaybeUninit::<napi_value>::zeroed();
 
@@ -205,7 +210,7 @@ impl Env {
 }
 
 impl Handle {
-  pub fn call_function(&self, this: &Handle, args: Vec<Handle>) -> Result<Handle, Handle> {
+  pub fn call_function(&self, this: &Handle, args: &[&Handle]) -> Result<Handle, Handle> {
     self.env.call_function(self, this, args)
   }
 }
