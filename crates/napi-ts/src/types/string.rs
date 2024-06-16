@@ -8,8 +8,8 @@ pub struct NapiString {
 }
 
 napi_type!(NapiString, String, {
-  unsafe fn from_handle(handle: napi::Handle) -> Self {
-    Self { handle, value: handle.get_value_string_utf8() }
+  unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr> {
+    Ok(Self { handle, value: handle.get_value_string_utf8() })
   }
 
   fn napi_handle(&self) -> napi::Handle {

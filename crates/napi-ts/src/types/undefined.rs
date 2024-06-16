@@ -7,8 +7,8 @@ pub struct NapiUndefined {
 }
 
 napi_type!(NapiUndefined, Undefined, {
-  unsafe fn from_handle(handle: napi::Handle) -> Self {
-    Self { handle }
+  unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr> {
+    Ok(Self { handle })
   }
 
   fn napi_handle(&self) -> napi::Handle {

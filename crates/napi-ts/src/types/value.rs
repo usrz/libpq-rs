@@ -19,19 +19,17 @@ impl fmt::Debug for NapiValue {
 
 impl NapiType for NapiValue {}
 
-impl NapiTypeIdInternal for NapiValue {
-  fn has_type_of(_: NapiTypeOf) -> bool {
-    true
-  }
-
-  fn type_of(&self) -> NapiTypeOf {
-    self.type_of.get_or_init(|| self.handle.type_of()).clone()
-  }
+impl NapiTypeWithTypeOf for NapiValue {
+  const TYPE_OF: Option<NapiTypeOf> = None;
 }
 
 impl NapiTypeInternal for NapiValue {
-  unsafe fn from_handle(handle: napi::Handle) -> Self {
-    NapiValue::from_handle(handle)
+  unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr> {
+    Ok(NapiValue::from_handle(handle))
+  }
+
+  fn from_napi_value(value: &NapiValue) -> Result<Self, NapiErr> {
+    Ok(Self { handle: value.handle, type_of: value.type_of.clone() })
   }
 
   fn napi_handle(&self) -> napi::Handle {
@@ -40,6 +38,10 @@ impl NapiTypeInternal for NapiValue {
 }
 
 impl NapiValue {
+  pub fn type_of(&self) -> NapiTypeOf {
+    self.type_of.get_or_init(|| self.handle.type_of()).clone()
+  }
+
   pub (crate) fn from_handle(handle: napi::Handle) -> Self {
     Self { handle, type_of: OnceCell::new() }
   }

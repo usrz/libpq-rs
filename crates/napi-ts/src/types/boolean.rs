@@ -8,8 +8,8 @@ pub struct NapiBoolean {
 }
 
 napi_type!(NapiBoolean, Boolean, {
-  unsafe fn from_handle(handle: napi::Handle) -> Self {
-    Self { handle, value: handle.get_value_bool() }
+  unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr> {
+    Ok(Self { handle, value: handle.get_value_bool() })
   }
 
   fn napi_handle(&self) -> napi::Handle {

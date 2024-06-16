@@ -8,8 +8,8 @@ pub struct NapiNumber {
 }
 
 napi_type!(NapiNumber, Number, {
-  unsafe fn from_handle(handle: napi::Handle) -> Self {
-    Self { handle, value: handle.get_value_double() }
+  unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr> {
+    Ok(Self { handle, value: handle.get_value_double() })
   }
 
   fn napi_handle(&self) -> napi::Handle {

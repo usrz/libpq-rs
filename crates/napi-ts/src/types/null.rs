@@ -7,8 +7,8 @@ pub struct NapiNull {
 }
 
 napi_type!(NapiNull, Null, {
-  unsafe fn from_handle(handle: napi::Handle) -> Self {
-    Self { handle }
+  unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr> {
+    Ok(Self { handle })
   }
 
   fn napi_handle(&self) -> napi::Handle {

@@ -8,8 +8,8 @@ pub struct NapiBigint {
 }
 
 napi_type!(NapiBigint, Bigint, {
-  unsafe fn from_handle(handle: napi::Handle) -> Self {
-    Self { handle, value: handle.get_value_bigint_words() }
+  unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr> {
+    Ok(Self { handle, value: handle.get_value_bigint_words() })
   }
 
   fn napi_handle(&self) -> napi::Handle {

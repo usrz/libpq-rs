@@ -5,6 +5,7 @@ use std::fmt;
 use std::marker::PhantomData;
 use std::ops::Deref;
 
+mod array;
 mod bigint;
 mod boolean;
 mod external;
@@ -20,6 +21,7 @@ mod symbol;
 mod undefined;
 mod value;
 
+pub use array::*;
 pub use bigint::*;
 pub use boolean::*;
 pub use external::*;
@@ -62,14 +64,12 @@ impl <T: NapiType> fmt::Debug for NapiRef<'_, T> {
 }
 
 impl <'a, T: NapiType + 'a> NapiRefInternal for NapiRef<'a, T> {
-  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.value.napi_handle()
   }
 }
 
 impl <'a, T: NapiType + 'a> Into<NapiErr> for NapiRef<'a, T> {
-  #[inline]
   fn into(self) -> NapiErr {
     NapiErr::from_handle(self.napi_handle())
   }
@@ -84,18 +84,14 @@ impl <'a, T: NapiType + 'a> Deref for NapiRef<'a, T> {
 }
 
 impl <'a, T: NapiType + 'a> NapiRef<'a, T> {
-  #[inline]
   pub fn as_value(&self) -> NapiRef<'a, NapiValue> {
     let handle = self.napi_handle();
     let value = NapiValue::from_handle(handle);
     NapiRef { phantom: PhantomData, value }
   }
-}
 
-impl <'a> NapiRef<'a, NapiValue> {
-  #[inline]
-  pub fn downcast<T: NapiType>(&self) -> NapiResult<'a, T> {
-    T::from_napi_value(&self.value.as_napi_value())
+  pub fn downcast<D: NapiType>(&self) -> NapiResult<'a, D> {
+    D::from_napi_value(&self.value.as_napi_value())
       .map(|value| value.as_napi_ref())
   }
 }
@@ -103,27 +99,31 @@ impl <'a> NapiRef<'a, NapiValue> {
 
 // ===== PRIVATE TRAITS ========================================================
 
-pub (crate) trait NapiTypeIdInternal {
-  fn has_type_of(type_of: NapiTypeOf) -> bool;
-
-  fn type_of(&self) -> NapiTypeOf;
+pub (crate) trait NapiTypeWithTypeOf {
+  const TYPE_OF: Option<NapiTypeOf>;
 }
 
-pub (crate) trait NapiTypeInternal: NapiTypeIdInternal + fmt::Debug + Sized {
+pub (crate) trait NapiTypeInternal: NapiTypeWithTypeOf + Sized {
   fn napi_handle(&self) -> napi::Handle;
 
-  unsafe fn from_handle(handle: napi::Handle) -> Self;
+  unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr>;
 
   fn from_napi_value(value: &NapiValue) -> Result<Self, NapiErr> {
-    if Self::has_type_of(value.type_of()) {
-      return Ok(unsafe { Self::from_handle(value.napi_handle()) })
+    if let Some(type_of) = Self::TYPE_OF {
+      if type_of != value.type_of() {
+        return Err(format!("Invalid handle type {:?} for {}", value.type_of(), type_name::<Self>()).into())
+      }
     }
 
-    Err(format!("Unable to downcast {:?} into {}", value.type_of(), type_name::<Self>()).into())
+    return Ok(unsafe { Self::from_handle(value.napi_handle())? })
   }
 
   fn as_napi_value(&self) -> NapiValue {
-    NapiValue::from_handle_and_type_of(self.napi_handle(), self.type_of())
+    let handle = self.napi_handle();
+    match Self::TYPE_OF {
+      Some(type_of) => NapiValue::from_handle_and_type_of(handle, type_of),
+      None => NapiValue::from_handle(handle),
+    }
   }
 
   fn as_napi_ref<'a>(self) -> NapiRef<'a, Self> {
@@ -134,6 +134,6 @@ pub (crate) trait NapiTypeInternal: NapiTypeIdInternal + fmt::Debug + Sized {
 // ===== PUBLIC TRAITS =========================================================
 
 #[allow(private_bounds)]
-pub trait NapiType: NapiTypeInternal {
+pub trait NapiType: NapiTypeWithTypeOf + NapiTypeInternal + fmt::Debug + Sized {
   // Marker type
 }

@@ -15,14 +15,8 @@ macro_rules! napi_type {
     impl $(<$($params: 'static,)?>)? NapiTypeInternal for $type$(<$($params,)?>)? $def
 
     // impl NapiTypeIdInternal for NapiBoolean
-    impl $(<$($params: 'static,)?>)? NapiTypeIdInternal for $type$(<$($params,)?>)? {
-      fn has_type_of(type_of: crate::NapiTypeOf) -> bool {
-        crate::NapiTypeOf::$value == type_of
-      }
-
-      fn type_of(&self) -> crate::NapiTypeOf {
-        crate::NapiTypeOf::$value
-      }
+    impl $(<$($params: 'static,)?>)? NapiTypeWithTypeOf for $type$(<$($params,)?>)? {
+      const TYPE_OF: Option<NapiTypeOf> = Some(NapiTypeOf::$value);
     }
 
     // impl Debug for NapiBoolean

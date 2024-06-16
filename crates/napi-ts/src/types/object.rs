@@ -7,11 +7,10 @@ pub struct NapiObject {
 }
 
 napi_type!(NapiObject, Object, {
-  unsafe fn from_handle(handle: napi::Handle) -> Self {
-    Self { handle }
+  unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr> {
+    Ok(Self { handle })
   }
 
-  #[inline]
   fn napi_handle(&self) -> napi::Handle {
     self.handle
   }

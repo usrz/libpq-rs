@@ -22,19 +22,9 @@ pub struct NapiExternal<T> {
 }
 
 napi_type!(NapiExternal<T>, External, {
-  unsafe fn from_handle(_: napi::Handle) -> Self {
-    panic!("Cowardly refusing to restore NapiExternal without checking");
-  }
-
-  fn from_napi_value(value: &NapiValue) -> Result<Self, NapiErr> {
-    let handle = value.napi_handle();
-
-    if ! Self::has_type_of(value.type_of()) {
-      return Err(format!("Unable to downcast {:?} into {}", value.type_of(), type_name::<Self>()).into())
-    }
-
+  unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr> {
     let pointer = handle.get_value_external();
-    let data = unsafe { &*(pointer as *mut NapiExtrnalData<T>) };
+    let data = &*(pointer as *mut NapiExtrnalData<T>);
 
     if TypeId::of::<T>() == data.type_id {
       Ok(Self { handle, pointer: data.pointer })
