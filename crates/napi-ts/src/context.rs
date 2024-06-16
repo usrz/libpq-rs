@@ -9,6 +9,10 @@ pub (crate) trait NapiContextInternal<'a> {
 
 #[allow(private_bounds)]
 pub trait NapiContext<'a>: NapiContextInternal<'a> {
+  fn array(&self) -> NapiRef<'a, NapiArray> {
+    NapiArray::new(self.napi_env()).as_napi_ref()
+  }
+
   fn bigint<V: Into<i128>>(&self, value: V) -> NapiRef<'a, NapiBigint> {
     NapiBigint::new(self.napi_env(), value.into()).as_napi_ref()
   }
