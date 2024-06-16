@@ -44,23 +44,23 @@ impl <'a> NapiRef<'a, NapiArray> {
   }
 
   pub fn get_element(&self, index: u32) -> NapiRef<'a, NapiValue> {
-    let value = self.napi_handle().get_element(index);
+    let value = self.handle.get_element(index);
     NapiValue::from_handle(value).as_napi_ref()
   }
 
   pub fn set_element<T: NapiType + 'a>(
     &self, index: u32, value: &NapiRef<'a, T>
   ) -> &Self {
-    self.napi_handle().set_element(index, &value.napi_handle());
+    self.handle.set_element(index, &value.napi_handle());
     self
   }
 
   pub fn has_element(&self, index: u32) -> bool {
-    self.napi_handle().has_element(index)
+    self.handle.has_element(index)
   }
 
   pub fn delete_element(&self, index: u32) {
-    self.napi_handle().delete_element(index)
+    self.handle.delete_element(index)
   }
 
   pub fn push<T: NapiType + 'a>(&self, value: &NapiRef<'a, T>) -> u32 {
@@ -70,7 +70,7 @@ impl <'a> NapiRef<'a, NapiArray> {
   }
 
   pub fn pop<T: NapiType + 'a>(&self) -> u32 {
-    let push = self.value.push.get_or_init(|| self.handle.get_named_property("push"));
+    let push = self.value.pop.get_or_init(|| self.handle.get_named_property("pop"));
     let result = push.call_function(&self.handle, &[]).unwrap();
     self.handle.env().get_value_double(&result) as u32
   }

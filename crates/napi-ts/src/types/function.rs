@@ -57,7 +57,7 @@ impl NapiFunction {
       .map(|arg| arg)
       .collect();
 
-    self.napi_handle().call_function(&this, ehandles.as_slice())
+    self.handle.call_function(&this, ehandles.as_slice())
       .map(|ok| NapiValue::from_handle(ok).as_napi_ref())
       .map_err(|err| NapiValue::from_handle(err).as_napi_ref().into())
   }
