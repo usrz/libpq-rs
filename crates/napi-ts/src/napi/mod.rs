@@ -1,6 +1,5 @@
 use crate::NapiFinalizable;
 use crate::NapiTypeOf;
-use crate::errors::*;
 use nodejs_sys::*;
 use std::cell::Cell;
 use std::fmt;

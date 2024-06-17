@@ -72,12 +72,6 @@ impl <'a, T: NapiType<'a>> Into<NapiErr> for NapiRef<'a, T> {
   }
 }
 
-impl <'a, T: NapiType<'a>> Into<NapiOk> for NapiRef<'a, T> {
-  fn into(self) -> NapiOk {
-    NapiOk::from_handle(self.napi_handle())
-  }
-}
-
 impl <'a, T: NapiType<'a>> Deref for NapiRef<'a, T> {
   type Target = T;
 

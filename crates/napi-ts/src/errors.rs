@@ -2,37 +2,12 @@ use crate::NapiTypeOf;
 use crate::napi;
 use std::fmt;
 use crate::NapiRef;
-use crate::NapiType;
 
 // ========================================================================== //
 // RESULT TYPE                                                                //
 // ========================================================================== //
 
 pub type NapiResult2<'b, R> = Result<NapiRef<'b, R>, NapiErr>;
-
-// pub type NapiResult = Result<NapiOk, NapiErr>;
-
-pub struct NapiOk {
-  handle: napi::Handle,
-}
-
-impl fmt::Debug for NapiOk {
-  fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
-    fm.debug_tuple("NapiOk")
-      .field(&self.handle)
-      .finish()
-  }
-}
-
-impl NapiOk {
-  pub (crate) fn from_handle(handle: napi::Handle) -> Self {
-    Self { handle }
-  }
-
-  pub (crate) fn into_handle(self) -> napi::Handle {
-    self.handle
-  }
-}
 
 // ========================================================================== //
 // "ERR" TYPE => holds an error message and an optional the napi value ptr    //
