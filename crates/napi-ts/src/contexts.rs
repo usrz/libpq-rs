@@ -27,7 +27,7 @@ impl <'a> InitContext<'a> {
     Self { phantom: PhantomData, exports }
   }
 
-  pub fn exports(&'a self) -> NapiRef<'a, NapiObject<'a>> {
+  pub fn exports(&self) -> NapiRef<'a, NapiObject<'a>> {
     unsafe { NapiObject::from_handle(self.exports).unwrap().as_napi_ref() }
   }
 }
