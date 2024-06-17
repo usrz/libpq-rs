@@ -3,6 +3,7 @@
 use napi_ts::*;
 
 use ffi::to_string_lossy;
+use std::error::Error;
 pub mod connection;
 pub mod conninfo;
 pub mod debug;
@@ -82,13 +83,14 @@ napi_ts::napi_init!(|cx| {
     // println!("{:?}", baz);
     println!("-> foo -> THIS {:?}", cx.this());
     println!("-> foo -> ARGS {:?}", cx.args());
-    let rzzo = cx.args()[2].downcast::<NapiFunction>()?
+    let function = cx.arg(2).downcast::<NapiFunction>()?;
+
+    let rezzo = function
       .with(cx.string("shuster"))
       .with(&cx.bigint(123))
       .call();
 
-    // rzzo
-    Ok(cx.string("fasdf"))
+    rezzo
   });
 
   let bar = cx.function(move |cx| {
