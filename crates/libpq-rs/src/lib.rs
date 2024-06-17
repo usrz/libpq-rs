@@ -122,5 +122,5 @@ napi_ts::napi_init!(|cx| {
   exports.set_property("arr", &arr);
   println!("------------------------------------------------------\n\n\n");
 
-  Ok(())
+  Ok(cx.exports())
 });

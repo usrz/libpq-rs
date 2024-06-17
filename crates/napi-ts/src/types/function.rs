@@ -26,7 +26,7 @@ impl <'a> NapiFunction<'a> {
   pub fn new<'b, F, R>(env: napi::Env, name: Option<&str>, function: F) -> NapiFunction<'a>
   where
     'a: 'b,
-    F: (Fn(FunctionContext<'b>) -> NapiResult2<'b, R>) + 'static,
+    F: (Fn(FunctionContext<'b>) -> NapiResult<'b, R>) + 'static,
     R: NapiType<'b> + 'b,
   {
     let handle = env.create_function(name, move |_, this, args| {
@@ -62,7 +62,7 @@ impl <'a> NapiArguments<'a> {
     self
   }
 
-  pub fn call(self) -> NapiResult2<'a, NapiValue<'a>> {
+  pub fn call(self) -> NapiResult<'a, NapiValue<'a>> {
     let this = napi::env().get_null();
     let arguments: Vec<&napi::Handle> = self.arguments.iter().collect();
 
@@ -71,7 +71,7 @@ impl <'a> NapiArguments<'a> {
       .map_err(|handle| NapiErr::from_handle(handle))
   }
 
-  pub fn call_on<T: NapiType<'a>>(self, this: NapiRef<'a, T>) -> NapiResult2<'a, NapiValue<'a>>{
+  pub fn call_on<T: NapiType<'a>>(self, this: NapiRef<'a, T>) -> NapiResult<'a, NapiValue<'a>>{
     let this = this.napi_handle();
     let arguments: Vec<&napi::Handle> = self.arguments.iter().collect();
 

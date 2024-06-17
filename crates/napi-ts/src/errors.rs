@@ -1,13 +1,13 @@
+use crate::NapiRef;
 use crate::NapiTypeOf;
 use crate::napi;
 use std::fmt;
-use crate::NapiRef;
 
 // ========================================================================== //
 // RESULT TYPE                                                                //
 // ========================================================================== //
 
-pub type NapiResult2<'b, R> = Result<NapiRef<'b, R>, NapiErr>;
+pub type NapiResult<'b, R> = Result<NapiRef<'b, R>, NapiErr>;
 
 // ========================================================================== //
 // "ERR" TYPE => holds an error message and an optional the napi value ptr    //

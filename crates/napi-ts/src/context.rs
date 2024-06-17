@@ -21,7 +21,7 @@ pub trait NapiContext<'a> {
   fn function<'b, F, R>(&self, function: F) -> NapiRef<'a, NapiFunction<'a>>
   where
     'a: 'b,
-    F: (Fn(FunctionContext<'b>) -> NapiResult2<'b, R>) + 'static,
+    F: (Fn(FunctionContext<'b>) -> NapiResult<'b, R>) + 'static,
     R: NapiType<'b> + 'b,
   {
     NapiFunction::new(napi::env(), None, function).as_napi_ref()

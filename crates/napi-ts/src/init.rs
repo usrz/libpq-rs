@@ -20,7 +20,7 @@ impl <'a> NapiInit<'a> {
   pub fn init<'b, F, R>(&self, function: F) -> napi::nodejs_sys::napi_value
   where
     'a: 'b,
-    F: (Fn(InitContext<'b>) -> NapiResult2<'b, R>) + 'static,
+    F: (Fn(InitContext<'b>) -> NapiResult<'b, R>) + 'static,
     R: NapiType<'b> + 'b,
   {
     napi::Env::exec(self.env, move |_| {
