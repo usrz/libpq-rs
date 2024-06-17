@@ -15,7 +15,7 @@ use std::mem::transmute;
 /// retrieved we'll find a pointer to this structure...
 struct CallbackWrapper<F>
 where
-  F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, NapiErr> + 'static
+  F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, Handle> + 'static
 {
   type_id: TypeId,
   function: *mut F,
@@ -23,9 +23,9 @@ where
 
 impl <F> CallbackWrapper<F>
 where
-  F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, NapiErr> + 'static
+  F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, Handle> + 'static
 {
-  fn call(&self, env: Env, this: Handle, args: Vec<Handle>) -> Result<Handle, NapiErr> {
+  fn call(&self, env: Env, this: Handle, args: Vec<Handle>) -> Result<Handle, Handle> {
     let cb = unsafe { &* { self.function }};
     cb(env, this, args)
   }
@@ -33,7 +33,7 @@ where
 
 impl <F> NapiFinalizable for CallbackWrapper<F>
 where
-  F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, NapiErr> + 'static
+  F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, Handle> + 'static
 {
   fn finalize(self) {
     drop(unsafe { Box::from_raw(self.function) });
@@ -46,7 +46,7 @@ where
 
 extern "C" fn callback_trampoline<F>(env: napi_env, info: napi_callback_info) -> napi_value
 where
-  F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, NapiErr> + 'static
+  F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, Handle> + 'static
 {
   Env::exec(env, |env| unsafe {
     let mut argc = MaybeUninit::<usize>::zeroed();
@@ -89,7 +89,7 @@ where
     // Triple check that the type IDs of what's in memory, and of what we're
     // being called on match, if so, good, otherwise panic
     if TypeId::of::<F>() != wrapper.type_id {
-      return Err(format!("Mismatched type id in callback {}", type_name::<F>()).into())
+      panic!("Mismatched type id for wrapper callback {}", type_name::<F>())
     }
 
     let this = Handle(this.assume_init());
@@ -109,7 +109,7 @@ where
 impl Env {
   pub fn create_function<F>(&self, name: Option<&str>, function: F) -> Handle
   where
-    F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, NapiErr> + 'static
+    F: Fn(Env, Handle, Vec<Handle>) -> Result<Handle, Handle> + 'static
   {
     // See if this function is named or anonymous
     let (name, name_len) = match name {

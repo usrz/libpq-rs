@@ -3,7 +3,8 @@ use std::cell::OnceCell;
 
 // ===== NAPI TYPE BASICS ======================================================
 
-pub struct NapiArray {
+pub struct NapiArray<'a> {
+  phantom: PhantomData<&'a ()>,
   handle: napi::Handle,
   pop: OnceCell<napi::Handle>,
   push: OnceCell<napi::Handle>,
@@ -16,6 +17,7 @@ napi_type!(NapiArray, Object, {
       return Err("Specified object is not a JavaScript Array".into())
     } else {
       Ok(Self {
+        phantom: PhantomData,
         handle,
         pop: OnceCell::new(),
         push: OnceCell::new(),
@@ -29,17 +31,15 @@ napi_type!(NapiArray, Object, {
   }
 });
 
-impl <'a> NapiProperties<'a> for NapiRef<'a, NapiArray> {}
+// impl <'a> NapiProperties<'a> for NapiArray<'a> {}
 
 // ===== ARRAY =================================================================
 
-impl NapiArray {
+impl <'a> NapiArray<'a> {
   pub fn new(env: napi::Env) -> Self {
     unsafe { Self::from_handle(env.create_array()).unwrap() }
   }
-}
 
-impl <'a> NapiRef<'a, NapiArray> {
   pub fn length(&self) -> u32 {
     let value = self.handle.get_named_property("length");
     value.get_value_double() as u32
@@ -52,7 +52,7 @@ impl <'a> NapiRef<'a, NapiArray> {
     NapiValue::from_handle(value).as_napi_ref()
   }
 
-  pub fn set_element<T: NapiType + 'a>(
+  pub fn set_element<T: NapiType<'a>>(
     &self, index: u32, value: &NapiRef<'a, T>
   ) -> &Self {
     self.handle.set_element(index, &value.napi_handle());
@@ -69,14 +69,14 @@ impl <'a> NapiRef<'a, NapiArray> {
 
   // ===== PUSH ================================================================
 
-  pub fn push<T: NapiType + 'a>(&self, item: &NapiRef<'a, T>) -> u32 {
-    let push = self.value.push.get_or_init(|| self.handle.get_named_property("push"));
+  pub fn push<T: NapiType<'a>>(&self, item: &NapiRef<'a, T>) -> u32 {
+    let push = self.push.get_or_init(|| self.handle.get_named_property("push"));
     let result = push.call_function(&self.handle, &[&item.napi_handle()]).unwrap();
     napi::env().get_value_double(&result) as u32
   }
 
-  pub fn pushn(&self, items: &[&NapiRef<'a, NapiValue>]) -> u32 {
-    let push = self.value.push.get_or_init(|| self.handle.get_named_property("push"));
+  pub fn pushn(&self, items: &[&NapiRef<'a, NapiValue<'a>>]) -> u32 {
+    let push = self.push.get_or_init(|| self.handle.get_named_property("push"));
 
     let handles: Vec<napi::Handle> = items
       .into_iter()
@@ -90,8 +90,8 @@ impl <'a> NapiRef<'a, NapiArray> {
 
   // ===== POP =================================================================
 
-  pub fn pop(&self) -> NapiRef<'a, NapiValue> {
-    let push = self.value.pop.get_or_init(|| self.handle.get_named_property("pop"));
+  pub fn pop(&'a self) -> NapiRef<'a, NapiValue> {
+    let push = self.pop.get_or_init(|| self.handle.get_named_property("pop"));
     let result = push.call_function(&self.handle, &[]).unwrap();
     NapiValue::from_handle(result).as_napi_ref()
   }
@@ -102,9 +102,9 @@ impl <'a> NapiRef<'a, NapiArray> {
     &self,
     start: u32,
     delete_count: u32,
-    items: &[&NapiRef<'a, NapiValue>],
+    items: &[&NapiRef<'a, NapiValue<'a>>],
   ) {
-    let splice = self.value.splice.get_or_init(|| self.handle.get_named_property("splice"));
+    let splice = self.splice.get_or_init(|| self.handle.get_named_property("splice"));
     let start = napi::env().create_double(start as f64);
     let delete_count = napi::env().create_double(delete_count as f64);
 

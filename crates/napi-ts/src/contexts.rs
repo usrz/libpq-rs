@@ -24,9 +24,8 @@ impl fmt::Debug for InitContext<'_> {
 
 impl <'a> NapiContext<'a> for InitContext<'a> {}
 impl <'a> NapiContextInternal<'a> for InitContext<'a> {
-  #[inline]
   fn napi_env(&self) -> napi::Env {
-    self.env
+    napi::env() // self.env
   }
 }
 
@@ -35,7 +34,7 @@ impl <'a> InitContext<'a> {
     Self { phantom: PhantomData, env, exports }
   }
 
-  pub fn exports(&self) -> NapiRef<'a, NapiObject> {
+  pub fn exports(&'a self) -> NapiRef<'a, NapiObject<'a>> {
     unsafe { NapiObject::from_handle(self.exports).unwrap().as_napi_ref() }
   }
 }
@@ -61,7 +60,6 @@ impl fmt::Debug for FunctionContext<'_> {
 
 impl <'a> NapiContext<'a> for FunctionContext<'a> {}
 impl <'a> NapiContextInternal<'a> for FunctionContext<'a> {
-  #[inline]
   fn napi_env(&self) -> napi::Env {
     self.env
   }
@@ -72,7 +70,7 @@ impl <'a> FunctionContext<'a> {
     Self { phantom: PhantomData, env, this, args: args.to_vec() }
   }
 
-  pub fn this(&self) -> NapiRef<'a, NapiValue> {
+  pub fn this(&self) -> NapiRef<'a, NapiValue<'a>> {
     NapiValue::from_handle(self.this).as_napi_ref()
   }
 
@@ -80,11 +78,11 @@ impl <'a> FunctionContext<'a> {
     self.args.len()
   }
 
-  pub fn arg(&self, i: usize) -> NapiRef<'a, NapiValue> {
+  pub fn arg(&self, i: usize) -> NapiRef<'a, NapiValue<'a>> {
     NapiValue::from_handle(self.args[i]).as_napi_ref()
   }
 
-  pub fn args(&self) -> Vec<NapiRef<'a, NapiValue>> {
+  pub fn args(&self) -> Vec<NapiRef<'a, NapiValue<'a>>> {
     self.args
       .iter()
       .map(|handle| NapiValue::from_handle(*handle).as_napi_ref())

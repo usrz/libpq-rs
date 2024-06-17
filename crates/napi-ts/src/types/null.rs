@@ -2,13 +2,14 @@ use crate::types::*;
 
 // ===== NAPI TYPE BASICS ======================================================
 
-pub struct NapiNull {
+pub struct NapiNull<'a> {
+  phantom: PhantomData<&'a ()>,
   handle: napi::Handle,
 }
 
 napi_type!(NapiNull, Null, {
   unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr> {
-    Ok(Self { handle })
+    Ok(Self { phantom: PhantomData, handle })
   }
 
   fn napi_handle(&self) -> napi::Handle {
@@ -18,8 +19,8 @@ napi_type!(NapiNull, Null, {
 
 // ===== NULL ==================================================================
 
-impl NapiNull {
+impl <'a> NapiNull<'a> {
   pub fn new(env: napi::Env) -> Self {
-    Self { handle: env.get_null() }
+    Self { phantom: PhantomData, handle: env.get_null() }
   }
 }

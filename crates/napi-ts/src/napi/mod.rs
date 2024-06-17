@@ -74,7 +74,7 @@ impl Env {
   ///
   pub (crate) fn exec<F>(env: napi_env, callback: F) -> napi_value
   where
-    F: Fn(Env) -> Result<Handle, NapiErr>
+    F: Fn(Env) -> Result<Handle, Handle>
   {
     // Create our Env and assert the callback to be unwind safe
     let env = Env(env);
@@ -96,25 +96,25 @@ impl Env {
     // See if the initialization panicked
     let result = panic.unwrap_or_else(|error| {
       if let Some(message) = error.downcast_ref::<&str>() {
-        Err(format!("PANIC: {}", message).into())
+        Err(env.create_error(&format!("PANIC: {}", message)))
       } else if let Some(message) = error.downcast_ref::<String>() {
-        Err(format!("PANIC: {}", message).into())
+        Err(env.create_error(&format!("PANIC: {}", message)))
       } else {
-        Err("PANIC: Unknown error".into())
+        Err(env.create_error("PANIC: Unknown error"))
       }
     });
-
-    // Return the old "napi_env" into the thread local.
-    println!(">>> EXIT >>> new={:?} old={:?} ", env, old);
-    NAPI_ENV.set(old);
 
     // When we get here, we dealt with possible panic situations, now we have
     // a result, which (if OK) will hold the `Handle` with the `napi_value`
     // to return to node or (if ERR) will hold a `NapiErr` containing either a
     // `Handle` to throw, or a message from which to generate an error to throw.
-    result.unwrap_or_else(|error| {
-      env.throw(&error.into_handle(env))
-    }).0
+    let value = result.unwrap_or_else(|err| err.throw()).0;
+
+    // Return the old "napi_env" into the thread local.
+    println!(">>> EXIT >>> new={:?} old={:?} ", env, old);
+    NAPI_ENV.set(old);
+
+    value
   }
 }
 

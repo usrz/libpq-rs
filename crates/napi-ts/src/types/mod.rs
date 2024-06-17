@@ -47,12 +47,12 @@ pub (crate) trait NapiRefInternal {
 
 
 #[allow(private_bounds)]
-pub struct NapiRef<'a, T: NapiTypeInternal + 'a> {
+pub struct NapiRef<'a, T: NapiTypeInternal<'a>> {
   phantom: PhantomData<&'a mut T>,
   value: T,
 }
 
-impl <T: NapiType> fmt::Debug for NapiRef<'_, T> {
+impl <'a, T: NapiType<'a>> fmt::Debug for NapiRef<'a, T> {
   fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
     fm.debug_tuple("NapiRef")
       .field(&self.value)
@@ -60,19 +60,25 @@ impl <T: NapiType> fmt::Debug for NapiRef<'_, T> {
   }
 }
 
-impl <'a, T: NapiType + 'a> NapiRefInternal for NapiRef<'a, T> {
+impl <'a, T: NapiType<'a>> NapiRefInternal for NapiRef<'a, T> {
   fn napi_handle(&self) -> napi::Handle {
     self.value.napi_handle()
   }
 }
 
-impl <'a, T: NapiType + 'a> Into<NapiErr> for NapiRef<'a, T> {
+impl <'a, T: NapiType<'a>> Into<NapiErr> for NapiRef<'a, T> {
   fn into(self) -> NapiErr {
     NapiErr::from_handle(self.napi_handle())
   }
 }
 
-impl <'a, T: NapiType + 'a> Deref for NapiRef<'a, T> {
+impl <'a, T: NapiType<'a>> Into<NapiOk> for NapiRef<'a, T> {
+  fn into(self) -> NapiOk {
+    NapiOk::from_handle(self.napi_handle())
+  }
+}
+
+impl <'a, T: NapiType<'a>> Deref for NapiRef<'a, T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {
@@ -80,14 +86,14 @@ impl <'a, T: NapiType + 'a> Deref for NapiRef<'a, T> {
   }
 }
 
-impl <'a, T: NapiType + 'a> NapiRef<'a, T> {
-  pub fn as_value(&self) -> NapiRef<'a, NapiValue> {
+impl <'a, T: NapiType<'a>> NapiRef<'a, T> {
+  pub fn as_value(&self) -> NapiRef<'a, NapiValue<'a>> {
     let handle = self.napi_handle();
     let value = NapiValue::from_handle(handle);
     NapiRef { phantom: PhantomData, value }
   }
 
-  pub fn downcast<D: NapiType>(&self) -> NapiResult<'a, D> {
+  pub fn downcast<D: NapiType<'a>>(&self) -> Result<NapiRef<'a, D>, NapiErr> {
     D::from_napi_value(&self.value.as_napi_value())
       .map(|value| value.as_napi_ref())
   }
@@ -99,7 +105,7 @@ pub (crate) trait NapiTypeWithTypeOf {
   const TYPE_OF: Option<NapiTypeOf>;
 }
 
-pub (crate) trait NapiTypeInternal: NapiTypeWithTypeOf + fmt::Debug + Sized {
+pub (crate) trait NapiTypeInternal<'a>: NapiTypeWithTypeOf + fmt::Debug + Sized {
   fn napi_handle(&self) -> napi::Handle;
 
   unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr>;
@@ -122,7 +128,7 @@ pub (crate) trait NapiTypeInternal: NapiTypeWithTypeOf + fmt::Debug + Sized {
     }
   }
 
-  fn as_napi_ref<'a>(self) -> NapiRef<'a, Self> {
+  fn as_napi_ref(self) -> NapiRef<'a, Self> {
     NapiRef { phantom: PhantomData, value: self }
   }
 }
@@ -130,6 +136,6 @@ pub (crate) trait NapiTypeInternal: NapiTypeWithTypeOf + fmt::Debug + Sized {
 // ===== PUBLIC TRAITS =========================================================
 
 #[allow(private_bounds)]
-pub trait NapiType: NapiTypeInternal {
+pub trait NapiType<'a>: NapiTypeInternal<'a> {
   // Marker type
 }

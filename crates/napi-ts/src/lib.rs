@@ -1,6 +1,8 @@
 mod context;
 mod errors;
 mod types;
+mod test;
+
 
 pub mod contexts;
 pub mod init;

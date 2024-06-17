@@ -2,13 +2,14 @@ use crate::types::*;
 
 // ===== NAPI TYPE BASICS ======================================================
 
-pub struct NapiObject {
+pub struct NapiObject<'a> {
+  phantom: PhantomData<&'a ()>,
   handle: napi::Handle,
 }
 
 napi_type!(NapiObject, Object, {
   unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr> {
-    Ok(Self { handle })
+    Ok(Self { phantom: PhantomData, handle })
   }
 
   fn napi_handle(&self) -> napi::Handle {
@@ -16,12 +17,12 @@ napi_type!(NapiObject, Object, {
   }
 });
 
-impl <'a> NapiProperties<'a> for NapiRef<'a, NapiObject> {}
+impl <'a> NapiProperties<'a> for NapiObject<'a> {}
 
 // ===== CONVERSION IN =========================================================
 
-impl NapiObject {
+impl <'a> NapiObject<'a> {
   pub fn new(env: napi::Env) -> Self {
-    Self { handle: env.create_object() }
+    Self { phantom: PhantomData, handle: env.create_object() }
   }
 }

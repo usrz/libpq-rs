@@ -70,23 +70,39 @@ napi_ts::napi_init!(|cx| {
   println!("  openssl version: {}", openssl_version());
   println!("    libpq version: {} (threadsafe={})", libpq_version(), libpq_threadsafe());
 
+  let foo = cx.string("foo");
+  // let foo = exports.get_property("shuster");
+  // let bar = exports.get_property("f").downcast::<NapiFunction>()?.call(None, &[])?;
+  // let baz = exports.get_property("a").downcast::<NapiArray>()?.pop();
+  // let obj = exports.get_property("o").downcast::<NapiObject>()?;
+
+  let foo = cx.function(move |cx| {
+    // println!("{:?}", foo);
+    // println!("{:?}", bar);
+    // println!("{:?}", baz);
+    println!("-> foo -> THIS {:?}", cx.this());
+    println!("-> foo -> ARGS {:?}", cx.args());
+    let rzzo = cx.args()[2].downcast::<NapiFunction>()?
+      .with(cx.string("shuster"))
+      .with(&cx.bigint(123))
+      .call();
+
+    // rzzo
+    Ok(cx.string("fasdf"))
+  });
+
+  let bar = cx.function(move |cx| {
+    println!("-> bar -> THIS {:?}", cx.this());
+    println!("-> bar -> ARGS {:?}", cx.args());
+    Ok(cx.undefined())
+  });
+
   exports
     .set_property_string("openssl_version", openssl_version())
     .set_property_string("libpq_version", libpq_version())
     .set_property_boolean("libpq_threadsafe", libpq_threadsafe())
-    .set_property_function("foo", |cx| {
-      println!("-> foo -> THIS {:?}", cx.this());
-      println!("-> foo -> ARGS {:?}", cx.args());
-      cx.args()[2].downcast::<NapiFunction>()?.call( None, &[
-        &cx.string("shuster").as_value(),
-        &cx.bigint(123).as_value()
-      ])
-    })
-    .set_property_function("bar", |cx| {
-      println!("-> bar -> THIS {:?}", cx.this());
-      println!("-> bar -> ARGS {:?}", cx.args());
-      Ok(cx.undefined())
-    })
+    .set_property("foo", &foo)
+    .set_property("bar", &bar)
   ;
 
   println!("\n\n\n------------------------------------------------------");
@@ -106,5 +122,5 @@ napi_ts::napi_init!(|cx| {
   exports.set_property("arr", &arr);
   println!("------------------------------------------------------\n\n\n");
 
-  Ok(exports)
+  Ok(())
 });

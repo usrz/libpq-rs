@@ -16,7 +16,8 @@ impl <T: 'static> NapiFinalizable for NapiExtrnalData<T> {
 
 // ===== NAPI TYPE BASICS ======================================================
 
-pub struct NapiExternal<T> {
+pub struct NapiExternal<'a, T> {
+  phantom: PhantomData<&'a ()>,
   handle: napi::Handle,
   pointer: *mut T,
 }
@@ -27,7 +28,7 @@ napi_type!(NapiExternal<T>, External, {
     let data = &*(pointer as *mut NapiExtrnalData<T>);
 
     if TypeId::of::<T>() == data.type_id {
-      Ok(Self { handle, pointer: data.pointer })
+      Ok(Self { phantom: PhantomData, handle, pointer: data.pointer })
     } else {
       Err(format!("Unable to downcast external value into \"{}\"", type_name::<T>()).into())
     }
@@ -40,7 +41,7 @@ napi_type!(NapiExternal<T>, External, {
 
 // ===== EXTERNAL ==============================================================
 
-impl <T: 'static> NapiExternal<T> {
+impl <'a, T: 'static> NapiExternal<'a, T> {
   pub fn new(env: napi::Env, data: T) -> Self {
     // Create the boxed data and leak it immediately
     let boxed = Box::new(data);
@@ -53,11 +54,11 @@ impl <T: 'static> NapiExternal<T> {
       pointer,
     };
 
-    Self { handle: env.create_value_external(data), pointer }
+    Self { phantom: PhantomData, handle: env.create_value_external(data), pointer }
   }
 }
 
-impl <T: 'static> Deref for NapiExternal<T> {
+impl <'a, T: 'static> Deref for NapiExternal<'a, T> {
   type Target = T;
 
   fn deref(&self) -> &Self::Target {

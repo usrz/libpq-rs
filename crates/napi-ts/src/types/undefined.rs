@@ -2,13 +2,14 @@ use crate::types::*;
 
 // ===== NAPI TYPE BASICS ======================================================
 
-pub struct NapiUndefined {
+pub struct NapiUndefined<'a> {
+  phantom: PhantomData<&'a ()>,
   handle: napi::Handle,
 }
 
 napi_type!(NapiUndefined, Undefined, {
   unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr> {
-    Ok(Self { handle })
+    Ok(Self { phantom: PhantomData, handle })
   }
 
   fn napi_handle(&self) -> napi::Handle {
@@ -18,8 +19,8 @@ napi_type!(NapiUndefined, Undefined, {
 
 // ===== UNDEFINED =============================================================
 
-impl NapiUndefined {
+impl <'a> NapiUndefined<'a> {
   pub fn new(env: napi::Env) -> Self {
-    Self { handle: env.get_undefined() }
+    Self { phantom: PhantomData, handle: env.get_undefined() }
   }
 }
