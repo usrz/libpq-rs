@@ -3,7 +3,6 @@ use std::cell::OnceCell;
 
 // ===== NAPI TYPE BASICS ======================================================
 
-///
 pub struct NapiArray<'a> {
   phantom: PhantomData<&'a ()>,
   handle: napi::Handle,
@@ -119,5 +118,6 @@ impl <'a> NapiArray<'a> {
     let ehandles: Vec<&napi::Handle> = handles.iter().collect();
 
     splice.call_function(&self.handle, ehandles.as_slice()).unwrap();
+    // TODO: return the deleted handles!
   }
 }
