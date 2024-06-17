@@ -7,7 +7,7 @@ impl Env {
       env_check!(
         napi_is_array,
         self,
-        handle.value,
+        handle.0,
         result.as_mut_ptr()
       );
       result.assume_init()
@@ -23,7 +23,7 @@ impl Env {
         self,
         result.as_mut_ptr()
       );
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -32,9 +32,9 @@ impl Env {
       env_check!(
         napi_set_element,
         self,
-        object.value,
+        object.0,
         index,
-        value.value
+        value.0
       )
     }
   }
@@ -45,11 +45,11 @@ impl Env {
       env_check!(
         napi_get_element,
         self,
-        object.value,
+        object.0,
         index,
         result.as_mut_ptr()
       );
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -59,7 +59,7 @@ impl Env {
       env_check!(
         napi_has_element,
         self,
-        object.value,
+        object.0,
         index,
         result.as_mut_ptr()
       );
@@ -72,7 +72,7 @@ impl Env {
       env_check!(
         napi_delete_element,
         self,
-        object.value,
+        object.0,
         index,
         ptr::null_mut()
       );
@@ -82,18 +82,18 @@ impl Env {
 
 impl Handle {
   pub fn is_array(&self) -> bool {
-    self.env.is_array(self)
+    env().is_array(self)
   }
   pub fn set_element(&self, index: u32, value: &Handle ) {
-    self.env.set_element(self, index, value)
+    env().set_element(self, index, value)
   }
   pub fn get_element(&self, index: u32) -> Handle {
-    self.env.get_element(self, index)
+    env().get_element(self, index)
   }
   pub fn has_element(&self, index: u32) -> bool {
-    self.env.has_element(self, index)
+    env().has_element(self, index)
   }
   pub fn delete_element(&self, index: u32) {
-    self.env.delete_element(self, index)
+    env().delete_element(self, index)
   }
 }

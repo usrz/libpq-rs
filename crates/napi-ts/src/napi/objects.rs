@@ -10,7 +10,7 @@ impl Env {
         self,
         result.as_mut_ptr()
       );
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -28,9 +28,9 @@ impl Env {
       env_check!(
         napi_set_property,
         self,
-        object.value,
-        key.value,
-        value.value
+        object.0,
+        key.0,
+        value.0
       );
     }
   }
@@ -46,20 +46,20 @@ impl Env {
       env_check!(
         napi_get_property,
         self,
-        object.value,
-        key.value,
+        object.0,
+        key.0,
         result.as_mut_ptr()
       );
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 }
 
 impl Handle {
   pub fn set_named_property(&self, key: &str, value: &Handle) {
-    self.env.set_named_property(self, key, value)
+    env().set_named_property(self, key, value)
   }
   pub fn get_named_property(&self, key: &str) -> Handle {
-    self.env.get_named_property(self, key)
+    env().get_named_property(self, key)
   }
 }

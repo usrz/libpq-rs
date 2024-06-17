@@ -29,7 +29,7 @@ impl Env {
       env_check!(
         napi_add_finalizer,
         self,
-        handle.value,
+        handle.0,
         data as *mut raw::c_void,
         Some(trampoline),
         ptr::null_mut(), // no hint
@@ -60,7 +60,7 @@ impl Env {
         result.as_mut_ptr()
       );
 
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -70,7 +70,7 @@ impl Env {
       env_check!(
         napi_get_value_external,
         self,
-        handle.value,
+        handle.0,
         result.as_mut_ptr()
       );
       result.assume_init()
@@ -80,7 +80,7 @@ impl Env {
   pub fn create_reference(&self, handle: &Handle) -> Reference {
     unsafe {
       let mut result = MaybeUninit::<napi_ref>::zeroed();
-      env_check!(napi_create_reference, self, handle.value, 1, result.as_mut_ptr());
+      env_check!(napi_create_reference, self, handle.0, 1, result.as_mut_ptr());
       Reference { value: result.assume_init() }
     }
   }
@@ -89,21 +89,21 @@ impl Env {
     unsafe {
       let mut result = MaybeUninit::<napi_value>::zeroed();
       env_check!(napi_get_reference_value, self, reference.value, result.as_mut_ptr());
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 }
 
 impl Handle {
   pub fn add_finalizer<T: NapiFinalizable>(&self, data: *mut T) {
-    self.env.add_finalizer(self, data)
+    env().add_finalizer(self, data)
   }
 
   pub fn get_value_external(&self) -> *mut dyn Any {
-    self.env.get_value_external(self)
+    env().get_value_external(self)
   }
 
   pub fn create_reference(&self) -> Reference {
-    self.env.create_reference(self)
+    env().create_reference(self)
   }
 }

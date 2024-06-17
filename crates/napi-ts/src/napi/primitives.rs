@@ -8,7 +8,7 @@ impl Env {
       env_check!(
         napi_typeof,
         self,
-        handle.value,
+        handle.0,
         result.as_mut_ptr()
       );
 
@@ -37,11 +37,11 @@ impl Env {
       env_check!(
         napi_coerce_to_string,
         self,
-        handle.value,
+        handle.0,
         result.as_mut_ptr()
       );
 
-      let value = self.handle(result.assume_init());
+      let value = Handle(result.assume_init());
 
       self.get_value_string_utf8(&value)
     }
@@ -66,7 +66,7 @@ impl Env {
         result.as_mut_ptr()
       );
 
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -78,7 +78,7 @@ impl Env {
       env_check!(
         napi_get_value_bigint_words,
         self,
-        handle.value,
+        handle.0,
         sign.as_mut_ptr(),
         words.as_mut_ptr(),
         result.as_mut_ptr() as *mut u64
@@ -116,7 +116,7 @@ impl Env {
         result.as_mut_ptr()
       );
 
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -126,7 +126,7 @@ impl Env {
       env_check!(
         napi_get_value_bool,
         self,
-        handle.value,
+        handle.0,
         result.as_mut_ptr()
       );
 
@@ -145,7 +145,7 @@ impl Env {
         result.as_mut_ptr()
       );
 
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -161,7 +161,7 @@ impl Env {
         result.as_mut_ptr()
       );
 
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -171,7 +171,7 @@ impl Env {
       env_check!(
         napi_get_value_double,
         self,
-        handle.value,
+        handle.0,
         result.as_mut_ptr()
       );
 
@@ -192,7 +192,7 @@ impl Env {
         result.as_mut_ptr()
       );
 
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -204,7 +204,7 @@ impl Env {
       env_check!(
         napi_get_value_string_utf8,
         self,
-        handle.value,
+        handle.0,
         ptr::null_mut(),
         0,
         size.as_mut_ptr()
@@ -217,7 +217,7 @@ impl Env {
       env_check!(
         napi_get_value_string_utf8,
         self,
-        handle.value,
+        handle.0,
         buffer.as_mut_ptr() as *mut raw::c_char,
         buffer.len(),
         size.as_mut_ptr()
@@ -241,11 +241,11 @@ impl Env {
       env_check!(
         napi_create_symbol,
         self,
-        handle.value,
+        handle.0,
         result.as_mut_ptr()
       );
 
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -261,7 +261,7 @@ impl Env {
         result.as_mut_ptr()
       );
 
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -271,38 +271,38 @@ impl Env {
     unsafe {
       let mut result: MaybeUninit<napi_value> = MaybeUninit::zeroed();
       env_check!(napi_get_undefined, self, result.as_mut_ptr());
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 }
 
 impl Handle {
   pub fn type_of(&self) -> NapiTypeOf {
-    self.env.type_of(self)
+    env().type_of(self)
   }
 
   pub fn coerce_to_string(&self) -> String {
-    self.env.coerce_to_string(self)
+    env().coerce_to_string(self)
   }
 
   pub fn get_value_bigint_words(&self) -> i128 {
-    self.env.get_value_bigint_words(self)
+    env().get_value_bigint_words(self)
   }
 
   pub fn get_value_bool(&self) -> bool {
-    self.env.get_value_bool(self)
+    env().get_value_bool(self)
   }
 
   pub fn get_value_double(&self) -> f64 {
-    self.env.get_value_double(self)
+    env().get_value_double(self)
   }
 
   pub fn get_value_string_utf8(&self) -> String {
-    self.env.get_value_string_utf8(self)
+    env().get_value_string_utf8(self)
   }
 
   pub fn get_undefined(&self) -> Handle {
-    self.env.get_undefined()
+    env().get_undefined()
   }
 
 }

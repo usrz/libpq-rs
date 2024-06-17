@@ -92,10 +92,10 @@ where
       return Err(format!("Mismatched type id in callback {}", type_name::<F>()).into())
     }
 
-    let this = env.handle(this.assume_init());
+    let this = Handle(this.assume_init());
     let args: Vec<Handle> = args
         .into_iter()
-        .map(|value| env.handle(value))
+        .map(|value| Handle(value))
         .collect();
 
     wrapper.call(env, this, args)
@@ -150,7 +150,7 @@ impl Env {
       );
 
       // Get the "napi_value" that NodeJS returned
-      let handle = self.handle(result.assume_init());
+      let handle = Handle(result.assume_init());
 
       // Add a finalizer that will drop *both* wrapper and function (it can be
       // a closure, it may have variables moved to it)
@@ -172,14 +172,14 @@ impl Env {
 
       let args: Vec<napi_value> = args
           .into_iter()
-          .map(|arg| arg.value)
+          .map(|arg| arg.0)
           .collect::<Vec<napi_value>>();
 
       // Call the function
       let status = napi_call_function(
         self.0,
-        this.value,
-        function.value,
+        this.0,
+        function.0,
         args.len(),
         args.as_ptr(),
         result.as_mut_ptr()
@@ -187,7 +187,7 @@ impl Env {
 
       // If there's no pending exception fron NodeJS, then all is good
       if status == napi_status::napi_ok {
-        return Ok(self.handle(result.assume_init()))
+        return Ok(Handle(result.assume_init()))
       }
 
       // If there's any other error *but* a pending exception, panic!
@@ -204,13 +204,13 @@ impl Env {
         error.as_mut_ptr()
       );
 
-      Err(self.handle(error.assume_init()))
+      Err(Handle(error.assume_init()))
     }
   }
 }
 
 impl Handle {
   pub fn call_function(&self, this: &Handle, args: &[&Handle]) -> Result<Handle, Handle> {
-    self.env.call_function(self, this, args)
+    env().call_function(self, this, args)
   }
 }

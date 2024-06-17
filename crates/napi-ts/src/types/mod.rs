@@ -43,9 +43,6 @@ use std::any::type_name;
 
 pub (crate) trait NapiRefInternal {
   fn napi_handle(&self) -> napi::Handle;
-  fn napi_env(&self) -> napi::Env {
-    self.napi_handle().env()
-  }
 }
 
 

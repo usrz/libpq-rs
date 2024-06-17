@@ -72,7 +72,7 @@ impl <'a> NapiRef<'a, NapiArray> {
   pub fn push<T: NapiType + 'a>(&self, item: &NapiRef<'a, T>) -> u32 {
     let push = self.value.push.get_or_init(|| self.handle.get_named_property("push"));
     let result = push.call_function(&self.handle, &[&item.napi_handle()]).unwrap();
-    self.handle.env().get_value_double(&result) as u32
+    napi::env().get_value_double(&result) as u32
   }
 
   pub fn pushn(&self, items: &[&NapiRef<'a, NapiValue>]) -> u32 {
@@ -85,7 +85,7 @@ impl <'a> NapiRef<'a, NapiArray> {
     let ehandles: Vec<&napi::Handle> = handles.iter().collect();
 
     let result = push.call_function(&self.handle, ehandles.as_slice()).unwrap();
-    self.handle.env().get_value_double(&result) as u32
+    napi::env().get_value_double(&result) as u32
   }
 
   // ===== POP =================================================================
@@ -105,8 +105,8 @@ impl <'a> NapiRef<'a, NapiArray> {
     items: &[&NapiRef<'a, NapiValue>],
   ) {
     let splice = self.value.splice.get_or_init(|| self.handle.get_named_property("splice"));
-    let start = self.handle.env().create_double(start as f64);
-    let delete_count = self.handle.env().create_double(delete_count as f64);
+    let start = napi::env().create_double(start as f64);
+    let delete_count = napi::env().create_double(delete_count as f64);
 
     let mut handles: Vec<napi::Handle> = items
       .into_iter()

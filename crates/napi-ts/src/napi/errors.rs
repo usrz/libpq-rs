@@ -23,7 +23,7 @@ impl Env {
       env_check!(
         napi_is_error,
         self,
-        handle.value,
+        handle.0,
         result.as_mut_ptr()
       );
       result.assume_init()
@@ -43,11 +43,11 @@ impl Env {
         napi_create_error,
         self,
         ptr::null_mut(),
-        message.value,
+        message.0,
         result.as_mut_ptr()
       );
 
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -64,11 +64,11 @@ impl Env {
         napi_create_type_error,
         self,
         ptr::null_mut(),
-        message.value,
+        message.0,
         result.as_mut_ptr()
       );
 
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -85,11 +85,11 @@ impl Env {
         napi_create_range_error,
         self,
         ptr::null_mut(),
-        message.value,
+        message.0,
         result.as_mut_ptr()
       );
 
-      self.handle(result.assume_init())
+      Handle(result.assume_init())
     }
   }
 
@@ -110,7 +110,7 @@ impl Env {
   pub fn throw(&self, handle: &Handle) -> Handle {
     unsafe {
       let undefined = self.get_undefined(); // get this *first*
-      let status = napi_throw(self.0, handle.value);
+      let status = napi_throw(self.0, handle.0);
       if status == napi_status::napi_ok {
         return undefined
       }
@@ -128,10 +128,10 @@ impl Env {
 
 impl Handle {
   pub fn is_error(&self) -> bool {
-    self.env.is_error(self)
+    env().is_error(self)
   }
 
   pub fn throw(&self) -> Handle {
-    self.env.throw(self)
+    env().throw(self)
   }
 }

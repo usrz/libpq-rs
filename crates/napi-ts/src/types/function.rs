@@ -45,7 +45,7 @@ impl NapiFunction {
   ) -> NapiResult<'a, NapiValue> {
     let this = this
       .map(|this| this.napi_handle())
-      .unwrap_or_else(|| self.handle.env().get_null());
+      .unwrap_or_else(|| napi::env().get_null());
 
     let handles: Vec<napi::Handle> = args
       .into_iter()

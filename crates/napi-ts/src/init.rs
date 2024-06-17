@@ -9,7 +9,7 @@ pub fn register_module<T: NapiType>(
   init: fn(InitContext) -> NapiResult<T>
 ) -> crate::napi::nodejs_sys::napi_value {
   napi::Env::exec(env, |env| {
-    let handle = env.handle(exports);
+    let handle = napi::Handle(exports);
     let ctx = InitContext::new(env, handle);
     init(ctx).map(|exports| exports.napi_handle())
   })

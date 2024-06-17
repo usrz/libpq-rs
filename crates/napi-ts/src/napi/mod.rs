@@ -24,7 +24,13 @@ pub (self) use macros::env_check;
 // =============================================================================
 
 thread_local! {
-  static NAPI_ENV: Cell<napi_env> = Cell::new(ptr::null_mut());
+  static NAPI_ENV: Cell<Env> = Cell::new(Env(ptr::null_mut()));
+}
+
+pub (crate) fn env() -> Env {
+  let env = NAPI_ENV.get();
+  assert_ne!(env.0, ptr::null_mut(), "NAPI Environment not bound to current thread");
+  env
 }
 
 // =============================================================================
@@ -36,7 +42,7 @@ thread_local! {
 ///
 #[repr(transparent)]
 #[derive(Clone, Copy)]
-pub struct Env(pub napi_env);
+pub struct Env(napi_env);
 
 impl fmt::Debug for Env {
   fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -53,18 +59,6 @@ impl From<napi_env> for Env {
 }
 
 impl Env {
-  /// Return an [`Env`] bound to this thread _(a thread local)_.
-  ///
-  fn local() -> Env {
-    let env = NAPI_ENV.get();
-    assert_ne!(env, ptr::null_mut(), "NAPI Environment not bound to current thread");
-    Env(env)
-  }
-
-  pub (crate) fn handle(&self, value: napi_value) -> Handle {
-    Handle { env: *self, value }
-  }
-
   /// Execute a callback from NodeJS.
   ///
   /// This is our main entry point for all calls from NodeJS into Rust. It
@@ -82,16 +76,16 @@ impl Env {
   where
     F: Fn(Env) -> Result<Handle, NapiErr>
   {
+    // Create our Env and assert the callback to be unwind safe
+    let env = Env(env);
+    let callback = panic::AssertUnwindSafe(callback);
+
     // Contextualize ourselves in the *current* thread... There can only
     // be one "napi_env" at a time in a single thread, and since we're supposed
     // to be fully reentrant, this shouldn't create any problems...
     // This allows to have nested calls Node->Rust->Node->Rust ... without fail.
     let old = NAPI_ENV.replace(env);
     println!(">>> ENTER >>> old={:?} new={:?}", old, env);
-
-    // Create our Env and assert the callback to be unwind safe
-    let env = Env(env);
-    let callback = panic::AssertUnwindSafe(callback);
 
     // Call up our initialization function with exports wrapped in a NapiObject
     // and unwrap the result into a simple "napi_value" (the pointer)
@@ -120,7 +114,7 @@ impl Env {
     // `Handle` to throw, or a message from which to generate an error to throw.
     result.unwrap_or_else(|error| {
       env.throw(&error.into_handle(env))
-    }).value
+    }).0
   }
 }
 
@@ -133,23 +127,15 @@ impl Env {
 ///
 /// See [`napi_value`](https://nodejs.org/api/n-api.html#napi_value)
 ///
+#[repr(transparent)]
 #[derive(Clone, Copy)]
-pub struct Handle {
-  env: Env,
-  value: napi_value,
-}
+pub struct Handle(pub (crate) napi_value);
 
 impl fmt::Debug for Handle {
   fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
     fm.debug_tuple("Handle")
-      .field(&self.value)
+      .field(&self.0)
       .finish()
-  }
-}
-
-impl Handle {
-  pub fn env(&self) -> Env {
-    self.env
   }
 }
 
@@ -169,7 +155,7 @@ impl fmt::Debug for Reference {
 
 impl Clone for Reference {
   fn clone(&self) -> Self {
-    let env = Env::local();
+    let env = env();
     unsafe { env_check!(napi_reference_ref, env, self.value, ptr::null_mut()) };
     Self { value: self.value }
   }
@@ -177,7 +163,7 @@ impl Clone for Reference {
 
 impl Drop for Reference {
   fn drop(&mut self) {
-    let env = Env::local();
+    let env = env();
 
     unsafe {
       let mut result = MaybeUninit::<u32>::zeroed();
