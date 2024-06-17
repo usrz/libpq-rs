@@ -78,7 +78,7 @@ napi_ts::napi_init!(|cx| {
 
   let foo = cx.function(move |cx| {
     // println!("{:?}", foo);
-    // println!("{:?}", bar);
+    // println!("{:?}", exports);
     // println!("{:?}", baz);
     println!("-> foo -> THIS {:?}", cx.this());
     println!("-> foo -> ARGS {:?}", cx.args());

@@ -1,14 +1,13 @@
 mod context;
+mod contexts;
 mod errors;
 mod types;
-mod test;
 
-
-pub mod contexts;
 pub mod init;
 pub mod napi;
 
 pub use context::*;
+pub use contexts::*;
 pub use errors::*;
 pub use types::*;
 

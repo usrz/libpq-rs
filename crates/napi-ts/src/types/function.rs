@@ -29,8 +29,8 @@ impl <'a> NapiFunction<'a> {
     F: (Fn(FunctionContext<'b>) -> NapiResult2<'b, R>) + 'static,
     R: NapiType<'b> + 'b,
   {
-    let handle = env.create_function(name, move |env, this, args| {
-      let context = FunctionContext::new(env, this, args);
+    let handle = env.create_function(name, move |_, this, args| {
+      let context = FunctionContext::new(this, args);
       let result = (function)(context);
       println!("{:?}", result); // TODO cleanup
       result

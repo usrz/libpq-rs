@@ -10,28 +10,21 @@ use std::marker::PhantomData;
 
 pub struct InitContext<'a> {
   phantom: PhantomData<&'a mut ()>,
-  env: napi::Env,
   exports: napi::Handle,
 }
 
 impl fmt::Debug for InitContext<'_> {
   fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
     fm.debug_tuple("InitContext")
-      .field(&self.env)
       .finish()
   }
 }
 
 impl <'a> NapiContext<'a> for InitContext<'a> {}
-impl <'a> NapiContextInternal<'a> for InitContext<'a> {
-  fn napi_env(&self) -> napi::Env {
-    napi::env() // self.env
-  }
-}
 
 impl <'a> InitContext<'a> {
-  pub (crate) fn new(env: napi::Env, exports: napi::Handle) -> Self {
-    Self { phantom: PhantomData, env, exports }
+  pub (crate) fn new(exports: napi::Handle) -> Self {
+    Self { phantom: PhantomData, exports }
   }
 
   pub fn exports(&'a self) -> NapiRef<'a, NapiObject<'a>> {
@@ -45,7 +38,6 @@ impl <'a> InitContext<'a> {
 
 pub struct FunctionContext<'a> {
   phantom: PhantomData<&'a mut ()>,
-  env: napi::Env,
   this: napi::Handle,
   args: Vec<napi::Handle>,
 }
@@ -53,21 +45,15 @@ pub struct FunctionContext<'a> {
 impl fmt::Debug for FunctionContext<'_> {
   fn fmt(&self, fm: &mut fmt::Formatter<'_>) -> fmt::Result {
     fm.debug_tuple("FunctionContext")
-      .field(&self.env)
       .finish()
   }
 }
 
 impl <'a> NapiContext<'a> for FunctionContext<'a> {}
-impl <'a> NapiContextInternal<'a> for FunctionContext<'a> {
-  fn napi_env(&self) -> napi::Env {
-    self.env
-  }
-}
 
 impl <'a> FunctionContext<'a> {
-  pub (crate) fn new(env: napi::Env, this: napi::Handle, args: Vec<napi::Handle>) -> Self {
-    Self { phantom: PhantomData, env, this, args: args.to_vec() }
+  pub (crate) fn new(this: napi::Handle, args: Vec<napi::Handle>) -> Self {
+    Self { phantom: PhantomData, this, args: args.to_vec() }
   }
 
   pub fn this(&self) -> NapiRef<'a, NapiValue<'a>> {

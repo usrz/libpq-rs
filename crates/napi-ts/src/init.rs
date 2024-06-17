@@ -7,9 +7,9 @@ pub fn register_module(
   exports: crate::napi::nodejs_sys::napi_value,
   init: fn(InitContext) -> Result<(), NapiErr>
 ) -> crate::napi::nodejs_sys::napi_value {
-  napi::Env::exec(env, |env| {
+  napi::Env::exec(env, |_| {
     let handle = napi::Handle(exports);
-    init(InitContext::new(env, handle))
+    init(InitContext::new(handle))
       .map_err(|err| err.into_handle())
       .map(|_| handle)
   })
