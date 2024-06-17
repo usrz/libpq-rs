@@ -1,5 +1,4 @@
 use crate::*;
-use crate::napi;
 
 pub trait NapiContext<'a> {
   fn array(&self) -> NapiRef<'a, NapiArray<'a>> {

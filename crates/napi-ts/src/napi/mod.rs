@@ -51,12 +51,6 @@ impl fmt::Debug for Env {
   }
 }
 
-impl From<napi_env> for Env {
-  fn from(value: napi_env) -> Self {
-    Self(value)
-  }
-}
-
 impl Env {
   /// Execute a callback from NodeJS.
   ///
