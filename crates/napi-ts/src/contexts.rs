@@ -80,7 +80,7 @@ impl <'a> FunctionContext<'a> {
     self.args.len()
   }
 
-  pub fn argv(&self, i: usize) -> NapiRef<'a, NapiValue> {
+  pub fn arg(&self, i: usize) -> NapiRef<'a, NapiValue> {
     NapiValue::from_handle(self.args[i]).as_napi_ref()
   }
 

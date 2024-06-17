@@ -93,14 +93,13 @@ impl <'a, T: NapiType + 'a> NapiRef<'a, T> {
   }
 }
 
-
 // ===== PRIVATE TRAITS ========================================================
 
 pub (crate) trait NapiTypeWithTypeOf {
   const TYPE_OF: Option<NapiTypeOf>;
 }
 
-pub (crate) trait NapiTypeInternal: NapiTypeWithTypeOf + Sized {
+pub (crate) trait NapiTypeInternal: NapiTypeWithTypeOf + fmt::Debug + Sized {
   fn napi_handle(&self) -> napi::Handle;
 
   unsafe fn from_handle(handle: napi::Handle) -> Result<Self, NapiErr>;
@@ -131,6 +130,6 @@ pub (crate) trait NapiTypeInternal: NapiTypeWithTypeOf + Sized {
 // ===== PUBLIC TRAITS =========================================================
 
 #[allow(private_bounds)]
-pub trait NapiType: NapiTypeWithTypeOf + NapiTypeInternal + fmt::Debug + Sized {
+pub trait NapiType: NapiTypeInternal {
   // Marker type
 }

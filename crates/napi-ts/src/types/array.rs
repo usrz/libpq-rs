@@ -90,7 +90,7 @@ impl <'a> NapiRef<'a, NapiArray> {
 
   // ===== POP =================================================================
 
-  pub fn pop<T: NapiType + 'a>(&self) -> NapiRef<'a, NapiValue> {
+  pub fn pop(&self) -> NapiRef<'a, NapiValue> {
     let push = self.value.pop.get_or_init(|| self.handle.get_named_property("pop"));
     let result = push.call_function(&self.handle, &[]).unwrap();
     NapiValue::from_handle(result).as_napi_ref()
