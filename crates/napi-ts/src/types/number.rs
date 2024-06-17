@@ -21,8 +21,8 @@ napi_type!(NapiNumber, Number, {
 // ===== NUMBER ================================================================
 
 impl <'a> NapiNumber<'a> {
-  pub fn new(env: napi::Env, value: f64) -> Self {
-    Self { phantom: PhantomData, handle: env.create_double(value), value }
+  pub fn new(value: f64) -> Self {
+    Self { phantom: PhantomData, handle: napi::env().create_double(value), value }
   }
 
   pub fn value(&self) -> f64 {

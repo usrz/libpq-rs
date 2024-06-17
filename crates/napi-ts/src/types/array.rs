@@ -3,6 +3,7 @@ use std::cell::OnceCell;
 
 // ===== NAPI TYPE BASICS ======================================================
 
+///
 pub struct NapiArray<'a> {
   phantom: PhantomData<&'a ()>,
   handle: napi::Handle,
@@ -36,8 +37,8 @@ napi_type!(NapiArray, Object, {
 // ===== ARRAY =================================================================
 
 impl <'a> NapiArray<'a> {
-  pub fn new(env: napi::Env) -> Self {
-    unsafe { Self::from_handle(env.create_array()).unwrap() }
+  pub fn new() -> Self {
+    unsafe { Self::from_handle(napi::env().create_array()).unwrap() }
   }
 
   pub fn length(&self) -> u32 {
@@ -118,7 +119,5 @@ impl <'a> NapiArray<'a> {
     let ehandles: Vec<&napi::Handle> = handles.iter().collect();
 
     splice.call_function(&self.handle, ehandles.as_slice()).unwrap();
-
-    // TODO: this returns a JavaScript array with the removed elements...
   }
 }

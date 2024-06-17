@@ -20,7 +20,7 @@ napi_type!(NapiNull, Null, {
 // ===== NULL ==================================================================
 
 impl <'a> NapiNull<'a> {
-  pub fn new(env: napi::Env) -> Self {
-    Self { phantom: PhantomData, handle: env.get_null() }
+  pub fn new() -> Self {
+    Self { phantom: PhantomData, handle: napi::env().get_null() }
   }
 }

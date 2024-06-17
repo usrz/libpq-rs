@@ -23,17 +23,15 @@ impl <'a> NapiProperties<'a> for NapiFunction<'a> {}
 // ===== FUNCTION ==============================================================
 
 impl <'a> NapiFunction<'a> {
-  pub fn new<'b, F, R>(env: napi::Env, name: Option<&str>, function: F) -> NapiFunction<'a>
+  pub fn new<'b, F, R>(name: Option<&str>, function: F) -> NapiFunction<'a>
   where
     'a: 'b,
     F: (Fn(FunctionContext<'b>) -> NapiResult<'b, R>) + 'static,
     R: NapiType<'b> + 'b,
   {
-    let handle = env.create_function(name, move |_, this, args| {
+    let handle = napi::env().create_function(name, move |this, args| {
       let context = FunctionContext::new(this, args);
-      let result = (function)(context);
-      println!("{:?}", result); // TODO cleanup
-      result
+      (function)(context)
         .map_err(|err| err.into_handle())
         .map(|ok| ok.napi_handle())
     });
@@ -41,7 +39,7 @@ impl <'a> NapiFunction<'a> {
     Self { phantom: PhantomData, handle }
   }
 
-  pub fn with<T: NapiType<'a>>(&'a self, arg: NapiRef<'a, T>) -> NapiArguments<'a> {
+  pub fn with<T: NapiType<'a>>(&self, arg: NapiRef<'a, T>) -> NapiArguments<'a> {
     let handle = arg.napi_handle();
     NapiArguments { phantom: PhantomData, function: self.handle, arguments: vec![handle] }
   }

@@ -22,7 +22,7 @@ impl <'a> NapiProperties<'a> for NapiObject<'a> {}
 // ===== CONVERSION IN =========================================================
 
 impl <'a> NapiObject<'a> {
-  pub fn new(env: napi::Env) -> Self {
-    Self { phantom: PhantomData, handle: env.create_object() }
+  pub fn new() -> Self {
+    Self { phantom: PhantomData, handle: napi::env().create_object() }
   }
 }

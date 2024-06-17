@@ -42,7 +42,7 @@ napi_type!(NapiExternal<T>, External, {
 // ===== EXTERNAL ==============================================================
 
 impl <'a, T: 'static> NapiExternal<'a, T> {
-  pub fn new(env: napi::Env, data: T) -> Self {
+  pub fn new(data: T) -> Self {
     // Create the boxed data and leak it immediately
     let boxed = Box::new(data);
     let pointer = Box::into_raw(boxed);
@@ -54,7 +54,7 @@ impl <'a, T: 'static> NapiExternal<'a, T> {
       pointer,
     };
 
-    Self { phantom: PhantomData, handle: env.create_value_external(data), pointer }
+    Self { phantom: PhantomData, handle: napi::env().create_value_external(data), pointer }
   }
 }
 

@@ -21,10 +21,10 @@ napi_type!(NapiString, String, {
 // ===== STRING ================================================================
 
 impl <'a> NapiString<'a> {
-  pub fn new(env: napi::Env, value: &str) -> Self {
+  pub fn new(value: &str) -> Self {
     Self {
       phantom: PhantomData,
-      handle: env.create_string_utf8(&value),
+      handle: napi::env().create_string_utf8(&value),
       value: value.to_owned(),
     }
   }

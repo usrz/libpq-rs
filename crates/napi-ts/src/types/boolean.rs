@@ -21,8 +21,8 @@ napi_type!(NapiBoolean, Boolean, {
 // ===== BOOLEAN ===============================================================
 
 impl <'a> NapiBoolean<'a> {
-  pub fn new(env: napi::Env, value: bool) -> Self {
-    Self { phantom: PhantomData, handle: env.get_boolean(value), value }
+  pub fn new(value: bool) -> Self {
+    Self { phantom: PhantomData, handle: napi::env().get_boolean(value), value }
   }
 
   pub fn value(&self) -> bool {

@@ -20,12 +20,12 @@ napi_type!(NapiSymbol, Symbol, {
 // ===== SYMBOL ================================================================
 
 impl <'a> NapiSymbol<'a> {
-  pub fn new(env: napi::Env, description: Option<&str>) -> Self {
-    Self { phantom: PhantomData, handle: env.create_symbol(description)}
+  pub fn new(description: Option<&str>) -> Self {
+    Self { phantom: PhantomData, handle: napi::env().create_symbol(description)}
   }
 
-  pub fn new_for(env: napi::Env, description: &str) -> Self {
-    Self { phantom: PhantomData, handle: env.symbol_for(description)}
+  pub fn new_for(description: &str) -> Self {
+    Self { phantom: PhantomData, handle: napi::env().symbol_for(description)}
   }
 
   pub fn description(&self) -> Option<String> {

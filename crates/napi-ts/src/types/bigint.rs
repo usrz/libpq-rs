@@ -22,8 +22,8 @@ napi_type!(NapiBigint, Bigint, {
 // ===== BIGINT ================================================================
 
 impl <'a> NapiBigint<'a> {
-  pub fn new(env: napi::Env, value: i128) -> Self {
-    Self { phantom: PhantomData, handle: env.create_bigint_words(value), value }
+  pub fn new(value: i128) -> Self {
+    Self { phantom: PhantomData, handle: napi::env().create_bigint_words(value), value }
   }
 
   pub fn value(&self) -> i128 {
